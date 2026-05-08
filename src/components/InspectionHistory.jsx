@@ -35,28 +35,48 @@ export default function InspectionHistory() {
     db.inspections.orderBy('date').reverse().toArray()
   );
 
-  // --- LÓGICA DE SINCRONIZACIÓN (NUBE -> LOCAL) ---
-  const fetchFromCloud = async () => {
+  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL ---
+  const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
-      const { data: cloudData, error } = await supabase
+      // 1. SUBIR LO PENDIENTE (Nubecitas naranjas a la nube)
+      const pendingReports = await db.inspections.filter(r => r.synced === 0 || !r.synced).toArray();
+      
+      if (pendingReports.length > 0) {
+        for (const report of pendingReports) {
+          // Quitamos el ID local para que Supabase no choque
+          const { id, synced, ...dataToSync } = report;
+          
+          const { error } = await supabase.from('inspections').insert([dataToSync]);
+          
+          if (!error) {
+            await db.inspections.update(id, { synced: 1 }); // Cambia a nube azul localmente
+          } else {
+            console.error("Error al subir a Supabase:", error);
+          }
+        }
+      }
+
+      // 2. BAJAR DE LA NUBE (Para que se vean en la PC)
+      const { data: cloudData, error: fetchError } = await supabase
         .from('inspections')
         .select('*')
         .order('date', { ascending: false });
 
-      if (!error && cloudData) {
-        // Guardamos lo de la nube en Dexie. bulkPut evita duplicados si usas el mismo ID
+      if (!fetchError && cloudData) {
+        // Usamos bulkPut para evitar duplicados locales
         await db.inspections.bulkPut(cloudData.map(item => ({ ...item, synced: 1 })));
       }
     } catch (e) {
-      console.error("Error de sincronización:", e);
+      console.error("Fallo general de sincronización:", e);
     } finally {
       setIsSyncing(false);
     }
   };
 
   useEffect(() => {
-    fetchFromCloud();
+    // Cuando entras al historial por primera vez, intenta sincronizar
+    handleSyncAll();
   }, []);
 
   const statusConfig = {
@@ -77,7 +97,6 @@ export default function InspectionHistory() {
 
   const handleBulkDelete = async () => {
     if (window.confirm(`¿Eliminar ${selectedIds.length} reportes?`)) {
-      // Opcional: También podrías borrarlos de Supabase aquí
       await db.inspections.bulkDelete(selectedIds);
       setSelectedIds([]);
     }
@@ -123,8 +142,9 @@ export default function InspectionHistory() {
             <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tighter">Historial Técnico</h2>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-blue-600 uppercase">Total: {inspections.length} reportes</span>
-              <button onClick={fetchFromCloud} className="p-1 hover:bg-gray-100 rounded-full transition-all">
-                <RefreshCw size={12} className={`${isSyncing ? 'animate-spin text-blue-500' : 'text-gray-400'}`} />
+              {/* ESTE ES EL BOTÓN MÁGICO DE SINCRONIZACIÓN */}
+              <button onClick={handleSyncAll} className="p-1 hover:bg-gray-100 rounded-full transition-all bg-white border border-slate-200 shadow-sm ml-2">
+                <RefreshCw size={12} className={`${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-600'}`} />
               </button>
             </div>
           </div>
