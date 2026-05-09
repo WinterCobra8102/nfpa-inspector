@@ -35,7 +35,7 @@ export default function InspectionHistory() {
     db.inspections.orderBy('date').reverse().toArray()
   );
 
-  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL ---
+  // --- LÓGICA DE SINCRONIZACIÓN TIPO ESPEJO ---
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
@@ -44,7 +44,6 @@ export default function InspectionHistory() {
       
       if (pendingReports.length > 0) {
         for (const report of pendingReports) {
-          // CORRECCIÓN: Mandamos el ID generado en el cel para que Supabase no cree uno nuevo
           const dataToSync = {
             id: report.id, 
             date: report.date,
@@ -59,22 +58,20 @@ export default function InspectionHistory() {
           const { error } = await supabase.from('inspections').insert([dataToSync]);
           
           if (!error) {
-            await db.inspections.update(report.id, { synced: 1 }); // Cambia a nube azul localmente
+            await db.inspections.update(report.id, { synced: 1 });
           } else {
-            alert("Error Supabase: " + JSON.stringify(error));
             console.error("Error al subir a Supabase:", error);
           }
         }
       }
 
-      // 2. BAJAR DE LA NUBE (Para que se vean en la PC)
+      // 2. BAJAR DE LA NUBE Y LIMPIAR FANTASMAS (Nube -> PC)
       const { data: cloudData, error: fetchError } = await supabase
         .from('inspections')
         .select('*')
         .order('date', { ascending: false });
 
       if (!fetchError && cloudData) {
-        // Traducimos de vuelta para que tu app local lo entienda
         const localReadyData = cloudData.map(item => ({
           id: item.id,
           date: item.date,
@@ -86,7 +83,12 @@ export default function InspectionHistory() {
           photo: item.photo,
           synced: 1
         }));
-        // Al usar el mismo ID, bulkPut actualiza en lugar de duplicar
+
+        // --- ACCIÓN ESPEJO: Borramos localmente lo que ya estaba sincronizado 
+        // para reemplazarlo con la realidad actual de la nube ---
+        await db.inspections.where('synced').equals(1).delete();
+        
+        // Insertamos los datos frescos
         await db.inspections.bulkPut(localReadyData);
       }
     } catch (e) {
@@ -97,7 +99,7 @@ export default function InspectionHistory() {
   };
 
   useEffect(() => {
-    // CORRECCIÓN: Sincronización automática desactivada para evitar duplicados al cargar
+    // Sincronización manual preferida para evitar colisiones
     // handleSyncAll(); 
   }, []);
 
@@ -117,7 +119,6 @@ export default function InspectionHistory() {
     else setSelectedIds(inspections.map(i => i.id));
   };
 
-  // --- BORRADO MASIVO (Local + Nube) ---
   const handleBulkDelete = async () => {
     if (window.confirm(`¿Confirmas la eliminación de ${selectedIds.length} reportes en la nube y el dispositivo?`)) {
       try {
@@ -134,7 +135,6 @@ export default function InspectionHistory() {
     }
   };
 
-  // --- BORRADO INDIVIDUAL (Local + Nube) ---
   const handleDeleteIndividual = async (id) => {
     if (window.confirm("¿Eliminar este reporte permanentemente de la nube y el dispositivo?")) {
       try {
@@ -154,7 +154,7 @@ export default function InspectionHistory() {
       await db.inspections.update(selectedReport.id, { 
         observations: tempObs,
         overallStatus: tempStatus,
-        synced: 0 // Marcamos como pendiente para que el syncService lo suba
+        synced: 0 
       });
       setEditMode(false);
       setSelectedReport(null);
