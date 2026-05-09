@@ -7,12 +7,12 @@ import {
   ChevronRight, FileText, CheckCircle, AlertTriangle, XCircle, 
   X, Check, ClipboardList, Scissors, MessageSquare, PlusCircle, Trash2,
   AlertOctagon, ShieldAlert, Zap, Info, Droplets, Bell, Activity, Waves, 
-  Box, ToggleRight, CloudRain, Clipboard, ArrowLeft
+  Box, ToggleRight, CloudRain, Clipboard, ArrowLeft, Home
 } from 'lucide-react';
 import { db } from '../db'; 
 
-// --- CATÁLOGO ORGANIZADO POR NORMAS Y CATEGORÍAS (ARQUITECTURA DE INGENIERÍA) ---
 const IPM_CATALOG = [
+  // ... (Tu catálogo se mantiene igual, lo omito aquí por espacio pero debe ir completo)
   { 
     id: 'IPM-01', 
     standard: 'NFPA 25',
@@ -115,12 +115,12 @@ const IPM_CATALOG = [
   },
 ];
 
-export default function NewInspection() {
-  const [step, setStep] = useState(1); // 1: Elegir Norma, 2: Elegir Servicio, 3: Formulario
+// RECIBIMOS navigateTo COMO PROP PARA PODER SALIR AL PANEL
+export default function NewInspection({ navigateTo }) { 
+  const [step, setStep] = useState(1);
   const [selectedStandard, setSelectedStandard] = useState(null);
   const [selectedIPM, setSelectedIPM] = useState(null);
   
-  // Estados de datos (Funcionalidad intacta)
   const [responses, setResponses] = useState({});
   const [pointNotes, setPointNotes] = useState({});
   const [units, setUnits] = useState(['Unidad 1']); 
@@ -136,6 +136,7 @@ export default function NewInspection() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
+  // ... (Todas las funciones auxiliares como handleDeleteUnit, captureGPS, etc. se mantienen intactas)
   const handleDeleteUnit = (uIdx) => {
     const unitToDelete = units[uIdx];
     const remainingUnitsRaw = units.filter((_, i) => i !== uIdx);
@@ -190,7 +191,7 @@ export default function NewInspection() {
       serviceCode: selectedIPM.id,
       equipmentName: selectedIPM.name,
       norm: selectedIPM.formCode,
-      standard: selectedIPM.standard, // Guardamos la norma para filtros
+      standard: selectedIPM.standard,
       units,
       sections: selectedIPM.sections, 
       responses,
@@ -216,13 +217,21 @@ export default function NewInspection() {
       setObservations('');
       setPhoto(null);
       setLocation(null);
+      navigateTo('home'); // Regresar al inicio tras guardar
     } catch (e) { alert("Error: " + e.message); } finally { setIsSaving(false); }
   };
 
-  // --- VISTA 1: SELECTOR DE NORMA (DIBUJO IZQUIERDA) ---
+  // --- VISTA 1: SELECTOR DE NORMA ---
   if (step === 1) {
     return (
       <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in fade-in duration-500">
+        <button 
+          onClick={() => navigateTo('home')} 
+          className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 group transition-all"
+        >
+          <Home size={14} className="group-hover:scale-110" /> Salir al Panel
+        </button>
+
         <div className="text-center py-6">
           <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">TLETL PCI</h2>
           <div className="w-20 h-1.5 bg-red-600 mx-auto mt-2 rounded-full"></div>
@@ -253,17 +262,21 @@ export default function NewInspection() {
     );
   }
 
-  // --- VISTA 2: SELECTOR DE SERVICIO POR CATEGORÍA (DIBUJO DERECHA) ---
+  // --- VISTA 2: SELECTOR DE SERVICIO ---
   if (step === 2) {
     const services = IPM_CATALOG.filter(item => item.standard === selectedStandard);
-    // Agrupar por categoría
     const categories = [...new Set(services.map(s => s.category))];
 
     return (
       <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in slide-in-from-right duration-300">
-        <button onClick={() => setStep(1)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600">
-          <ArrowLeft size={14}/> Volver a Normas
-        </button>
+        <div className="flex justify-between items-center px-2">
+          <button onClick={() => setStep(1)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600">
+            <ArrowLeft size={14}/> Volver a Normas
+          </button>
+          <button onClick={() => navigateTo('home')} className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase hover:text-red-600 font-bold">
+            <Home size={14}/> Salir al Panel
+          </button>
+        </div>
 
         <h2 className="text-2xl font-black text-slate-800 border-l-8 border-red-600 pl-4 uppercase tracking-tighter">
           Servicios {selectedStandard}
@@ -300,11 +313,19 @@ export default function NewInspection() {
     );
   }
 
-  // --- VISTA 3: EL FORMULARIO (ESTRUCTURA ORIGINAL FUNCIONAL) ---
+  // --- VISTA 3: EL FORMULARIO ---
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24 animate-in fade-in">
+      <div className="flex justify-between items-center px-2 mb-2">
+        <button onClick={() => setStep(2)} className="text-[10px] font-black text-slate-400 uppercase hover:underline flex items-center gap-2">
+          <ArrowLeft size={12}/> Volver al Menú
+        </button>
+        <button onClick={() => navigateTo('home')} className="text-[10px] font-black text-slate-600 uppercase hover:text-red-600 flex items-center gap-2">
+          <Home size={12}/> Salir al Panel
+        </button>
+      </div>
+
       <div className={`${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden`}>
-        <button onClick={() => setStep(2)} className="text-[10px] font-black uppercase mb-4 block hover:underline">← Volver al Menú</button>
         <div className="flex items-center gap-3">
           {selectedIPM.isObservations ? <AlertOctagon size={24} className="text-orange-400" /> : <ShieldAlert size={24} />}
           <div>
@@ -314,6 +335,9 @@ export default function NewInspection() {
         </div>
       </div>
 
+      {/* ... (Resto del formulario: Hallazgos, Checklist, Voltajes, etc. Todo se mantiene intacto) ... */}
+      {/* (Se mantiene el bloque de observaciones, foto, GPS y botón de guardar original) */}
+      
       {selectedIPM.isObservations ? (
         <div className="space-y-6">
           <div className="bg-orange-50 p-4 rounded-[1.5rem] border-2 border-orange-200 border-dashed flex items-center gap-3">

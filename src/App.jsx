@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks'; 
+import { db } from './db';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -12,18 +14,31 @@ import {
   Wifi,
   WifiOff,
   ShieldAlert,
-  Flame
+  Flame,
+  LayoutGrid
 } from 'lucide-react';
 
+import Dashboard from './components/Dashboard'; 
 import NewInspection from './components/NewInspection'; 
 import InspectionHistory from './components/InspectionHistory'; 
 import SitesView from './components/SitesView'; 
+import CriticalFindings from './components/CriticalFindings'; 
 
 function App() {
-  const [activeTab, setActiveTab] = useState('list'); 
+  const [activeTab, setActiveTab] = useState('home'); 
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // --- LÓGICA DE DATOS PARA EL DASHBOARD ---
+  const inspections = useLiveQuery(() => db.inspections.toArray());
+
+  const stats = {
+    totalReports: inspections?.length || 0,
+    pendingSync: inspections?.filter(i => !i.synced).length || 0,
+    criticals: inspections?.filter(i => i.overallStatus === 'CRÍTICO').length || 0,
+    totalAssets: inspections ? [...new Set(inspections.map(i => i.equipmentName))].length : 0
+  };
 
   useEffect(() => {
     const handleStatus = () => setIsOnline(navigator.onLine);
@@ -43,22 +58,22 @@ function App() {
   return (
     <div className="flex h-screen bg-[#f8fafc] font-sans overflow-hidden">
       
-      {/* CAPA DE FONDO OSCURO (Solo para móvil) */}
+      {/* CAPA DE FONDO OSCURO */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] md:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[5999] md:hidden transition-opacity"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
-      {/* SIDEBAR TLETL (Ambientado en Negro Industrial y Rojo Fuego) */}
+      {/* SIDEBAR TLETL */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[4000] bg-[#1a1a1a] text-white transition-all duration-300 transform
+        fixed inset-y-0 left-0 z-[6000] bg-[#1a1a1a] text-white transition-all duration-300 transform
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} 
         md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
         flex flex-col shadow-2xl h-full border-r border-white/5
       `}>
-        {/* CABECERA DEL MENÚ - ROJO INTENSO */}
+        {/* CABECERA DEL MENÚ */}
         <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
           <div className="flex items-center gap-3">
             <Flame size={28} className="shrink-0 text-white animate-pulse" />
@@ -76,6 +91,13 @@ function App() {
 
         {/* LISTA DE OPCIONES */}
         <nav className="flex-1 mt-6 overflow-y-auto custom-scrollbar">
+          <NavItem 
+            icon={<LayoutGrid size={20} />} 
+            label="Panel Principal" 
+            active={activeTab === 'home'} 
+            onClick={() => navigateTo('home')} 
+            isOpen={isSidebarOpen || isMobileMenuOpen}
+          />
           <NavItem 
             icon={<PlusCircle size={20} />} 
             label="Nueva Inspección" 
@@ -100,12 +122,6 @@ function App() {
           
           <div className="my-6 border-t border-white/10 mx-6" />
           
-          <div className="px-6 mb-2">
-            {(isSidebarOpen || isMobileMenuOpen) && (
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Administración</p>
-            )}
-          </div>
-          
           <NavItem icon={<Users size={20} />} label="Inspectores" isOpen={isSidebarOpen || isMobileMenuOpen} onClick={() => setMobileMenuOpen(false)} />
           <NavItem icon={<Settings size={20} />} label="Parámetros NFPA" isOpen={isSidebarOpen || isMobileMenuOpen} onClick={() => setMobileMenuOpen(false)} />
         </nav>
@@ -122,7 +138,7 @@ function App() {
       {/* ÁREA DE TRABAJO */}
       <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden">
         
-        {/* BARRA SUPERIOR (HEADER) */}
+        {/* HEADER SUPERIOR */}
         <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-6 shadow-sm z-[2000] shrink-0">
           <div className="flex items-center gap-4">
             <button 
@@ -142,7 +158,6 @@ function App() {
             </div>
           </div>
           
-          {/* PERFIL TÉCNICO */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3 border-l border-slate-100 pl-4 group cursor-pointer">
               <div className="text-right hidden xs:block">
@@ -159,16 +174,32 @@ function App() {
         {/* CONTENIDO DINÁMICO */}
         <section className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0">
+            {activeTab === 'home' && (
+              <div className="h-full overflow-y-auto">
+                <Dashboard navigateTo={navigateTo} stats={stats} />
+              </div>
+            )}
+            
             {activeTab === 'form' && (
               <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-                <NewInspection />
+                <NewInspection navigateTo={navigateTo} />
               </div>
             )}
+
+            {/* HISTORIAL TÉCNICO (CORREGIDO: Ahora recibe navigateTo) */}
             {activeTab === 'list' && (
               <div className="h-full overflow-y-auto p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-300">
-                <InspectionHistory />
+                <InspectionHistory navigateTo={navigateTo} />
               </div>
             )}
+
+            {/* VISTA PARA HALLAZGOS CRÍTICOS */}
+            {activeTab === 'critical' && (
+              <div className="h-full overflow-y-auto">
+                <CriticalFindings navigateTo={navigateTo} />
+              </div>
+            )}
+
             {activeTab === 'sites' && (
               <div className="h-full w-full">
                 <SitesView />
@@ -182,7 +213,6 @@ function App() {
   );
 }
 
-// COMPONENTE DE ITEM DE MENÚ AJUSTADO A ROJO TLETL
 function NavItem({ icon, label, active, onClick, isOpen }) {
   return (
     <div 

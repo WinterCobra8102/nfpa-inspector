@@ -22,11 +22,13 @@ import {
   Droplets,
   Bell,
   LayoutGrid,
-  ChevronRight
+  ChevronRight,
+  Home // Añadido para el botón de regreso
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 
-export default function InspectionHistory() {
+// AÑADIMOS navigateTo COMO PROP
+export default function InspectionHistory({ navigateTo }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [tempObs, setTempObs] = useState("");
@@ -34,14 +36,12 @@ export default function InspectionHistory() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // NUEVO: Estado para filtrar por norma
   const [filterStd, setFilterStd] = useState('TODOS');
 
   const inspections = useLiveQuery(() => 
     db.inspections.orderBy('date').reverse().toArray()
   );
 
-  // Filtrado lógico para la UI
   const filteredInspections = inspections?.filter(item => {
     if (filterStd === 'TODOS') return true;
     return item.standard === filterStd;
@@ -50,7 +50,6 @@ export default function InspectionHistory() {
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
-      // 1. SUBIR PENDIENTES
       const pendingReports = await db.inspections.filter(r => r.synced === 0 || !r.synced).toArray();
       if (pendingReports.length > 0) {
         for (const report of pendingReports) {
@@ -60,7 +59,7 @@ export default function InspectionHistory() {
             service_code: report.serviceCode, 
             equipment_name: report.equipmentName, 
             norm: report.norm,
-            standard: report.standard, // Sincronizamos la norma
+            standard: report.standard,
             overall_status: report.overallStatus, 
             observations: report.observations,
             photo: report.photo
@@ -70,7 +69,6 @@ export default function InspectionHistory() {
         }
       }
 
-      // 2. BAJAR Y ESPEJO
       const { data: cloudData, error: fetchError } = await supabase
         .from('inspections')
         .select('*')
@@ -145,6 +143,16 @@ export default function InspectionHistory() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500">
       
+      {/* BOTÓN REGRESO AL PANEL */}
+      <div className="px-4 pt-4">
+        <button 
+          onClick={() => navigateTo('home')} 
+          className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 group transition-all"
+        >
+          <Home size={14} className="group-hover:scale-110" /> Salir al Panel
+        </button>
+      </div>
+
       {/* HEADER TÉCNICO */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b pb-6 px-4 gap-4">
         <div className="flex items-center gap-4">
@@ -164,7 +172,7 @@ export default function InspectionHistory() {
           </div>
         </div>
 
-        {/* SELECTOR DE NORMA (LA ACTUALIZACIÓN VISUAL) */}
+        {/* SELECTOR DE NORMA */}
         <div className="flex bg-slate-100 p-1.5 rounded-[1.2rem] gap-1 shadow-inner">
           {[
             { id: 'TODOS', icon: <LayoutGrid size={14}/> },
@@ -182,7 +190,7 @@ export default function InspectionHistory() {
         </div>
       </div>
 
-      {/* ACCIONES MASIVAS */}
+      {/* ... (El resto del listado, acciones masivas y modal se mantienen exactamente igual) ... */}
       {selectedIds.length > 0 && (
         <div className="mx-4 p-4 bg-slate-900 rounded-[1.5rem] flex items-center justify-between animate-in slide-in-from-top duration-300 shadow-2xl">
           <span className="text-white text-[10px] font-black uppercase ml-2">{selectedIds.length} Seleccionados</span>
@@ -193,7 +201,6 @@ export default function InspectionHistory() {
         </div>
       )}
 
-      {/* LISTADO TÉCNICO */}
       <div className="grid gap-4 px-4">
         {filteredInspections?.length === 0 ? (
           <div className="bg-white p-20 rounded-[2.5rem] border-4 border-dotted border-slate-100 text-center">
@@ -252,7 +259,7 @@ export default function InspectionHistory() {
         )}
       </div>
 
-      {/* MODAL DE DETALLES (MANTENIENDO FUNCIONALIDAD) */}
+      {/* MODAL DE DETALLES/EDICIÓN */}
       {selectedReport && (
         <div className="fixed inset-0 z-[5000] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
