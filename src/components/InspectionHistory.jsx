@@ -23,11 +23,12 @@ import {
   Bell,
   LayoutGrid,
   ChevronRight,
-  Home // Añadido para el botón de regreso
+  Home, // Añadido para el botón de regreso
+  Filter
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 
-// AÑADIMOS navigateTo COMO PROP
+// RECIBIMOS navigateTo COMO PROP
 export default function InspectionHistory({ navigateTo }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -36,15 +37,37 @@ export default function InspectionHistory({ navigateTo }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
   
+  // ESTADOS DE FILTRADO
   const [filterStd, setFilterStd] = useState('TODOS');
+  const [filterCat, setFilterCat] = useState('TODOS');
 
   const inspections = useLiveQuery(() => 
     db.inspections.orderBy('date').reverse().toArray()
   );
 
+  // Mapeo de Categorías para el filtro secundario
+  const categoriesByStd = {
+    'NFPA 25': ['BOMBAS', 'HIDRANTES', 'MANGUERAS', 'ROCIADORES', 'VÁLVULAS', 'OBSERVACIONES'],
+    'NFPA 72': ['ALARMAS']
+  };
+
+  // Lógica de mapeo de serviceCode a Categoría
+  const getCategoryFromCode = (code) => {
+    if (['IPM-01', 'IPM-08'].includes(code)) return 'BOMBAS';
+    if (code === 'IPM-02') return 'MANGUERAS';
+    if (code === 'IPM-04') return 'HIDRANTES';
+    if (code === 'IPM-05') return 'VÁLVULAS';
+    if (code === 'IPM-06') return 'ROCIADORES';
+    if (code === 'IPM-07') return 'OBSERVACIONES';
+    if (code === 'IPM-03') return 'ALARMAS';
+    return 'OTROS';
+  };
+
+  // FILTRADO LÓGICO COMPLETO
   const filteredInspections = inspections?.filter(item => {
-    if (filterStd === 'TODOS') return true;
-    return item.standard === filterStd;
+    const matchStd = filterStd === 'TODOS' || item.standard === filterStd;
+    const matchCat = filterCat === 'TODOS' || getCategoryFromCode(item.serviceCode) === filterCat;
+    return matchStd && matchCat;
   });
 
   const handleSyncAll = async () => {
@@ -64,37 +87,22 @@ export default function InspectionHistory({ navigateTo }) {
             observations: report.observations,
             photo: report.photo
           };
-          const { error } = await supabase.from('inspections').insert([dataToSync]);
+          const { error } = await supabase.from('inspections').upsert([dataToSync]);
           if (!error) await db.inspections.update(report.id, { synced: 1 });
         }
       }
-
-      const { data: cloudData, error: fetchError } = await supabase
-        .from('inspections')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (!fetchError && cloudData) {
+      const { data: cloudData } = await supabase.from('inspections').select('*').order('date', { ascending: false });
+      if (cloudData) {
         const localReadyData = cloudData.map(item => ({
-          id: item.id,
-          date: item.date,
-          serviceCode: item.service_code || item.serviceCode,
-          equipmentName: item.equipment_name || item.equipmentName,
-          norm: item.norm,
-          standard: item.standard,
-          overallStatus: item.overall_status || item.overallStatus,
-          observations: item.observations,
-          photo: item.photo,
-          synced: 1
+          id: item.id, date: item.date, serviceCode: item.service_code || item.serviceCode,
+          equipmentName: item.equipment_name || item.equipmentName, norm: item.norm, standard: item.standard,
+          overallStatus: item.overall_status || item.overallStatus, observations: item.observations,
+          photo: item.photo, synced: 1
         }));
         await db.inspections.where('synced').equals(1).delete();
         await db.inspections.bulkPut(localReadyData);
       }
-    } catch (e) {
-      console.error("Error sincronización:", e);
-    } finally {
-      setIsSyncing(false);
-    }
+    } catch (e) { console.error(e); } finally { setIsSyncing(false); }
   };
 
   const statusConfig = {
@@ -161,9 +169,9 @@ export default function InspectionHistory({ navigateTo }) {
           </div>
           <div>
             <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Historial Tletl</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-md">
-                {filteredInspections?.length} {filterStd === 'TODOS' ? 'TOTALES' : filterStd}
+                {filteredInspections?.length} RESULTADOS
               </span>
               <button onClick={handleSyncAll} className="p-1.5 hover:bg-slate-100 rounded-full transition-all border shadow-sm">
                 <RefreshCw size={14} className={`${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
@@ -172,40 +180,62 @@ export default function InspectionHistory({ navigateTo }) {
           </div>
         </div>
 
-        {/* SELECTOR DE NORMA */}
-        <div className="flex bg-slate-100 p-1.5 rounded-[1.2rem] gap-1 shadow-inner">
-          {[
-            { id: 'TODOS', icon: <LayoutGrid size={14}/> },
-            { id: 'NFPA 25', icon: <Droplets size={14}/> },
-            { id: 'NFPA 72', icon: <Bell size={14}/> }
-          ].map(tab => (
+        {/* SELECTOR DE NORMA (NIVEL 1) */}
+        <div className="flex bg-slate-100 p-1.5 rounded-[1.2rem] gap-1 shadow-inner w-fit">
+          {['TODOS', 'NFPA 25', 'NFPA 72'].map(std => (
             <button
-              key={tab.id}
-              onClick={() => { setFilterStd(tab.id); setSelectedIds([]); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-[0.8rem] text-[10px] font-black transition-all ${filterStd === tab.id ? 'bg-white text-red-600 shadow-sm scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+              key={std}
+              onClick={() => { setFilterStd(std); setFilterCat('TODOS'); setSelectedIds([]); }}
+              className={`px-5 py-2.5 rounded-[0.8rem] text-[10px] font-black transition-all ${filterStd === std ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}
             >
-              {tab.icon} {tab.id}
+              {std}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ... (El resto del listado, acciones masivas y modal se mantienen exactamente igual) ... */}
+      {/* SELECTOR DE TIPO (NIVEL 2) */}
+      {filterStd !== 'TODOS' && (
+        <div className="px-4">
+          <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar animate-in slide-in-from-left duration-300">
+            <button
+              onClick={() => setFilterCat('TODOS')}
+              className={`shrink-0 px-4 py-2 rounded-xl text-[9px] font-black border transition-all ${filterCat === 'TODOS' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}
+            >
+              CUALQUIER TIPO
+            </button>
+            {categoriesByStd[filterStd].map(cat => (
+              <button
+                key={cat}
+                onClick={() => { setFilterCat(cat); setSelectedIds([]); }}
+                className={`shrink-0 px-4 py-2 rounded-xl text-[9px] font-black border transition-all ${filterCat === cat ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ACCIONES MASIVAS */}
       {selectedIds.length > 0 && (
         <div className="mx-4 p-4 bg-slate-900 rounded-[1.5rem] flex items-center justify-between animate-in slide-in-from-top duration-300 shadow-2xl">
           <span className="text-white text-[10px] font-black uppercase ml-2">{selectedIds.length} Seleccionados</span>
           <div className="flex gap-2">
             <button onClick={toggleSelectAll} className="px-4 py-2 text-white border border-white/20 rounded-xl text-[9px] font-black uppercase">Desmarcar</button>
-            <button onClick={handleBulkDelete} className="bg-red-600 px-6 py-2 rounded-xl text-white text-[9px] font-black uppercase shadow-lg">Eliminar</button>
+            <button onClick={handleBulkDelete} className="bg-red-600 px-6 py-2 rounded-xl text-white text-[9px] font-black uppercase shadow-lg flex items-center gap-2 active:scale-95 transition-all">
+              <Trash2 size={14}/> Eliminar Selección
+            </button>
           </div>
         </div>
       )}
 
+      {/* LISTADO TÉCNICO */}
       <div className="grid gap-4 px-4">
         {filteredInspections?.length === 0 ? (
           <div className="bg-white p-20 rounded-[2.5rem] border-4 border-dotted border-slate-100 text-center">
-            <ClipboardCheck size={48} className="mx-auto mb-4 text-slate-200" />
-            <p className="font-black uppercase text-xs text-slate-400 tracking-widest">No hay registros en {filterStd}</p>
+            <Filter size={48} className="mx-auto mb-4 text-slate-200" />
+            <p className="font-black uppercase text-xs text-slate-400 tracking-widest text-balance">Sin registros con estos filtros</p>
           </div>
         ) : (
           filteredInspections.map((item) => {
@@ -217,12 +247,12 @@ export default function InspectionHistory({ navigateTo }) {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <button onClick={() => toggleSelect(item.id)} className={`mt-1 transition-colors ${isSelected ? 'text-red-600' : 'text-slate-200 hover:text-slate-400'}`}>
-                      {isSelected ? <CheckSquare size={24} /> : <Square size={24} />}
+                      {isSelected ? <CheckSquare size={26} /> : <Square size={26} />}
                     </button>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase ${item.standard === 'NFPA 25' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
-                          {item.standard || 'S/N'}
+                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase ${item.standard === 'NFPA 25' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                          {item.standard}
                         </span>
                         <h3 className="font-black text-slate-800 text-sm uppercase leading-tight">{item.equipmentName}</h3>
                       </div>
@@ -245,7 +275,7 @@ export default function InspectionHistory({ navigateTo }) {
                       <ActionIcon icon={<Edit3 size={18}/>} onClick={() => { setSelectedReport(item); setTempObs(item.observations); setTempStatus(item.overallStatus); setEditMode(true); }} />
                    </div>
                    <div className="flex gap-2">
-                      <button onClick={() => generatePDF(item)} className="bg-slate-800 text-white px-5 py-2 rounded-xl font-black text-[9px] uppercase shadow-lg flex items-center gap-2 active:scale-90 transition-all">
+                      <button onClick={() => generatePDF(item)} className="bg-slate-800 text-white px-5 py-2 rounded-xl font-black text-[9px] uppercase shadow-lg flex items-center gap-2 active:scale-90 transition-all hover:bg-red-600">
                         <FileDown size={14}/> PDF
                       </button>
                       <button onClick={() => handleDeleteIndividual(item.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors">
