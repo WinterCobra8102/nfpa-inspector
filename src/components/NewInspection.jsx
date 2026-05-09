@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { db } from '../db'; 
 
-// --- CATÁLOGO TLETL COMPLETO Y DETALLADO (600+ LÍNEAS DE LÓGICA) ---
+// --- CATÁLOGO TLETL COMPLETO Y DETALLADO ---
 const IPM_CATALOG = [
   { 
     id: 'IPM-01', 
@@ -464,11 +464,9 @@ export default function NewInspection() {
     doc.save(`TLETL_${data.serviceCode}_${Date.now()}.pdf`);
   };
 
-  // --- LÓGICA DE GUARDADO CON BLOQUEO DE SEGURIDAD ---
+  // --- LÓGICA DE GUARDADO MANUAL (SIN RELOAD) ---
   const handleSave = async () => {
-    // 1. SI YA SE ESTÁ GUARDANDO, SALIR PARA EVITAR DUPLICADOS
     if (isSaving) return;
-
     setIsSaving(true);
     
     const reportData = {
@@ -487,17 +485,30 @@ export default function NewInspection() {
       observations,
       photo,
       location,
-      synced: 0 // Marcamos como no sincronizado para que se suba a Supabase después
+      synced: 0 
     };
 
     try { 
+      // 1. Guardamos en la base local (Dexie)
       await db.inspections.add(reportData); 
+      // 2. Generamos el PDF para descarga
       await handleGeneratePDF(reportData); 
-      alert("✅ Reporte Tletl Generado"); 
-      window.location.reload(); 
+      
+      alert("✅ Reporte Tletl Guardado localmente.\n\nVaya al Historial para sincronizar con la nube."); 
+      
+      // 3. Reseteamos el formulario MANUALMENTE en lugar de recargar la página
+      setStep(1); 
+      setSelectedIPM(null);
+      setResponses({});
+      setPointNotes({});
+      setObservations('');
+      setPhoto(null);
+      setLocation(null);
+
     } catch (e) { 
       alert("Error: " + e.message); 
-      setIsSaving(false); // Liberamos el botón si hubo un error para reintentar
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -650,7 +661,6 @@ export default function NewInspection() {
         </label>
       </div>
 
-      {/* BOTÓN FINAL CON ESTADO DE CARGA */}
       <button 
         onClick={handleSave} 
         disabled={isSaving} 

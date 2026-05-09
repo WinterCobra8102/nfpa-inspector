@@ -96,8 +96,9 @@ export default function InspectionHistory() {
   };
 
   useEffect(() => {
-    // Cuando entras al historial por primera vez, intenta sincronizar
-    handleSyncAll();
+    // CORRECCIÓN: Comentamos handleSyncAll() para que NO descargue nada al abrir la página.
+    // Solo sincronizará cuando tú le des al botón de las flechitas.
+    // handleSyncAll(); 
   }, []);
 
   const statusConfig = {
