@@ -35,7 +35,7 @@ export default function InspectionHistory() {
     db.inspections.orderBy('date').reverse().toArray()
   );
 
-  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL ---
+  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL (CON TRADUCTOR) ---
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
@@ -44,13 +44,21 @@ export default function InspectionHistory() {
       
       if (pendingReports.length > 0) {
         for (const report of pendingReports) {
-          // Quitamos el ID local para que Supabase no choque
-          const { id, synced, ...dataToSync } = report;
+          // AQUI ESTÁ LA MAGIA: Traducimos los nombres para Supabase
+          const dataToSync = {
+            date: report.date,
+            service_code: report.serviceCode, // Traducido
+            equipment_name: report.equipmentName, // Traducido
+            norm: report.norm,
+            overall_status: report.overallStatus, // Traducido
+            observations: report.observations,
+            photo: report.photo
+          };
           
           const { error } = await supabase.from('inspections').insert([dataToSync]);
           
           if (!error) {
-            await db.inspections.update(id, { synced: 1 }); // Cambia a nube azul localmente
+            await db.inspections.update(report.id, { synced: 1 }); // Cambia a nube azul localmente
           } else {
             // ESTA ES LA ALERTA QUE NOS DIRÁ QUÉ ESTÁ FALLANDO
             alert("Error Supabase: " + JSON.stringify(error));
@@ -66,8 +74,19 @@ export default function InspectionHistory() {
         .order('date', { ascending: false });
 
       if (!fetchError && cloudData) {
-        // Usamos bulkPut para evitar duplicados locales
-        await db.inspections.bulkPut(cloudData.map(item => ({ ...item, synced: 1 })));
+        // Traducimos de vuelta para que tu app local lo entienda
+        const localReadyData = cloudData.map(item => ({
+          id: item.id,
+          date: item.date,
+          serviceCode: item.service_code || item.serviceCode,
+          equipmentName: item.equipment_name || item.equipmentName,
+          norm: item.norm,
+          overallStatus: item.overall_status || item.overallStatus,
+          observations: item.observations,
+          photo: item.photo,
+          synced: 1
+        }));
+        await db.inspections.bulkPut(localReadyData);
       }
     } catch (e) {
       console.error("Fallo general de sincronización:", e);
