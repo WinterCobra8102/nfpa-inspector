@@ -279,7 +279,6 @@ export default function NewInspection() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCapturingGps, setIsCapturingGps] = useState(false);
 
-  // Estado específico para IPM-07
   const [obsCards, setObsCards] = useState([
     { area: '', sistema: '', equipo: '', estado: 'ACTIVO', cot: 'NO', observacion: '', impacto: '', accion: '', nfpa: 'DNC', formato: '' }
   ]);
@@ -356,6 +355,7 @@ export default function NewInspection() {
     setImageToCrop(null);
   };
 
+  // Función PDF disponible para uso interno si se requiere en el futuro
   const handleGeneratePDF = async (data) => {
     const doc = new jsPDF();
     const margin = 14;
@@ -464,12 +464,16 @@ export default function NewInspection() {
     doc.save(`TLETL_${data.serviceCode}_${Date.now()}.pdf`);
   };
 
-  // --- LÓGICA DE GUARDADO MANUAL (SIN RELOAD) ---
+  // --- LÓGICA DE GUARDADO DEFINITIVA (SIN DUPLICADOS) ---
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
     
+    // CORRECCIÓN: Generar ID único manual para evitar colisiones entre el cel y la nube
+    const uniqueId = crypto.randomUUID();
+
     const reportData = {
+      id: uniqueId, // Mandamos nuestro propio ID
       date: new Date().toISOString(),
       serviceCode: selectedIPM.id,
       equipmentName: selectedIPM.name,
@@ -489,14 +493,15 @@ export default function NewInspection() {
     };
 
     try { 
-      // 1. Guardamos en la base local (Dexie)
+      // 1. Guardar en Dexie
       await db.inspections.add(reportData); 
-      // 2. Generamos el PDF para descarga
-      await handleGeneratePDF(reportData); 
       
-      alert("✅ Reporte Tletl Guardado localmente.\n\nVaya al Historial para sincronizar con la nube."); 
+      // CORRECCIÓN: Eliminamos la descarga automática.
+      // Si el usuario quiere el PDF, lo descarga desde el Historial.
       
-      // 3. Reseteamos el formulario MANUALMENTE en lugar de recargar la página
+      alert("✅ Reporte Guardado en el Dispositivo.\n\nSincroniza en el historial para subirlo a la nube."); 
+      
+      // 2. Reseteo manual (REEMPLAZA AL RELOAD)
       setStep(1); 
       setSelectedIPM(null);
       setResponses({});

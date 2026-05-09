@@ -44,13 +44,14 @@ export default function InspectionHistory() {
       
       if (pendingReports.length > 0) {
         for (const report of pendingReports) {
-          // AQUI ESTÁ LA MAGIA: Traducimos los nombres para Supabase
+          // CORRECCIÓN: Mandamos el ID generado en el cel para que Supabase no cree uno nuevo
           const dataToSync = {
+            id: report.id, 
             date: report.date,
-            service_code: report.serviceCode, // Traducido
-            equipment_name: report.equipmentName, // Traducido
+            service_code: report.serviceCode, 
+            equipment_name: report.equipmentName, 
             norm: report.norm,
-            overall_status: report.overallStatus, // Traducido
+            overall_status: report.overallStatus, 
             observations: report.observations,
             photo: report.photo
           };
@@ -60,7 +61,6 @@ export default function InspectionHistory() {
           if (!error) {
             await db.inspections.update(report.id, { synced: 1 }); // Cambia a nube azul localmente
           } else {
-            // ESTA ES LA ALERTA QUE NOS DIRÁ QUÉ ESTÁ FALLANDO
             alert("Error Supabase: " + JSON.stringify(error));
             console.error("Error al subir a Supabase:", error);
           }
@@ -74,7 +74,7 @@ export default function InspectionHistory() {
         .order('date', { ascending: false });
 
       if (!fetchError && cloudData) {
-        // Usamos bulkPut para evitar duplicados locales
+        // Traducimos de vuelta para que tu app local lo entienda
         const localReadyData = cloudData.map(item => ({
           id: item.id,
           date: item.date,
@@ -86,6 +86,7 @@ export default function InspectionHistory() {
           photo: item.photo,
           synced: 1
         }));
+        // Al usar el mismo ID, bulkPut actualiza en lugar de duplicar
         await db.inspections.bulkPut(localReadyData);
       }
     } catch (e) {
@@ -96,8 +97,7 @@ export default function InspectionHistory() {
   };
 
   useEffect(() => {
-    // CORRECCIÓN: Comentamos handleSyncAll() para que NO descargue nada al abrir la página.
-    // Solo sincronizará cuando tú le des al botón de las flechitas.
+    // CORRECCIÓN: Sincronización automática desactivada para evitar duplicados al cargar
     // handleSyncAll(); 
   }, []);
 
@@ -183,7 +183,6 @@ export default function InspectionHistory() {
             <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tighter">Historial Técnico</h2>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-blue-600 uppercase">Total: {inspections.length} reportes</span>
-              {/* ESTE ES EL BOTÓN MÁGICO DE SINCRONIZACIÓN */}
               <button onClick={handleSyncAll} className="p-1 hover:bg-gray-100 rounded-full transition-all bg-white border border-slate-200 shadow-sm ml-2">
                 <RefreshCw size={12} className={`${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-600'}`} />
               </button>
