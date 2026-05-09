@@ -35,7 +35,7 @@ export default function InspectionHistory() {
     db.inspections.orderBy('date').reverse().toArray()
   );
 
-  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL (CON TRADUCTOR) ---
+  // --- LÓGICA DE SINCRONIZACIÓN BIDIERECCIONAL ---
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
@@ -74,7 +74,7 @@ export default function InspectionHistory() {
         .order('date', { ascending: false });
 
       if (!fetchError && cloudData) {
-        // Traducimos de vuelta para que tu app local lo entienda
+        // Usamos bulkPut para evitar duplicados locales
         const localReadyData = cloudData.map(item => ({
           id: item.id,
           date: item.date,
@@ -112,20 +112,39 @@ export default function InspectionHistory() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === inspections.length) setSelectedIds([]);
+    if (selectedIds.length === inspections?.length) setSelectedIds([]);
     else setSelectedIds(inspections.map(i => i.id));
   };
 
+  // --- BORRADO MASIVO (Local + Nube) ---
   const handleBulkDelete = async () => {
-    if (window.confirm(`¿Eliminar ${selectedIds.length} reportes?`)) {
-      await db.inspections.bulkDelete(selectedIds);
-      setSelectedIds([]);
+    if (window.confirm(`¿Confirmas la eliminación de ${selectedIds.length} reportes en la nube y el dispositivo?`)) {
+      try {
+        const { error } = await supabase.from('inspections').delete().in('id', selectedIds);
+        if (!error) {
+          await db.inspections.bulkDelete(selectedIds);
+          setSelectedIds([]);
+        } else {
+          alert("Error al borrar en la nube: " + error.message);
+        }
+      } catch (e) {
+        console.error("Fallo en borrado masivo:", e);
+      }
     }
   };
 
+  // --- BORRADO INDIVIDUAL (Local + Nube) ---
   const handleDeleteIndividual = async (id) => {
-    if (window.confirm("¿Eliminar este reporte?")) {
-      await db.inspections.delete(id);
+    if (window.confirm("¿Eliminar este reporte permanentemente de la nube y el dispositivo?")) {
+      try {
+        const { error } = await supabase.from('inspections').delete().eq('id', id);
+        if (error) {
+          console.error("Error al borrar en la nube:", error);
+        }
+        await db.inspections.delete(id);
+      } catch (e) {
+        alert("Error en el proceso de eliminación");
+      }
     }
   };
 

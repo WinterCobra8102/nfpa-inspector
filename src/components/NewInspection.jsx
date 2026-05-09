@@ -464,15 +464,20 @@ export default function NewInspection() {
     doc.save(`TLETL_${data.serviceCode}_${Date.now()}.pdf`);
   };
 
+  // --- LÓGICA DE GUARDADO CON BLOQUEO DE SEGURIDAD ---
   const handleSave = async () => {
+    // 1. SI YA SE ESTÁ GUARDANDO, SALIR PARA EVITAR DUPLICADOS
+    if (isSaving) return;
+
     setIsSaving(true);
+    
     const reportData = {
       date: new Date().toISOString(),
       serviceCode: selectedIPM.id,
       equipmentName: selectedIPM.name,
       norm: selectedIPM.formCode,
       units,
-      sections: selectedIPM.sections, // ESTA PROPIEDAD ARREGLA EL ERROR
+      sections: selectedIPM.sections, 
       responses,
       pointNotes,
       obsCards: selectedIPM.id === 'IPM-07' ? obsCards : null,
@@ -481,14 +486,19 @@ export default function NewInspection() {
       technician: "Isai Moo",
       observations,
       photo,
-      location
+      location,
+      synced: 0 // Marcamos como no sincronizado para que se suba a Supabase después
     };
+
     try { 
       await db.inspections.add(reportData); 
       await handleGeneratePDF(reportData); 
       alert("✅ Reporte Tletl Generado"); 
       window.location.reload(); 
-    } catch (e) { alert("Error: " + e.message); } finally { setIsSaving(false); }
+    } catch (e) { 
+      alert("Error: " + e.message); 
+      setIsSaving(false); // Liberamos el botón si hubo un error para reintentar
+    }
   };
 
   if (step === 1) {
@@ -640,7 +650,12 @@ export default function NewInspection() {
         </label>
       </div>
 
-      <button onClick={handleSave} disabled={isSaving} className={`w-full py-8 ${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} text-white rounded-[3.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4`}>
+      {/* BOTÓN FINAL CON ESTADO DE CARGA */}
+      <button 
+        onClick={handleSave} 
+        disabled={isSaving} 
+        className={`w-full py-8 ${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} text-white rounded-[3.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+      >
         {isSaving ? <RefreshCcw className="animate-spin" /> : <Save />}
         {isSaving ? "GENERANDO..." : `FINALIZAR REPORTE ${selectedIPM.id}`}
       </button>
