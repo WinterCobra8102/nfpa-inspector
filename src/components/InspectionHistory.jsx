@@ -52,6 +52,8 @@ export default function InspectionHistory() {
           if (!error) {
             await db.inspections.update(id, { synced: 1 }); // Cambia a nube azul localmente
           } else {
+            // ESTA ES LA ALERTA QUE NOS DIRÁ QUÉ ESTÁ FALLANDO
+            alert("Error Supabase: " + JSON.stringify(error));
             console.error("Error al subir a Supabase:", error);
           }
         }
