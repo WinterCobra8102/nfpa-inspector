@@ -10,7 +10,9 @@ import {
   X,
   User as UserIcon,
   Wifi,
-  WifiOff
+  WifiOff,
+  ShieldAlert,
+  Flame
 } from 'lucide-react';
 
 import NewInspection from './components/NewInspection'; 
@@ -35,42 +37,45 @@ function App() {
 
   const navigateTo = (tab) => {
     setActiveTab(tab);
-    setMobileMenuOpen(false); // Cierra el menú al elegir opción
+    setMobileMenuOpen(false);
   };
 
   return (
-    <div className="flex h-screen bg-[#f3f4f6] font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#f8fafc] font-sans overflow-hidden">
       
       {/* CAPA DE FONDO OSCURO (Solo para móvil) */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] md:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] md:hidden transition-opacity"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
-      {/* SIDEBAR PROFESIONAL */}
+      {/* SIDEBAR TLETL (Ambientado en Negro Industrial y Rojo Fuego) */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[4000] bg-[#2c3e50] text-white transition-all duration-300 transform
+        fixed inset-y-0 left-0 z-[4000] bg-[#1a1a1a] text-white transition-all duration-300 transform
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} 
         md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
-        flex flex-col shadow-2xl h-full
+        flex flex-col shadow-2xl h-full border-r border-white/5
       `}>
-        {/* CABECERA DEL MENÚ */}
-        <div className="p-4 bg-[#3498db] flex items-center justify-between shadow-lg shrink-0">
+        {/* CABECERA DEL MENÚ - ROJO INTENSO */}
+        <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
           <div className="flex items-center gap-3">
-            <ClipboardCheck size={28} className="shrink-0" />
+            <Flame size={28} className="shrink-0 text-white animate-pulse" />
             {(isSidebarOpen || isMobileMenuOpen) && (
-              <span className="font-black text-lg tracking-tight uppercase italic">Site Inspector</span>
+              <div className="flex flex-col">
+                <span className="font-black text-lg tracking-tighter uppercase leading-none">TLETL</span>
+                <span className="text-[8px] font-bold tracking-[0.2em] opacity-80 uppercase">Fire Systems</span>
+              </div>
             )}
           </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1 hover:bg-white/20 rounded-lg">
+          <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1 hover:bg-black/20 rounded-lg">
             <X size={24} />
           </button>
         </div>
 
-        {/* LISTA DE OPCIONES - Scrollable si hay muchas */}
-        <nav className="flex-1 mt-4 overflow-y-auto custom-scrollbar">
+        {/* LISTA DE OPCIONES */}
+        <nav className="flex-1 mt-6 overflow-y-auto custom-scrollbar">
           <NavItem 
             icon={<PlusCircle size={20} />} 
             label="Nueva Inspección" 
@@ -80,35 +85,41 @@ function App() {
           />
           <NavItem 
             icon={<LayoutDashboard size={20} />} 
-            label="Historial de Reportes" 
+            label="Historial Técnico" 
             active={activeTab === 'list'} 
             onClick={() => navigateTo('list')} 
             isOpen={isSidebarOpen || isMobileMenuOpen}
           />
           <NavItem 
             icon={<MapPin size={20} />} 
-            label="Sites (Mapa)" 
+            label="Ubicación de Sites" 
             active={activeTab === 'sites'} 
             onClick={() => navigateTo('sites')} 
             isOpen={isSidebarOpen || isMobileMenuOpen}
           />
           
-          <div className="my-6 border-t border-gray-600/30 mx-6" />
+          <div className="my-6 border-t border-white/10 mx-6" />
+          
+          <div className="px-6 mb-2">
+            {(isSidebarOpen || isMobileMenuOpen) && (
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Administración</p>
+            )}
+          </div>
           
           <NavItem icon={<Users size={20} />} label="Inspectores" isOpen={isSidebarOpen || isMobileMenuOpen} onClick={() => setMobileMenuOpen(false)} />
-          <NavItem icon={<Settings size={20} />} label="Ajustes" isOpen={isSidebarOpen || isMobileMenuOpen} onClick={() => setMobileMenuOpen(false)} />
+          <NavItem icon={<Settings size={20} />} label="Parámetros NFPA" isOpen={isSidebarOpen || isMobileMenuOpen} onClick={() => setMobileMenuOpen(false)} />
         </nav>
 
-        {/* ESTATUS DE RED */}
-        <div className={`p-6 bg-slate-900/50 flex items-center gap-3 text-[10px] font-black border-t border-white/5 ${isOnline ? 'text-green-400' : 'text-orange-400'}`}>
+        {/* ESTATUS DE CONEXIÓN */}
+        <div className={`p-6 bg-black/40 flex items-center gap-3 text-[9px] font-black border-t border-white/5 ${isOnline ? 'text-green-400' : 'text-orange-400'}`}>
           {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
           {(isSidebarOpen || isMobileMenuOpen) && (
-            <span className="tracking-[0.2em]">{isOnline ? 'CONEXIÓN ESTABLE' : 'MODO OFFLINE'}</span>
+            <span className="tracking-[0.2em]">{isOnline ? 'SISTEMA ONLINE' : 'SISTEMA OFFLINE'}</span>
           )}
         </div>
       </aside>
 
-      {/* CUERPO DE LA APP */}
+      {/* ÁREA DE TRABAJO */}
       <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden">
         
         {/* BARRA SUPERIOR (HEADER) */}
@@ -119,33 +130,37 @@ function App() {
                 if (window.innerWidth < 768) setMobileMenuOpen(true);
                 else setSidebarOpen(!isSidebarOpen);
               }} 
-              className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
+              className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all active:scale-90"
             >
               <Menu size={24}/>
             </button>
-            <h2 className="hidden sm:block text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              Tletl Monitoring
-            </h2>
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={18} className="text-red-600 hidden sm:block" />
+              <h2 className="hidden sm:block text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                Monitoring System <span className="text-red-600">v2.0</span>
+              </h2>
+            </div>
           </div>
           
+          {/* PERFIL TÉCNICO */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3 border-l border-slate-100 pl-4 group cursor-pointer">
               <div className="text-right hidden xs:block">
-                <p className="text-xs font-black text-slate-800 leading-none tracking-tight">Isai Moo</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Engineer</p>
+                <p className="text-xs font-black text-slate-800 leading-none tracking-tight uppercase">Isai Moo</p>
+                <p className="text-[9px] text-red-600 font-black uppercase mt-1">Lead Engineer</p>
               </div>
-              <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-blue-600 transition-transform group-active:scale-90">
+              <div className="w-10 h-10 bg-[#1a1a1a] rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-red-600 transition-all group-active:scale-90">
                 <UserIcon size={18} />
               </div>
             </div>
           </div>
         </header>
 
-        {/* VISTAS DINÁMICAS */}
+        {/* CONTENIDO DINÁMICO */}
         <section className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0">
             {activeTab === 'form' && (
-              <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in duration-300">
+              <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
                 <NewInspection />
               </div>
             )}
@@ -167,26 +182,30 @@ function App() {
   );
 }
 
+// COMPONENTE DE ITEM DE MENÚ AJUSTADO A ROJO TLETL
 function NavItem({ icon, label, active, onClick, isOpen }) {
   return (
     <div 
       onClick={onClick}
       className={`flex items-center p-4 cursor-pointer transition-all duration-200 relative group mx-2 rounded-xl mb-1
         ${active 
-          ? 'bg-[#3498db] text-white shadow-lg' 
-          : 'hover:bg-slate-700/50 text-slate-400 hover:text-white'
+          ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' 
+          : 'hover:bg-white/5 text-slate-400 hover:text-white'
         }`}
     >
-      <div className="shrink-0">{icon}</div>
+      <div className={`shrink-0 ${active ? 'scale-110' : 'group-hover:text-red-500'} transition-transform`}>
+        {icon}
+      </div>
       {(isOpen) && (
         <span className="ml-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
           {label}
         </span>
       )}
-      {active && <div className="absolute left-0 w-1 h-6 bg-white rounded-full ml-1" />}
+      {active && (
+        <div className="absolute left-0 w-1.5 h-5 bg-white rounded-full ml-1 animate-in fade-in duration-500" />
+      )}
     </div>
   );
 }
 
 export default App;
-// Versión final Tletl
