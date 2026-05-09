@@ -464,16 +464,16 @@ export default function NewInspection() {
     doc.save(`TLETL_${data.serviceCode}_${Date.now()}.pdf`);
   };
 
-  // --- LÓGICA DE GUARDADO DEFINITIVA (SIN DUPLICADOS) ---
+  // --- LÓGICA DE GUARDADO DEFINITIVA (SIN DUPLICADOS Y SIN DESCARGA AUTO) ---
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
     
-    // CORRECCIÓN: Generar ID único manual para evitar colisiones entre el cel y la nube
+    // CORRECCIÓN 1: Generar ID único manual para evitar colisiones entre el cel y la nube
     const uniqueId = crypto.randomUUID();
 
     const reportData = {
-      id: uniqueId, // Mandamos nuestro propio ID
+      id: uniqueId, 
       date: new Date().toISOString(),
       serviceCode: selectedIPM.id,
       equipmentName: selectedIPM.name,
@@ -493,15 +493,15 @@ export default function NewInspection() {
     };
 
     try { 
-      // 1. Guardar en Dexie
+      // 1. Guardar estrictamente en Dexie local
       await db.inspections.add(reportData); 
       
-      // CORRECCIÓN: Eliminamos la descarga automática.
-      // Si el usuario quiere el PDF, lo descarga desde el Historial.
+      // CORRECCIÓN 2: Se eliminó la línea handleGeneratePDF de aquí.
+      // Ahora no se descarga el archivo apenas terminas.
       
       alert("✅ Reporte Guardado en el Dispositivo.\n\nSincroniza en el historial para subirlo a la nube."); 
       
-      // 2. Reseteo manual (REEMPLAZA AL RELOAD)
+      // 3. Reseteo manual (REEMPLAZA AL RELOAD)
       setStep(1); 
       setSelectedIPM(null);
       setResponses({});
@@ -672,7 +672,7 @@ export default function NewInspection() {
         className={`w-full py-8 ${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} text-white rounded-[3.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
       >
         {isSaving ? <RefreshCcw className="animate-spin" /> : <Save />}
-        {isSaving ? "GENERANDO..." : `FINALIZAR REPORTE ${selectedIPM.id}`}
+        {isSaving ? "GUARDANDO..." : `FINALIZAR REPORTE ${selectedIPM.id}`}
       </button>
 
       {imageToCrop && (
