@@ -4,8 +4,7 @@ import toast from 'react-hot-toast';
 import { showConfirmDelete } from '../alerts';
 import { 
   Flame, ClipboardList, Map as MapIcon, 
-  Users, Settings, CloudSync, AlertOctagon,
-  ChevronRight, ArrowUpRight,
+  CloudSync, AlertOctagon, ArrowUpRight,
   Building2, PlusCircle, Trash2, X, Building
 } from 'lucide-react';
 
