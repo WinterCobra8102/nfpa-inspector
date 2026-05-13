@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow } from '@react-google-maps/api';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { 
   LocateFixed, Search, LayoutGrid, MapPin, 
   Navigation2, Droplets, Bell, ChevronRight, X, Loader2, PlusCircle, ShieldCheck, 
@@ -263,17 +263,29 @@ export default function SitesView() {
           </InfoWindow>
         )}
 
-        {/* Pines PCI Guardados (Iconos de Google seguros) */}
-        {filteredSites.map(site => (
-          <Marker 
-            key={site.id} 
-            position={{ lat: site.location.lat, lng: site.location.lng }} 
-            onClick={() => setActiveSite(site)}
-            icon={site.overallStatus === 'CRÍTICO' 
-              ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" 
-              : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"}
-          />
-        ))}
+        {/* Pines PCI Guardados con AGRUPADOR y ANTI-ACHOCAMIENTO */}
+        <MarkerClusterer>
+          {(clusterer) =>
+            filteredSites.map(site => {
+              // MICRO-DISPERSIÓN: Sumamos un valor minúsculo al azar 
+              // para separar equipos que se registraron en la misma coordenada
+              const scatterLat = site.location.lat + (Math.random() - 0.5) * 0.00005;
+              const scatterLng = site.location.lng + (Math.random() - 0.5) * 0.00005;
+
+              return (
+                <Marker 
+                  key={site.id} 
+                  position={{ lat: scatterLat, lng: scatterLng }} 
+                  clusterer={clusterer}
+                  onClick={() => setActiveSite(site)}
+                  icon={site.overallStatus === 'CRÍTICO' 
+                    ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" 
+                    : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"}
+                />
+              );
+            })
+          }
+        </MarkerClusterer>
 
         {/* Ventana de Pines Guardados */}
         {activeSite && (
