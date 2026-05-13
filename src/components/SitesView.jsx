@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow } from '@react-google-maps/api';
 import { 
-  LocateFixed, Search, LayoutGrid, Navigation2, Droplets, Bell, X, Loader2, PlusCircle, ShieldCheck, 
+  LocateFixed, Search, LayoutGrid, MapPin, 
+  Navigation2, Droplets, Bell, ChevronRight, X, Loader2, PlusCircle, ShieldCheck, 
   Activity, Waves, Box, Clipboard, UserPlus, Key, Mail
 } from 'lucide-react';
 import { db } from '../db';
@@ -155,6 +156,26 @@ export default function SitesView() {
   return (
     <div className="h-full w-full relative overflow-hidden bg-[#111]">
       
+      {/* CORRECCIÓN DE Z-INDEX PARA RESULTADOS DE GOOGLE */}
+      <style>{`
+        .pac-container {
+          z-index: 99999 !important;
+          border-radius: 16px !important;
+          margin-top: 8px !important;
+          border: none !important;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8) !important;
+          font-family: inherit !important;
+        }
+        .pac-item {
+          padding: 12px 16px !important;
+          cursor: pointer !important;
+          font-size: 13px !important;
+        }
+        .pac-item:hover {
+          background-color: #f1f5f9 !important;
+        }
+      `}</style>
+
       {/* 1. BUSCADOR SUPERIOR (ESTRUCTURA CORREGIDA) */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[500px] z-[2000]">
         <div className="bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-3xl px-6 py-4 flex items-center gap-4 shadow-2xl focus-within:ring-4 focus-within:ring-blue-500/20 transition-all">
