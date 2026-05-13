@@ -91,13 +91,14 @@ export default function NewInspection({ navigateTo }) {
   const [isCapturingGps, setIsCapturingGps] = useState(false);
   const [obsCards, setObsCards] = useState([{ area: '', sistema: '', equipo: '', estado: 'ACTIVO', cot: 'NO', observacion: '', impacto: '', accion: '', nfpa: 'DNC', formato: '' }]);
   
-  // --- NUEVOS ESTADOS DE SAAS, FIRMA Y EMPRESAS ---
+  // --- ESTADOS DE SAAS, FIRMA Y EMPRESAS ---
   const [selectedClient, setSelectedClient] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const sigPad = useRef({}); 
 
   const [clientsDb, setClientsDb] = useState([]); 
   const [isAdmin, setIsAdmin] = useState(false); 
+  const [userProfile, setUserProfile] = useState(null); // <-- Guardar perfil completo
   const [isAddingClient, setIsAddingClient] = useState(false); 
   const [newClientName, setNewClientName] = useState('');
 
@@ -106,22 +107,39 @@ export default function NewInspection({ navigateTo }) {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
+  // --- EFECTO INICIAL MODIFICADO: Primero rol, luego clientes ---
   useEffect(() => {
-    fetchClients();
-    checkRole();
+    const init = async () => {
+      const profile = await checkRole();
+      await fetchClients(profile);
+    };
+    init();
   }, []);
-
-  const fetchClients = async () => {
-    const { data, error } = await supabase.from('clientes').select('*').order('nombre', { ascending: true });
-    if (!error && data) setClientsDb(data);
-  };
 
   const checkRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-      if (data?.role === 'ADMIN') setIsAdmin(true);
+      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (data) {
+        setUserProfile(data);
+        if (data.role === 'ADMIN') setIsAdmin(true);
+        return data;
+      }
     }
+    return null;
+  };
+
+  const fetchClients = async (profile) => {
+    let query = supabase.from('clientes').select('*');
+
+    // FILTRO SAAS: Si no es Admin, solo ve su sucursal asignada
+    if (profile && profile.role !== 'ADMIN' && profile.client_id) {
+      query = query.eq('id', profile.client_id);
+      setSelectedClient(profile.client_id); // Auto-selección obligatoria
+    }
+
+    const { data, error } = await query.order('nombre', { ascending: true });
+    if (!error && data) setClientsDb(data);
   };
 
   const handleAddClient = async () => {
@@ -144,7 +162,6 @@ export default function NewInspection({ navigateTo }) {
     }
   };
 
-  // --- NUEVA FUNCIÓN PARA BORRAR EMPRESAS ---
   const handleDeleteClient = (clientId) => {
     const clientName = clientsDb.find(c => c.id === clientId)?.nombre || 'ESTA EMPRESA';
     
@@ -235,7 +252,7 @@ export default function NewInspection({ navigateTo }) {
       obsCards: selectedIPM.id === 'IPM-07' ? obsCards : null,
       voltages: selectedIPM.id === 'IPM-01-D' ? voltages : null,
       overallStatus: selectedIPM.id === 'IPM-07' && obsCards.some(c => c.nfpa === 'D') ? 'CRÍTICO' : 'ÓPTIMO',
-      technician: "Isai Moo",
+      technician: userProfile?.full_name || "Técnico TLETL", // <-- Dinámico
       observations,
       photo,
       location,
@@ -266,7 +283,7 @@ export default function NewInspection({ navigateTo }) {
         <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-[10px] font-black text-red-600 uppercase tracking-widest">
-              <User size={14}/> 1. Seleccionar Cliente
+              <User size={14}/> 1. Sucursal de Inspección
             </label>
             
             {isAdmin && (
@@ -302,13 +319,13 @@ export default function NewInspection({ navigateTo }) {
               <select 
                 value={selectedClient} 
                 onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all"
+                disabled={!isAdmin} // <--- BLOQUEO INTELIGENTE
+                className={`w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all ${!isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 <option value="">-- Elige una Empresa --</option>
                 {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
               
-              {/* BOTÓN DE BORRAR EMPRESA (SOLO ADMIN Y SI HAY UNA SELECCIONADA) */}
               {isAdmin && selectedClient && (
                 <button 
                   onClick={() => handleDeleteClient(selectedClient)}
@@ -320,6 +337,7 @@ export default function NewInspection({ navigateTo }) {
               )}
             </div>
           )}
+          {!isAdmin && <p className="text-[8px] font-black text-slate-300 uppercase px-2 tracking-widest animate-pulse">Sucursal vinculada automáticamente</p>}
         </div>
 
         <div className={`grid gap-4 ${!selectedClient ? 'opacity-30 pointer-events-none' : ''}`}>
