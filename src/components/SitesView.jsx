@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
+import { createClient } from '@supabase/supabase-js'; // <-- IMPORTACIÓN AGREGADA
 import toast from 'react-hot-toast';
 
 // --- CONFIGURACIÓN CRÍTICA ---
@@ -100,15 +101,16 @@ export default function SitesView() {
     }
   };
 
-  // --- REGISTRO DE EMPRESA Y JEFE ---
+  // --- REGISTRO DE EMPRESA Y CREACIÓN DE CREDENCIALES DE JEFE (MODIFICADO) ---
   const handleFinalRegistration = async () => {
-    if (!managerData.name || !managerData.email) {
-      toast.error("Nombre y Email del Jefe son obligatorios");
+    if (!managerData.name || !managerData.email || !managerData.pass) {
+      toast.error("Nombre, Email y Contraseña del Jefe son obligatorios");
       return;
     }
 
-    const loading = toast.loading("Registrando empresa y accesos...");
+    const loading = toast.loading("Creando empresa y credenciales de acceso...");
     try {
+      // 1. Crear la empresa físicamente en la BD
       const { data: newClient, error: clientError } = await supabase
         .from('clientes')
         .insert([{
@@ -123,15 +125,35 @@ export default function SitesView() {
 
       if (clientError) throw clientError;
 
-      if (managerData.pass) {
-        const { data: profile } = await supabase.from('profiles').select('id').eq('email', managerData.email).single();
-        if (profile) {
-          await supabase.rpc('admin_update_user', { target_user_id: profile.id, new_password: managerData.pass });
-          await supabase.from('profiles').update({ client_id: newClient.id, role: 'MANAGER' }).eq('id', profile.id);
-        }
+      // 2. Revisamos si el jefe ya existía en tu sistema
+      const { data: existingProfile } = await supabase.from('profiles').select('id').eq('email', managerData.email).maybeSingle();
+
+      if (existingProfile) {
+        // Si ya existía, solo le actualizamos la contraseña y lo vinculamos a la nueva plaza
+        await supabase.rpc('admin_update_user', { target_user_id: existingProfile.id, new_password: managerData.pass });
+        await supabase.from('profiles').update({ client_id: newClient.id, role: 'MANAGER' }).eq('id', existingProfile.id);
+      } else {
+        // SI ES NUEVO: Creamos su cuenta real en Supabase (Ghost Client) para que pueda loguearse
+        const ghostClient = createClient(
+          'https://wkjqbtmnrqbafzytrtfn.supabase.co',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc',
+          { auth: { persistSession: false, autoRefreshToken: false } }
+        );
+        
+        const { error: authError } = await ghostClient.auth.signUp({ email: managerData.email, password: managerData.pass });
+        if (authError) throw authError;
+
+        // Le asignamos su rol de Jefe y su nombre
+        const { error: rpcError } = await supabase.rpc('admin_set_role', {
+          target_email: managerData.email, new_role: 'MANAGER', full_name_val: managerData.name
+        });
+        if (rpcError) throw rpcError;
+
+        // Lo amarramos a la nueva empresa que acabamos de crear en el paso 1
+        await supabase.from('profiles').update({ client_id: newClient.id }).eq('email', managerData.email);
       }
 
-      toast.success("Empresa y Jefe legalizados en TLETL", { id: loading });
+      toast.success("Empresa y Accesos creados con éxito", { id: loading });
       setSelectedPlace(null);
       setManagerData({ name: '', email: '', pass: '' });
       setShowManagerForm(false);

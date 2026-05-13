@@ -127,14 +127,17 @@ export default function Dashboard({ navigateTo, stats }) {
   };
 
   const handleDeleteClient = (clientId, clientName) => {
-    // CORRECCIÓN: Cerramos el panel lateral PRIMERO
+    // 1. Cerramos el panel lateral PRIMERO
     setSelectedClient(null);
     
-    showConfirmDelete(`LA EMPRESA ${clientName}`, async () => {
-      await supabase.from('clientes').delete().eq('id', clientId);
-      toast.success("Empresa eliminada");
-      fetchClientes();
-    });
+    // 2. Esperamos 300ms para lanzar la alerta (da tiempo a la animación)
+    setTimeout(() => {
+      showConfirmDelete(`LA EMPRESA ${clientName}`, async () => {
+        await supabase.from('clientes').delete().eq('id', clientId);
+        toast.success("Empresa eliminada");
+        fetchClientes();
+      });
+    }, 300);
   };
 
   const menuItems = [
