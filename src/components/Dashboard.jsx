@@ -127,11 +127,13 @@ export default function Dashboard({ navigateTo, stats }) {
   };
 
   const handleDeleteClient = (clientId, clientName) => {
+    // CORRECCIÓN: Cerramos el panel lateral PRIMERO
+    setSelectedClient(null);
+    
     showConfirmDelete(`LA EMPRESA ${clientName}`, async () => {
       await supabase.from('clientes').delete().eq('id', clientId);
       toast.success("Empresa eliminada");
       fetchClientes();
-      setSelectedClient(null);
     });
   };
 
