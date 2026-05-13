@@ -15,6 +15,10 @@ const LIBRARIES = ['places'];
 const CENTER_MERIDA = { lat: 20.9673, lng: -89.5925 };
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100vh' };
 
+// Define las variables correctamente con const y comillas
+const supabaseUrl = 'https://wkjqbtmnrqbafzytrtfn.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc';
+
 const DARK_MAP_STYLE = [
   { "elementType": "geometry", "stylers": [{ "color": "#1d1d1b" }] },
   { "elementType": "labels.text.fill", "stylers": [{ "color": "#8a8a8a" }] },
@@ -133,10 +137,10 @@ export default function SitesView() {
         await supabase.rpc('admin_update_user', { target_user_id: existingProfile.id, new_password: managerData.pass });
         await supabase.from('profiles').update({ client_id: newClient.id, role: 'MANAGER' }).eq('id', existingProfile.id);
       } else {
-        // SI ES NUEVO: Creamos su cuenta real en Supabase (Ghost Client) para que pueda loguearse
+        // SI ES NUEVO: Creamos su cuenta real en Supabase (Ghost Client) usando tus variables limpias
         const ghostClient = createClient(
-          'https://wkjqbtmnrqbafzytrtfn.supabase.co',
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc',
+          supabaseUrl,
+          supabaseAnonKey,
           { auth: { persistSession: false, autoRefreshToken: false } }
         );
         
