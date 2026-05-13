@@ -12,8 +12,6 @@ import {
 export default function Dashboard({ navigateTo, stats }) {
   const [clientes, setClientes] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  const [newClientName, setNewClientName] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [selectedClient, setSelectedClient] = useState(null);
@@ -128,17 +126,6 @@ export default function Dashboard({ navigateTo, stats }) {
     }
   };
 
-  const handleAddClient = async () => {
-    if (!newClientName.trim()) return;
-    const { error } = await supabase.from('clientes').insert([{ nombre: newClientName.trim().toUpperCase() }]);
-    if (!error) {
-      toast.success("Empresa dada de alta");
-      fetchClientes();
-      setIsAdding(false);
-      setNewClientName('');
-    }
-  };
-
   const handleDeleteClient = (clientId, clientName) => {
     showConfirmDelete(`LA EMPRESA ${clientName}`, async () => {
       await supabase.from('clientes').delete().eq('id', clientId);
@@ -191,19 +178,7 @@ export default function Dashboard({ navigateTo, stats }) {
                {isAdmin ? 'Directorio de Empresas' : 'Mi Sucursal Asignada'}
             </h3>
           </div>
-          {isAdmin && (
-            <button onClick={() => setIsAdding(!isAdding)} className="text-[9px] font-black px-4 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-red-600 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-slate-900/20">
-              {isAdding ? <X size={14}/> : <PlusCircle size={14}/>} {isAdding ? 'CANCELAR' : 'AGREGAR'}
-            </button>
-          )}
         </div>
-
-        {isAdding && (
-          <div className="flex gap-3 animate-in slide-in-from-top-4 bg-slate-50 p-5 rounded-[2rem] border-2 border-dashed border-slate-200 mx-4">
-            <input type="text" placeholder="NOMBRE DE LA EMPRESA..." value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full p-4 bg-white rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-red-500 shadow-inner" autoFocus />
-            <button onClick={handleAddClient} className="px-8 bg-red-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-lg active:scale-90 transition-all">Guardar</button>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
           {clientes.map(cliente => (

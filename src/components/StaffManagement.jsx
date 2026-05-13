@@ -204,17 +204,20 @@ export default function StaffManagement({ currentUser }) {
           <form onSubmit={handleCreateUser} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Email</label>
-              <input type="email" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+              {/* SE AGREGÓ autoComplete="new-email" AQUÍ */}
+              <input type="email" autoComplete="new-email" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
             </div>
 
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre</label>
-              <input type="text" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newName} onChange={e => setNewName(e.target.value)} />
+              {/* Se agregó autoComplete="off" para evitar que rellene el nombre de usuario de la computadora */}
+              <input type="text" autoComplete="off" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newName} onChange={e => setNewName(e.target.value)} />
             </div>
 
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Password</label>
-              <input type={showPassword ? "text" : "password"} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+              {/* SE AGREGÓ autoComplete="new-password" AQUÍ */}
+              <input type={showPassword ? "text" : "password"} autoComplete="new-password" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
             </div>
 
             <div className="space-y-1">
