@@ -98,16 +98,13 @@ export default function NewInspection({ navigateTo }) {
 
   const [clientsDb, setClientsDb] = useState([]); 
   const [isAdmin, setIsAdmin] = useState(false); 
-  const [userProfile, setUserProfile] = useState(null); // <-- Guardar perfil completo
-  const [isAddingClient, setIsAddingClient] = useState(false); 
-  const [newClientName, setNewClientName] = useState('');
+  const [userProfile, setUserProfile] = useState(null); 
 
   const [imageToCrop, setImageToCrop] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  // --- EFECTO INICIAL MODIFICADO: Primero rol, luego clientes ---
   useEffect(() => {
     const init = async () => {
       const profile = await checkRole();
@@ -132,34 +129,13 @@ export default function NewInspection({ navigateTo }) {
   const fetchClients = async (profile) => {
     let query = supabase.from('clientes').select('*');
 
-    // FILTRO SAAS: Si no es Admin, solo ve su sucursal asignada
     if (profile && profile.role !== 'ADMIN' && profile.client_id) {
       query = query.eq('id', profile.client_id);
-      setSelectedClient(profile.client_id); // Auto-selección obligatoria
+      setSelectedClient(profile.client_id); 
     }
 
     const { data, error } = await query.order('nombre', { ascending: true });
     if (!error && data) setClientsDb(data);
-  };
-
-  const handleAddClient = async () => {
-    if (!newClientName.trim()) return;
-    const loadingToast = toast.loading("Registrando empresa en la nube...");
-    
-    const { data, error } = await supabase
-      .from('clientes')
-      .insert([{ nombre: newClientName.trim().toUpperCase() }])
-      .select();
-
-    if (error) {
-      toast.error("Error: " + error.message, { id: loadingToast });
-    } else {
-      toast.success(`Empresa ${data[0].nombre} registrada.`, { id: loadingToast });
-      setClientsDb([...clientsDb, data[0]].sort((a,b) => a.nombre.localeCompare(b.nombre)));
-      setSelectedClient(data[0].id);
-      setIsAddingClient(false);
-      setNewClientName('');
-    }
   };
 
   const handleDeleteClient = (clientId) => {
@@ -252,7 +228,7 @@ export default function NewInspection({ navigateTo }) {
       obsCards: selectedIPM.id === 'IPM-07' ? obsCards : null,
       voltages: selectedIPM.id === 'IPM-01-D' ? voltages : null,
       overallStatus: selectedIPM.id === 'IPM-07' && obsCards.some(c => c.nfpa === 'D') ? 'CRÍTICO' : 'ÓPTIMO',
-      technician: userProfile?.full_name || "Técnico TLETL", // <-- Dinámico
+      technician: userProfile?.full_name || "Técnico TLETL",
       observations,
       photo,
       location,
@@ -285,58 +261,29 @@ export default function NewInspection({ navigateTo }) {
             <label className="flex items-center gap-2 text-[10px] font-black text-red-600 uppercase tracking-widest">
               <User size={14}/> 1. Sucursal de Inspección
             </label>
+          </div>
+
+          <div className="flex gap-2 items-center animate-in fade-in">
+            <select 
+              value={selectedClient} 
+              onChange={(e) => setSelectedClient(e.target.value)}
+              disabled={!isAdmin} 
+              className={`w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all ${!isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              <option value="">-- Elige una Empresa --</option>
+              {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
             
-            {isAdmin && (
+            {isAdmin && selectedClient && (
               <button 
-                onClick={() => setIsAddingClient(!isAddingClient)} 
-                className={`text-[9px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all ${isAddingClient ? 'bg-slate-200 text-slate-600' : 'bg-slate-900 text-white hover:bg-red-600'}`}
+                onClick={() => handleDeleteClient(selectedClient)}
+                className="p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
+                title="Eliminar Empresa"
               >
-                {isAddingClient ? <X size={12}/> : <PlusCircle size={12}/>} 
-                {isAddingClient ? 'CANCELAR' : 'NUEVA EMPRESA'}
+                <Trash2 size={20} />
               </button>
             )}
           </div>
-
-          {isAddingClient ? (
-            <div className="flex gap-2 animate-in slide-in-from-top-2">
-              <input 
-                type="text" 
-                placeholder="NOMBRE DE LA EMPRESA..." 
-                value={newClientName}
-                onChange={e => setNewClientName(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all uppercase"
-                autoFocus
-              />
-              <button 
-                onClick={handleAddClient} 
-                className="px-6 bg-red-600 text-white font-black text-[10px] uppercase rounded-2xl hover:bg-red-700 transition-all active:scale-95 shadow-lg shadow-red-600/30"
-              >
-                Guardar
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2 items-center animate-in fade-in">
-              <select 
-                value={selectedClient} 
-                onChange={(e) => setSelectedClient(e.target.value)}
-                disabled={!isAdmin} // <--- BLOQUEO INTELIGENTE
-                className={`w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all ${!isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                <option value="">-- Elige una Empresa --</option>
-                {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-              
-              {isAdmin && selectedClient && (
-                <button 
-                  onClick={() => handleDeleteClient(selectedClient)}
-                  className="p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
-                  title="Eliminar Empresa"
-                >
-                  <Trash2 size={20} />
-                </button>
-              )}
-            </div>
-          )}
           {!isAdmin && <p className="text-[8px] font-black text-slate-300 uppercase px-2 tracking-widest animate-pulse">Sucursal vinculada automáticamente</p>}
         </div>
 
