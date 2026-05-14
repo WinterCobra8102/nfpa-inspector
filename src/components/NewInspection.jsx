@@ -4,74 +4,57 @@ import autoTable from 'jspdf-autotable';
 import Cropper from 'react-easy-crop';
 import SignatureCanvas from 'react-signature-canvas'; 
 import toast from 'react-hot-toast'; 
-import { showConfirmDelete } from '../alerts'; 
 import { supabase } from '../supabaseClient'; 
 import { 
-  Camera, MapPin, Save, RefreshCcw, 
-  ChevronRight, FileText, CheckCircle, AlertTriangle, XCircle, 
-  X, Check, ClipboardList, Scissors, MessageSquare, PlusCircle, Trash2,
-  AlertOctagon, ShieldAlert, Zap, Info, Droplets, Bell, Activity, Waves, 
-  Box, ToggleRight, CloudRain, Clipboard, ArrowLeft, Home, User
+  Camera, MapPin, Save, RefreshCcw, ChevronRight, Scissors, 
+  MessageSquare, Trash2, Droplets, Bell, Activity, Waves, 
+  Zap, Clipboard, ArrowLeft, Home, User, Image as ImageIcon
 } from 'lucide-react';
 import { db } from '../db'; 
 
-// --- CATÁLOGO EVOLUCIONADO: SEPARACIÓN I-P-M Y TIPOS DE BOMBA ---
+// --- CATÁLOGO MAESTRO CON PUNTOS EXACTOS DE TUS FORMATOS ---
 const IPM_CATALOG = [
   { 
     id: 'IPM-01-D', 
     standard: 'NFPA 25',
     category: 'BOMBAS',
-    type: 'DIESEL',
-    icon: <Activity size={20} />,
     name: 'BOMBA INCENDIO DIESEL (I-P-M)', 
     formCode: 'F-SER-014',
-    multiUnit: false,
+    icon: <Activity size={24} className="text-slate-300" />,
+    color: '#ef4444',
     sections: [
-      { type: 'I', title: "INSPECCIÓN VISUAL (I)", points: ["Válvulas normalmente abiertas del cuarto de bombas", "Indicador de nivel del tanque de agua", "Indicador de nivel del tanque de combustible", "Celdas de baterías (Nivel electrolito)", "Filtros de línea de suministro de agua", "Limpieza general del cuarto de bombas"] },
-      { type: 'P', title: "PRUEBAS DE RENDIMIENTO (P)", points: ["Arranque automático por caída de presión", "Operación manual del controlador", "Prueba de protección térmica del controlador jockey", "Verificación de cargador de baterías", "Temperatura de baterías en carga"] },
-      { type: 'M', title: "MANTENIMIENTO TÉCNICO (M)", points: ["Engrase de rodamientos de la bomba", "Ajuste de prensaestopas", "Limpieza de bornes de batería", "Drenado de sedimentos en tanque diesel"] }
+      { type: 'I', title: "INSPECCIÓN Y MANTENIMIENTO", points: ["Válvulas normalmente abiertas", "Indicador de nivel de agua", "Tanque sin materiales extraños", "Válvula de llenado automático", "Indicador de nivel de combustible", "Interruptor aislador jockey", "Protección térmica jockey", "Interruptores suministro AC", "Interruptores suministro baterías", "Componentes internos controlador", "Celdas de baterías (electrolito)", "Limpieza de corrosión baterías", "Limpieza de filtros de agua", "Limpieza general cuarto bombas"] },
+      { type: 'P', title: "PRUEBAS OPERATIVAS", points: ["Protecciones térmicas y fusibles", "Funcionamiento del cargador", "Temperatura de baterías", "Arranque automático (presión)", "Operación manual controlador"] }
+    ],
+    hasVoltages: true 
+  },
+  { 
+    id: 'IPM-02', 
+    standard: 'NFPA 25',
+    category: 'GABINETES',
+    name: 'GABINETES Y RACKS DE MANGUERAS', 
+    formCode: 'F-SER-016',
+    icon: <Waves size={24} className="text-slate-300" />,
+    color: '#3b82f6',
+    sections: [
+      { type: 'I', title: "INSPECCIONES", points: ["Estado de gabinete/rack y bolsa", "Revisión de etiqueta mantenimiento", "Inspección estado de manguera", "Verificar buen estado chiflón", "Revisión de válvula", "Soportería en buen estado", "Manguera colocada correctamente", "Limpieza a gabinete ó rack"] },
+      { type: 'M', title: "MANTENIMIENTO", points: ["Recorrido de dobleces de manguera"] }
     ]
   },
   { 
-    id: 'IPM-01-E', 
-    standard: 'NFPA 25',
-    category: 'BOMBAS',
-    type: 'ELÉCTRICA',
-    icon: <Zap size={20} />,
-    name: 'BOMBA INCENDIO ELÉCTRICA (I-P-M)', 
-    formCode: 'F-SER-015',
-    multiUnit: false,
+    id: 'IPM-03', 
+    standard: 'NFPA 72',
+    category: 'DETECCIÓN',
+    name: 'SISTEMA DE ALARMA DE INCENDIO', 
+    formCode: 'F-SER-019',
+    icon: <Bell size={24} className="text-slate-300" />,
+    color: '#f97316',
     sections: [
-      { type: 'I', title: "INSPECCIÓN VISUAL (I)", points: ["Controlador en modo AUTOMÁTICO", "Válvulas de succión y descarga abiertas", "Luces piloto de estatus OK"] },
-      { type: 'P', title: "PRUEBAS DE RENDIMIENTO (P)", points: ["Arranque manual y automático", "Presión estática vs Presión dinámica", "Verificación de amperaje en fases L1, L2, L3"] },
-      { type: 'M', title: "MANTENIMIENTO (M)", points: ["Limpieza interna de gabinete de control", "Apriete de terminales eléctricas", "Lubricación de motor eléctrico"] }
+      { type: 'I', title: "INSPECCIONES GENERALES", points: ["Tablero de control operativo", "Dispositivos activación manual", "Detectores libres de daño/pintura", "Fuentes de poder auxiliares", "Baterías libres de corrosión"] },
+      { type: 'P', title: "PRUEBAS DE FUNCIONAMIENTO", points: ["Modo prueba de luces tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Dispositivos notificación sonora", "Operar válvulas monitoreadas"] },
+      { type: 'X', title: "PRUEBAS DE CARGA Y AC", points: ["Simular falla a tierra", "Simular falla suministro AC", "Verificar cargadores baterías", "Interrumpir AC carga máxima", "Alarma general 5 min (Baterías)"] }
     ]
-  },
-  { 
-    id: 'IPM-04', 
-    standard: 'NFPA 25',
-    category: 'HIDRANTES',
-    icon: <Waves size={20} />,
-    name: 'SERVICIO A HIDRANTES (I-P-M)', 
-    formCode: 'F-SER-039', 
-    multiUnit: true, 
-    sections: [
-      { type: 'I', title: "INSPECCIONES (I)", points: ["Libre acceso y espacio mangueras", "Tapas giran libremente", "Estado físico de tuerca y vástago"] },
-      { type: 'P', title: "PRUEBA OPERATIVA (P)", points: ["Apertura al 100% flujo claro", "Cierre lento (Evitar golpe ariete)", "Verificación de drenaje de barril"] },
-      { type: 'M', title: "MANTENIMIENTO (M)", points: ["Lubricación de vástago y conexiones", "Cambio de empaques si aplica"] }
-    ]
-  },
-  { 
-    id: 'IPM-07', 
-    standard: 'NFPA 25',
-    category: 'OBSERVACIONES',
-    icon: <Clipboard size={20} />,
-    name: 'REPORTES DE OBSERVACIONES TÉCNICAS', 
-    formCode: 'F-SER-045', 
-    isObservations: true, 
-    multiUnit: false,
-    sections: [] 
-  },
+  }
 ];
 
 export default function NewInspection({ navigateTo }) { 
@@ -79,113 +62,32 @@ export default function NewInspection({ navigateTo }) {
   const [selectedStandard, setSelectedStandard] = useState(null);
   const [selectedIPM, setSelectedIPM] = useState(null);
   
-  // --- ESTADOS DE DATOS ---
-  const [responses, setResponses] = useState({});
-  const [pointNotes, setPointNotes] = useState({});
-  const [units, setUnits] = useState(['Unidad 1']); 
+  // ESTADOS DE DATOS
+  const [details, setDetails] = useState({}); // { [punto]: { status, note, photo } }
   const [voltages, setVoltages] = useState(Array.from({ length: 6 }, () => ({ min: '', max: '' })));
-  const [observations, setObservations] = useState('');
-  const [photo, setPhoto] = useState(null);
+  const [generalObs, setGeneralObs] = useState('');
   const [location, setLocation] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCapturingGps, setIsCapturingGps] = useState(false);
-  const [obsCards, setObsCards] = useState([{ area: '', sistema: '', equipo: '', estado: 'ACTIVO', cot: 'NO', observacion: '', impacto: '', accion: '', nfpa: 'DNC', formato: '' }]);
-  
-  // --- ESTADOS DE SAAS, FIRMA Y EMPRESAS ---
   const [selectedClient, setSelectedClient] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const sigPad = useRef({}); 
-
   const [clientsDb, setClientsDb] = useState([]); 
-  const [isAdmin, setIsAdmin] = useState(false); 
-  const [userProfile, setUserProfile] = useState(null); 
 
+  // RECORTADOR
   const [imageToCrop, setImageToCrop] = useState(null);
+  const [activePoint, setActivePoint] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   useEffect(() => {
-    const init = async () => {
-      const profile = await checkRole();
-      await fetchClients(profile);
+    const fetchClients = async () => {
+      const { data } = await supabase.from('clientes').select('*').order('nombre');
+      if (data) setClientsDb(data);
     };
-    init();
+    fetchClients();
   }, []);
-
-  const checkRole = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      if (data) {
-        setUserProfile(data);
-        if (data.role === 'ADMIN') setIsAdmin(true);
-        return data;
-      }
-    }
-    return null;
-  };
-
-  const fetchClients = async (profile) => {
-    let query = supabase.from('clientes').select('*');
-
-    if (profile && profile.role !== 'ADMIN' && profile.client_id) {
-      query = query.eq('id', profile.client_id);
-      setSelectedClient(profile.client_id); 
-    }
-
-    const { data, error } = await query.order('nombre', { ascending: true });
-    if (!error && data) setClientsDb(data);
-  };
-
-  const handleDeleteClient = (clientId) => {
-    const clientName = clientsDb.find(c => c.id === clientId)?.nombre || 'ESTA EMPRESA';
-    
-    showConfirmDelete(`LA EMPRESA ${clientName}`, async () => {
-      const deleteToast = toast.loading("Eliminando de la base de datos...");
-      try {
-        const { error } = await supabase.from('clientes').delete().eq('id', clientId);
-        if (error) throw error;
-        
-        toast.success(`${clientName} eliminada con éxito.`, { id: deleteToast });
-        setClientsDb(prev => prev.filter(c => c.id !== clientId));
-        if (selectedClient === clientId) setSelectedClient('');
-      } catch (err) {
-        toast.error("Error al eliminar: " + err.message, { id: deleteToast });
-      }
-    });
-  };
-
-  const handleDeleteUnit = (uIdx) => {
-    const unitToDelete = units[uIdx];
-    const remainingUnitsRaw = units.filter((_, i) => i !== uIdx);
-    const label = selectedIPM.category.slice(0,-1);
-    const newUnits = remainingUnitsRaw.map((_, i) => `${label} ${i + 1}`);
-    const newResponses = { ...responses };
-    const newPointNotes = { ...pointNotes };
-    Object.keys(newResponses).forEach(key => { if (key.startsWith(`${unitToDelete}-`)) delete newResponses[key]; });
-    Object.keys(newPointNotes).forEach(key => { if (key.startsWith(`${unitToDelete}-`)) delete newPointNotes[key]; });
-    setUnits(newUnits);
-    setResponses(newResponses);
-    setPointNotes(newPointNotes);
-  };
-
-  const captureGPS = () => {
-    setIsCapturingGps(true);
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const { latitude, longitude } = pos.coords;
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-        const data = await res.json();
-        setLocation({ lat: latitude, lng: longitude, address: data.display_name });
-      } catch {
-        setLocation({ lat: latitude, lng: longitude, address: `${latitude}, ${longitude}` });
-      } finally { setIsCapturingGps(false); }
-    }, () => { 
-      toast.error("Error al obtener GPS. Verifica los permisos."); 
-      setIsCapturingGps(false); 
-    }, { enableHighAccuracy: true, timeout: 10000 });
-  };
 
   const onCropComplete = useCallback((_, pixels) => setCroppedAreaPixels(pixels), []);
 
@@ -193,110 +95,155 @@ export default function NewInspection({ navigateTo }) {
     const canvas = document.createElement('canvas');
     const img = new Image(); img.src = imageToCrop;
     await new Promise(r => img.onload = r);
-    canvas.width = croppedAreaPixels.width; canvas.height = croppedAreaPixels.height;
+    canvas.width = 1024; canvas.height = 768;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, croppedAreaPixels.width, croppedAreaPixels.height);
-    setPhoto(canvas.toDataURL('image/jpeg'));
+    ctx.drawImage(img, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 1024, 768);
+    const base64 = canvas.toDataURL('image/jpeg', 0.7);
+    setDetails(prev => ({ ...prev, [activePoint]: { ...prev[activePoint], photo: base64 } }));
     setImageToCrop(null);
   };
 
-  const handleSave = async () => {
-    if (!selectedClient) { toast.error("Debe seleccionar un CLIENTE."); return; }
-    if (!ownerName) { toast.error("El NOMBRE del propietario es obligatorio."); return; }
-    if (sigPad.current.isEmpty()) { toast.error("El reporte debe estar FIRMADO por el responsable."); return; }
-
-    if (isSaving) return;
-    setIsSaving(true);
-    
-    const savingToast = toast.loading("Legalizando reporte...");
-
-    const reportId = crypto.randomUUID();
-    const reportData = {
-      id: reportId,
-      clientId: selectedClient, 
-      ownerName: ownerName,    
-      signature: sigPad.current.getTrimmedCanvas().toDataURL('image/png'), 
-      date: new Date().toISOString(),
-      serviceCode: selectedIPM.id,
-      equipmentName: selectedIPM.name,
-      norm: selectedIPM.formCode,
-      standard: selectedIPM.standard,
-      units,
-      sections: selectedIPM.sections, 
-      responses,
-      pointNotes,
-      obsCards: selectedIPM.id === 'IPM-07' ? obsCards : null,
-      voltages: selectedIPM.id === 'IPM-01-D' ? voltages : null,
-      overallStatus: selectedIPM.id === 'IPM-07' && obsCards.some(c => c.nfpa === 'D') ? 'CRÍTICO' : 'ÓPTIMO',
-      technician: userProfile?.full_name || "Técnico TLETL",
-      observations,
-      photo,
-      location,
-      synced: 0 
-    };
-
-    try { 
-      await db.inspections.add(reportData); 
-      toast.success("REPORTE LEGALIZADO Y GUARDADO", { id: savingToast }); 
-      navigateTo('home'); 
-    } catch (e) { 
-      toast.error("Error: " + e.message, { id: savingToast }); 
-    } finally { 
-      setIsSaving(false); 
-    }
+  const captureGPS = () => {
+    setIsCapturingGps(true);
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, address: `Coordenadas: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}` });
+      setIsCapturingGps(false);
+      toast.success("GPS Ubicado");
+    }, () => { setIsCapturingGps(false); toast.error("Error GPS"); });
   };
 
-  if (step === 1) {
+  // --- GENERACIÓN DE PDF PROFESIONAL ---
+  const generatePDF = (signature) => {
+    const doc = new jsPDF();
+    const color = selectedIPM.color || '#ef4444';
+    const client = clientsDb.find(c => c.id === selectedClient)?.nombre || 'S/N';
+
+    // Header
+    doc.setFillColor(color);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("TLETL FIRE SYSTEMS", 15, 20);
+    doc.setFontSize(10);
+    doc.text(`REPORTE: ${selectedIPM.name} | COD: ${selectedIPM.formCode}`, 15, 30);
+
+    // Datos Generales
+    doc.setTextColor(40);
+    doc.text(`CLIENTE: ${client}`, 15, 50);
+    doc.text(`ATENCIÓN: ${ownerName}`, 15, 56);
+    doc.text(`UBICACIÓN: ${location?.address || 'No capturada'}`, 15, 62);
+    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 150, 50);
+
+    // Tabla de Inspección
+    const rows = [];
+    selectedIPM.sections.forEach(sec => {
+      sec.points.forEach(p => {
+        const d = details[p] || {};
+        rows.push([p, d.status?.toUpperCase() || 'PTE', d.note || '-']);
+      });
+    });
+
+    autoTable(doc, {
+      startY: 70,
+      head: [['PUNTO DE REVISIÓN', 'ESTADO', 'NOTAS']],
+      body: rows,
+      headStyles: { fillColor: color }
+    });
+
+    // Tabla de Voltajes (Si aplica)
+    if (selectedIPM.hasVoltages) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [['ARRANQUE', 'V. MÍNIMO (PRUEBA)', 'V. MÁXIMO (POST)']],
+        body: voltages.map((v, i) => [i + 1, v.min || '-', v.max || '-']),
+        headStyles: { fillColor: color }
+      });
+    }
+
+    // Observaciones Generales
+    let nextY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(10);
+    doc.text("OBSERVACIONES GENERALES:", 15, nextY);
+    doc.setFontSize(9);
+    doc.text(generalObs || "Sin observaciones adicionales.", 15, nextY + 7, { maxWidth: 180 });
+
+    // Galería de Evidencias
+    let y = nextY + 25;
+    Object.entries(details).forEach(([key, val]) => {
+      if (val.photo) {
+        if (y > 230) { doc.addPage(); y = 20; }
+        doc.addImage(val.photo, 'JPEG', 15, y, 60, 45);
+        doc.setFontSize(7);
+        doc.text(key.substring(0, 45), 80, y + 10);
+        y += 50;
+      }
+    });
+
+    // Firma
+    const sigY = doc.internal.pageSize.getHeight() - 50;
+    doc.addImage(signature, 'PNG', 130, sigY - 25, 50, 25);
+    doc.text("FIRMA DE CONFORMIDAD", 130, sigY + 5);
+    doc.save(`TLETL_${selectedIPM.id}_${Date.now()}.pdf`);
+  };
+
+  const handleSave = async () => {
+    if (!selectedClient || !ownerName || sigPad.current.isEmpty()) {
+      toast.error("⚠️ Datos incompletos o falta firma."); return;
+    }
+    setIsSaving(true);
+    const signature = sigPad.current.getTrimmedCanvas().toDataURL('image/png');
+    try {
+      await db.inspections.add({ 
+        id: crypto.randomUUID(), clientId: selectedClient, ownerName, 
+        equipmentName: selectedIPM.name, details, voltages, location, signature, 
+        generalObs, date: new Date().toISOString() 
+      });
+      generatePDF(signature);
+      toast.success("REPORTE GUARDADO EXITOSAMENTE");
+      navigateTo('home');
+    } catch (e) { toast.error("Error al guardar localmente."); }
+    finally { setIsSaving(false); }
+  };
+
+  // --- INTERFAZ ---
+
+  if (step === 1) return (
+    <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in fade-in">
+      <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm space-y-4">
+        <label className="text-[10px] font-black text-red-600 uppercase flex items-center gap-2"><User size={14}/> Sucursal de Inspección</label>
+        <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-red-500 outline-none">
+          <option value="">-- Seleccionar Empresa --</option>
+          {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+      </div>
+      <div className={`grid gap-4 ${!selectedClient ? 'opacity-30 pointer-events-none' : ''}`}>
+        {['NFPA 25', 'NFPA 72'].map(id => (
+          <button key={id} onClick={() => { setSelectedStandard(id); setStep(2); }} className="flex justify-between items-center p-8 bg-white border rounded-[2.5rem] hover:border-red-600 transition-all shadow-xl group">
+             <div className="flex items-center gap-6">{id === 'NFPA 25' ? <Droplets className="text-blue-500" size={32}/> : <Bell className="text-red-500" size={32}/>}<h3 className="font-black text-2xl text-slate-700">{id}</h3></div>
+             <ChevronRight className="group-hover:translate-x-2 transition-transform text-slate-300"/>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (step === 2) {
+    const services = IPM_CATALOG.filter(item => item.standard.includes(selectedStandard));
     return (
-      <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in fade-in duration-500">
-        <button onClick={() => navigateTo('home')} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 group transition-all"><Home size={14}/> Salir al Panel</button>
-        <div className="text-center py-6">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">TLETL PCI</h2>
-          <div className="w-20 h-1.5 bg-red-600 mx-auto mt-2 rounded-full"></div>
-          <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-[0.2em]">SaaS de Ingeniería</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-[10px] font-black text-red-600 uppercase tracking-widest">
-              <User size={14}/> 1. Sucursal de Inspección
-            </label>
-          </div>
-
-          <div className="flex gap-2 items-center animate-in fade-in">
-            <select 
-              value={selectedClient} 
-              onChange={(e) => setSelectedClient(e.target.value)}
-              disabled={!isAdmin} 
-              className={`w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-700 outline-none border-2 border-transparent focus:border-red-500 transition-all ${!isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              <option value="">-- Elige una Empresa --</option>
-              {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-            
-            {isAdmin && selectedClient && (
-              <button 
-                onClick={() => handleDeleteClient(selectedClient)}
-                className="p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
-                title="Eliminar Empresa"
-              >
-                <Trash2 size={20} />
-              </button>
-            )}
-          </div>
-          {!isAdmin && <p className="text-[8px] font-black text-slate-300 uppercase px-2 tracking-widest animate-pulse">Sucursal vinculada automáticamente</p>}
-        </div>
-
-        <div className={`grid gap-4 ${!selectedClient ? 'opacity-30 pointer-events-none' : ''}`}>
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">2. Elige la Norma Técnica</p>
-          {[
-            { id: 'NFPA 25', name: 'Sistemas Basados en Agua', icon: <Droplets size={32}/>, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { id: 'NFPA 72', name: 'Alarmas y Detección', icon: <Bell size={32}/>, color: 'text-red-600', bg: 'bg-red-50' }
-          ].map(std => (
-            <button key={std.id} onClick={() => { setSelectedStandard(std.id); setStep(2); }} className="flex items-center justify-between p-8 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-red-600 transition-all group shadow-xl active:scale-95">
-              <div className="flex items-center gap-6"><div className={`${std.bg} ${std.color} p-5 rounded-3xl group-hover:bg-red-600 group-hover:text-white transition-all`}>{std.icon}</div>
-              <div className="text-left"><h3 className="font-black text-2xl text-slate-700 tracking-tight">{std.id}</h3><p className="text-xs font-bold text-slate-400 uppercase">{std.name}</p></div></div>
-              <ChevronRight className="text-slate-300 group-hover:translate-x-2 transition-transform" size={28} />
+      <div className="max-w-3xl mx-auto p-6 space-y-8 animate-in slide-in-from-right">
+        <button onClick={() => setStep(1)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600"><ArrowLeft size={14}/> Volver</button>
+        <h2 className="text-3xl font-black text-slate-800 border-l-8 border-red-600 pl-4 uppercase">Servicios {selectedStandard}</h2>
+        <div className="grid gap-3">
+          {services.map(item => (
+            <button key={item.id} onClick={() => { setSelectedIPM(item); setStep(3); }} className="bg-white p-6 rounded-[2rem] shadow-sm border flex items-center justify-between hover:border-red-500 transition-all group">
+              <div className="flex items-center gap-5">
+                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-red-50 transition-colors">{item.icon}</div>
+                <div className="text-left">
+                  <p className="text-[9px] font-black text-slate-300 uppercase">{item.id}</p>
+                  <h3 className="font-bold text-slate-700 uppercase text-sm">{item.name}</h3>
+                </div>
+              </div>
+              <ChevronRight className="text-slate-200" size={20} />
             </button>
           ))}
         </div>
@@ -304,180 +251,85 @@ export default function NewInspection({ navigateTo }) {
     );
   }
 
-  if (step === 2) {
-    const services = IPM_CATALOG.filter(item => item.standard === selectedStandard);
-    const categories = [...new Set(services.map(s => s.category))];
-    return (
-      <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in slide-in-from-right duration-300">
-        <div className="flex justify-between items-center px-2">
-          <button onClick={() => setStep(1)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600"><ArrowLeft size={14}/> Volver</button>
-          <button onClick={() => navigateTo('home')} className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase hover:text-red-600 font-bold"><Home size={14}/> Salir</button>
-        </div>
-        <h2 className="text-2xl font-black text-slate-800 border-l-8 border-red-600 pl-4 uppercase tracking-tighter">Servicios {selectedStandard}</h2>
-        {categories.map(cat => (
-          <div key={cat} className="space-y-3">
-            <h4 className="text-[10px] font-black text-red-600 bg-red-50 px-4 py-1.5 rounded-full inline-block tracking-widest">{cat}</h4>
-            <div className="grid gap-2">
-              {services.filter(s => s.category === cat).map(item => (
-                <button key={item.id} onClick={() => { setSelectedIPM(item); setUnits(item.multiUnit ? [`${cat.slice(0,-1)} 1`] : ['Servicio Único']); setStep(3); }} className="flex items-center justify-between p-5 bg-white border-2 border-slate-50 rounded-3xl hover:border-red-600 transition-all group shadow-sm">
-                  <div className="flex items-center gap-4"><div className="text-slate-300 group-hover:text-red-600 transition-colors">{item.icon}</div>
-                  <div className="text-left"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{item.id}</span><h3 className="font-bold text-slate-700 uppercase text-xs leading-tight">{item.name}</h3></div></div>
-                  <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (!selectedIPM) return null;
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24 animate-in fade-in">
-      <div className="flex justify-between items-center px-2 mb-2">
-        <button onClick={() => setStep(2)} className="text-[10px] font-black text-slate-400 uppercase hover:underline flex items-center gap-2"><ArrowLeft size={12}/> Volver</button>
-        <button onClick={() => navigateTo('home')} className="text-[10px] font-black text-slate-600 uppercase hover:text-red-600 flex items-center gap-2"><Home size={12}/> Salir</button>
+      <div className="flex justify-between items-center px-2">
+        <button onClick={() => setStep(2)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600"><ArrowLeft size={14}/> Catálogo</button>
+        <button onClick={() => navigateTo('home')} className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-2 hover:text-red-600"><Home size={14}/> Salir</button>
       </div>
 
-      <div className={`${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden`}>
-        <div className="flex items-center gap-3">
-          {selectedIPM.isObservations ? <AlertOctagon size={24} className="text-orange-400" /> : <ShieldAlert size={24} />}
-          <div>
-            <span className="text-[10px] font-black opacity-60 uppercase">{selectedIPM.standard} | {selectedIPM.category}</span>
-            <h2 className="text-2xl font-black uppercase tracking-tighter mt-1">{selectedIPM.name}</h2>
-          </div>
-        </div>
+      <div className={`${selectedIPM.color === '#ef4444' ? 'bg-red-600' : 'bg-slate-900'} p-10 rounded-[3rem] text-white shadow-2xl`}>
+        <span className="text-[10px] font-black opacity-60 uppercase">{selectedIPM.standard}</span>
+        <h2 className="text-3xl font-black uppercase tracking-tighter mt-1">{selectedIPM.name}</h2>
       </div>
 
-      {!selectedIPM.isObservations && units.map((unitName, uIdx) => (
-        <div key={uIdx} className={`space-y-4 ${selectedIPM.multiUnit ? 'border-l-4 border-blue-500 pl-4 py-2 mb-6' : ''}`}>
-          {selectedIPM.multiUnit && (
-            <div className="flex items-center justify-between">
-              <h4 className="font-black text-blue-600 uppercase text-[10px] tracking-widest">{unitName}</h4>
-              {units.length > 1 && (
-                <button 
-                  onClick={() => showConfirmDelete(`LA UNIDAD ${unitName}`, () => handleDeleteUnit(uIdx))} 
-                  className="text-red-400 hover:text-red-600 transition-colors"
-                >
-                  <Trash2 size={16}/>
-                </button>
-              )}
-            </div>
-          )}
-          {selectedIPM.sections.map((section, sIdx) => (
-            <div key={sIdx} className="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-2">
-              <div className="flex items-center gap-2 mb-4">
-                 <span className={`px-2 py-0.5 rounded text-[8px] font-black text-white ${section.type === 'I' ? 'bg-blue-500' : section.type === 'P' ? 'bg-purple-500' : 'bg-orange-500'}`}>{section.type}</span>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{section.title}</p>
+      {selectedIPM.sections.map((section, sIdx) => (
+        <div key={sIdx} className="bg-white p-8 rounded-[2.5rem] border shadow-sm space-y-6 mb-4">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-3">{section.title}</p>
+          {section.points.map((p, pIdx) => (
+            <div key={pIdx} className="border-b border-slate-50 pb-6 space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <span className="text-xs font-bold text-slate-700 flex-1">{p}</span>
+                <div className="flex gap-2">
+                  {['bien', 'na', 'falla'].map(s => (
+                    <button key={s} onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: s}}))} className={`px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${details[p]?.status === s ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>{s === 'bien' ? 'OK' : s === 'na' ? 'N/A' : 'X'}</button>
+                  ))}
+                </div>
               </div>
-              {section.points.map((point, pIdx) => {
-                const rKey = selectedIPM.multiUnit ? `${unitName}-${section.title}-${pIdx}` : `${section.title}-${pIdx}`;
-                return (
-                  <div key={pIdx} className="border-b border-slate-50 p-4 space-y-3">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <span className="text-xs font-bold text-slate-700">{point}</span>
-                      <div className="flex gap-2">
-                        {['bien', 'na', 'falla'].map(s => (
-                          <button key={s} onClick={() => setResponses({...responses, [rKey]: s})} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${responses[rKey] === s ? (s === 'falla' ? 'bg-red-500 text-white' : s === 'na' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white') + ' scale-110 shadow-lg' : 'text-slate-400 bg-slate-50'}`}>{s === 'bien' ? 'OK' : s === 'na' ? 'N/A' : 'X'}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border"><MessageSquare size={14} className="text-slate-300" /><input className="w-full bg-transparent text-[10px] font-bold outline-none" placeholder="Nota técnica..." value={pointNotes[rKey] || ''} onChange={e => setPointNotes({...pointNotes, [rKey]: e.target.value})} /></div>
-                  </div>
-                );
-              })}
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 bg-slate-50 p-3 rounded-xl border">
+                  <MessageSquare size={14} className="text-slate-300" /><input className="w-full bg-transparent text-[11px] font-bold outline-none" placeholder="Nota del punto..." value={details[p]?.note || ''} onChange={e => setDetails(prev => ({...prev, [p]: {...prev[p], note: e.target.value}}))} />
+                </div>
+                <label className={`w-14 h-14 flex items-center justify-center rounded-xl border-2 border-dotted cursor-pointer transition-all ${details[p]?.photo ? 'bg-green-50 border-green-500 text-green-600' : 'text-slate-400'}`}>
+                  {details[p]?.photo ? <ImageIcon size={24}/> : <Camera size={24}/>}
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const r = new FileReader(); r.onload = () => { setImageToCrop(r.result); setActivePoint(p); }; r.readAsDataURL(e.target.files[0]); }} />
+                </label>
+              </div>
             </div>
           ))}
         </div>
       ))}
 
-      {selectedIPM.isObservations && (
-          <div className="space-y-6">
-            {obsCards.map((card, idx) => (
-              <div key={idx} className="bg-white rounded-[2rem] border-2 border-slate-200 overflow-hidden shadow-xl">
-                 <div className={`p-4 flex justify-between items-center ${card.nfpa === 'D' ? 'bg-red-600' : card.nfpa === 'DC' ? 'bg-orange-500' : 'bg-yellow-400'} text-white`}>
-                  <span className="font-black text-xs uppercase tracking-widest">OBSERVACIÓN TÉCNICA #{idx + 1}</span>
-                  <button onClick={() => showConfirmDelete('ESTA OBSERVACIÓN', () => setObsCards(obsCards.filter((_, i) => i !== idx)))}>
-                    <Trash2 size={18}/>
-                  </button>
-                </div>
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Área</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold text-xs" value={card.area} onChange={e => { const n = [...obsCards]; n[idx].area = e.target.value; setObsCards(n); }} /></div>
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sistema</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold text-xs" value={card.sistema} onChange={e => { const n = [...obsCards]; n[idx].sistema = e.target.value; setObsCards(n); }} /></div>
-                  <div className="md:col-span-2"><textarea className="w-full p-4 bg-slate-50 border-2 rounded-2xl font-bold text-xs h-20" placeholder="Escribe la observación..." value={card.observacion} onChange={e => { const n = [...obsCards]; n[idx].observacion = e.target.value; setObsCards(n); }} /></div>
-                </div>
-              </div>
-            ))}
-            <button onClick={() => setObsCards([...obsCards, { area: '', sistema: '', equipo: '', estado: 'ACTIVO', cot: 'NO', observacion: '', impacto: '', accion: '', nfpa: 'DNC', formato: '' }])} className="w-full py-6 border-4 border-slate-200 border-dotted rounded-[2.5rem] text-slate-400 font-black uppercase flex items-center justify-center gap-3 hover:bg-slate-100 transition-all"><Zap /> AGREGAR HALLAZGO</button>
+      {selectedIPM.hasVoltages && (
+          <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm space-y-6">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">6 ARRANQUES MANUALES (BATERÍAS 1 Y 2)</p>
+              <div className="grid grid-cols-3 gap-4 font-black text-[9px] text-slate-400 text-center uppercase"><span>Arranque</span><span>V. Mínimo</span><span>V. Máximo</span></div>
+              {voltages.map((v, i) => (
+                  <div key={i} className="grid grid-cols-3 gap-4 items-center">
+                      <span className="text-center font-bold text-xs">{i+1}º Prueba</span>
+                      <input type="number" placeholder="V" className="p-3 bg-slate-50 border rounded-xl text-center text-xs font-bold" value={v.min} onChange={e => { const n=[...voltages]; n[i].min=e.target.value; setVoltages(n); }} />
+                      <input type="number" placeholder="V" className="p-3 bg-slate-50 border rounded-xl text-center text-xs font-bold" value={v.max} onChange={e => { const n=[...voltages]; n[i].max=e.target.value; setVoltages(n); }} />
+                  </div>
+              ))}
           </div>
       )}
 
-      <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm space-y-4">
-        <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 tracking-widest"><FileText size={16}/> OBSERVACIONES GENERALES</label>
-        <textarea className="w-full h-32 p-4 bg-slate-50 border-2 rounded-3xl font-bold text-sm outline-none focus:border-red-500 resize-none" placeholder="Diagnóstico final..." value={observations} onChange={e => setObservations(e.target.value)} />
-      </div>
+      <button onClick={captureGPS} className={`w-full p-8 rounded-[2.5rem] border-4 border-dotted flex flex-col items-center gap-2 ${location ? 'border-green-500 bg-green-50 text-green-600' : 'bg-white text-slate-400 shadow-xl'}`}>
+         {isCapturingGps ? <RefreshCcw className="animate-spin" /> : <MapPin size={32} />}
+         <span className="font-black text-[10px] uppercase">{location ? location.address : "CAPTURA UBICACIÓN GPS"}</span>
+      </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button onClick={captureGPS} className={`p-8 rounded-[2.5rem] border-4 border-dotted flex flex-col items-center gap-2 transition-all ${location ? 'border-green-500 bg-green-50 text-green-600' : 'border-slate-100 bg-slate-50 text-slate-400'}`}>
-          {isCapturingGps ? <RefreshCcw className="animate-spin" /> : <MapPin size={32} />}
-          <span className="text-[10px] font-black uppercase tracking-widest">{location ? "DIRECCIÓN OK" : "CAPTURAR GPS"}</span>
-        </button>
-        <label className="p-8 rounded-[2.5rem] border-4 border-dotted border-slate-100 bg-slate-50 flex flex-col items-center gap-2 cursor-pointer text-slate-400 relative overflow-hidden transition-all">
-          {photo && <img src={photo} className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Preview" />}
-          <Camera size={32} /><span className="text-[10px] font-black uppercase tracking-widest">{photo ? "FOTO LISTA" : "TOMAR EVIDENCIA"}</span>
-          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const reader = new FileReader(); reader.onload = () => setImageToCrop(reader.result); reader.readAsDataURL(e.target.files[0]); }} />
-        </label>
+      <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm space-y-4">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest"><FileText size={16}/> Comentario General Final</label>
+        <textarea className="w-full h-32 p-4 bg-slate-50 border rounded-3xl font-bold text-sm outline-none focus:border-red-500" value={generalObs} onChange={e => setGeneralObs(e.target.value)} />
       </div>
 
       <div className="bg-slate-900 p-8 rounded-[3rem] text-white space-y-6 border-4 border-red-600 shadow-2xl">
-        <div className="flex items-center gap-3">
-           <ShieldAlert className="text-red-500" size={28} />
-           <h3 className="font-black uppercase text-xl tracking-tighter">Validación Documental</h3>
-        </div>
-
-        <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Nombre de quien recibe (Propietario)</label>
-          <input 
-            type="text"
-            className="w-full bg-white/5 border-b-2 border-white/20 p-4 font-bold outline-none focus:border-red-500 transition-all text-white placeholder:text-white/20 mt-2"
-            placeholder="Escriba nombre completo..."
-            value={ownerName}
-            onChange={(e) => setOwnerName(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Firma Digital del Responsable</label>
-          <div className="bg-white rounded-3xl overflow-hidden shadow-inner h-48 border-4 border-slate-800">
-            <SignatureCanvas 
-              ref={sigPad}
-              penColor='black'
-              canvasProps={{className: 'signature-canvas w-full h-full cursor-crosshair'}} 
-            />
-          </div>
-          <button 
-            onClick={() => sigPad.current.clear()}
-            className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1 mx-auto py-2"
-          >
-            <RefreshCcw size={12} /> Limpiar Firma
-          </button>
-        </div>
+        <input className="w-full bg-white/5 border-b-2 border-white/20 p-4 font-bold outline-none focus:border-red-500 text-white" placeholder="Nombre de quien recibe..." value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+        <div className="bg-white rounded-3xl h-48 border-4 border-slate-800 overflow-hidden"><SignatureCanvas ref={sigPad} penColor='black' canvasProps={{className: 'signature-canvas w-full h-full'}} /></div>
+        <button onClick={() => sigPad.current.clear()} className="text-[10px] font-black text-red-500 uppercase w-full">Limpiar Firma</button>
       </div>
 
-      <button onClick={handleSave} disabled={isSaving} className={`w-full py-8 ${selectedIPM.isObservations ? 'bg-slate-900' : 'bg-red-600'} text-white rounded-[3.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all flex flex-col items-center justify-center gap-1 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
-        <div className="flex items-center gap-4">
-          {isSaving ? <RefreshCcw className="animate-spin" /> : <Save />}
-          {isSaving ? "PROCESANDO..." : "FINALIZAR Y LEGALIZAR REPORTE"}
-        </div>
-        {!isSaving && <span className="text-[10px] opacity-60 font-bold uppercase tracking-widest">Se generará evidencia para {ownerName || 'el cliente'}</span>}
+      <button onClick={handleSave} disabled={isSaving} className="w-full py-8 bg-red-600 text-white rounded-[3.5rem] font-black text-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">
+        {isSaving ? <RefreshCcw className="animate-spin" /> : <Save />} FINALIZAR REPORTE
       </button>
 
       {imageToCrop && (
-        <div className="fixed inset-0 z-[7000] bg-slate-900/90 backdrop-blur-md flex flex-col p-4">
-          <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl">
-            <Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={4/3} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} />
-          </div>
-          <button onClick={getCroppedImg} className="mt-4 p-6 bg-red-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2"><Scissors /> RECORTAR</button>
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col p-4">
+          <div className="relative flex-1"><Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={4/3} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} /></div>
+          <button onClick={getCroppedImg} className="mt-4 p-6 bg-red-600 text-white rounded-full font-black flex items-center justify-center gap-2 shadow-2xl uppercase tracking-widest"><Scissors /> RECORTAR Y ADJUNTAR</button>
         </div>
       )}
     </div>

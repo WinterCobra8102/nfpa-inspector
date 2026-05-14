@@ -18,7 +18,8 @@ import {
   ShieldAlert,
   Flame,
   LayoutGrid,
-  LogOut 
+  LogOut,
+  Calendar // <-- ÍCONO DE CALENDARIO AGREGADO
 } from 'lucide-react';
 
 import Login from './components/Login'; 
@@ -28,7 +29,8 @@ import InspectionHistory from './components/InspectionHistory';
 import SitesView from './components/SitesView'; 
 import CriticalFindings from './components/CriticalFindings'; 
 import UserProfile from './components/UserProfile'; 
-import StaffManagement from './components/StaffManagement'; 
+import StaffManagement from './components/StaffManagement';
+import IPMCalendar from './components/IPMCalendar'; // <-- COMPONENTE DE CALENDARIO AGREGADO
 
 function App() {
   // --- ESTADO DE AUTENTICACIÓN Y CARGA ---
@@ -38,6 +40,9 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // --- NUEVO ESTADO PARA VINCULAR DATOS ENTRE COMPONENTES ---
+  const [inspectionData, setInspectionData] = useState(null);
 
   // --- PERSISTENCIA DE SESIÓN Y ROLES ---
   useEffect(() => {
@@ -105,9 +110,13 @@ function App() {
     totalAssets: visibleInspections ? [...new Set(visibleInspections.map(i => i.equipmentName))].length : 0
   };
 
-  const navigateTo = (tab) => {
+  // --- NAVEGACIÓN MEJORADA: RECIBE DATOS DEL CALENDARIO ---
+  const navigateTo = (tab, data = null) => {
+    console.log(`[TLETL Navigation] Hacia: ${tab}`, data); // Debugging preciso
     setActiveTab(tab);
+    setInspectionData(data); // Guarda la tarea seleccionada si existe
     setMobileMenuOpen(false);
+    window.scrollTo(0, 0); // CORRECCIÓN: Resetea el scroll para evitar el efecto de pantalla blanca
   };
 
   const handleLogout = async () => {
@@ -243,6 +252,15 @@ function App() {
               onClick={() => navigateTo('sites')} 
               isOpen={isSidebarOpen || isMobileMenuOpen}
             />
+
+            {/* --- NUEVO BOTÓN DE CALENDARIO IPM --- */}
+            <NavItem 
+              icon={<Calendar size={20} />} 
+              label="Calendario IPM" 
+              active={activeTab === 'calendar'} 
+              onClick={() => navigateTo('calendar')} 
+              isOpen={isSidebarOpen || isMobileMenuOpen}
+            />
             
             <div className="my-6 border-t border-white/10 mx-6" />
             
@@ -326,7 +344,8 @@ function App() {
               
               {activeTab === 'form' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
                 <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-                  <NewInspection navigateTo={navigateTo} />
+                  {/* AQUÍ SE PASAN LOS DATOS PRECARGADOS AL FORMULARIO */}
+                  <NewInspection navigateTo={navigateTo} prefillData={inspectionData} />
                 </div>
               )}
 
@@ -345,6 +364,13 @@ function App() {
               {activeTab === 'sites' && (
                 <div className="h-full w-full">
                   <SitesView currentUser={currentUser} />
+                </div>
+              )}
+
+              {/* --- NUEVA VISTA DEL CALENDARIO IPM --- */}
+              {activeTab === 'calendar' && (
+                <div className="h-full overflow-y-auto">
+                  <IPMCalendar currentUser={currentUser} navigateTo={navigateTo} />
                 </div>
               )}
 
