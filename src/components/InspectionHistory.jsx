@@ -10,6 +10,9 @@ import {
 import { generatePDF } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 
+// CORRECCIÓN VISUAL: Importamos tu función nativa de alertas personalizadas para evitar los cuadros nativos del navegador
+import { showConfirmDelete } from '../alerts'; 
+
 export default function InspectionHistory({ navigateTo }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -64,7 +67,6 @@ export default function InspectionHistory({ navigateTo }) {
     setEditMode(isEdit);
   };
 
-  // === MOTOR DE SINCRONIZACIÓN CORREGIDO ===
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
@@ -84,10 +86,7 @@ export default function InspectionHistory({ navigateTo }) {
             client_address: report.clientAddress || 'No capturada', 
             owner_name: report.ownerName,
             signature: report.signature, 
-            
-            // CORRECCIÓN CRÍTICA 1: Enviamos de forma explícita la firma Base64 del Técnico evaluador a la nube
             tech_signature: report.techSignature || null, 
-            
             location: report.location, performed_by: report.performedBy,
             voltages: report.voltages, details: report.details
           };
@@ -104,10 +103,7 @@ export default function InspectionHistory({ navigateTo }) {
           formCode: item.form_code, serviceCode: item.form_code, overallStatus: item.overall_status,
           generalObs: item.general_obs, observations: item.general_obs, details: item.details,
           voltages: item.voltages, signature: item.signature,
-          
-          // CORRECCIÓN CRÍTICA 2: Mapeamos de vuelta la columna remota hacia la propiedad local IndexedDB (Dexie)
           techSignature: item.tech_signature, 
-          
           location: item.location,
           performedBy: item.performed_by, synced: 1
         }));
@@ -128,20 +124,35 @@ export default function InspectionHistory({ navigateTo }) {
   const toggleSelect = (id) => { setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]); };
   const toggleSelectAll = () => { if (selectedIds.length === filteredInspections?.length) setSelectedIds([]); else setSelectedIds(filteredInspections.map(i => i.id)); };
   
-  const handleBulkDelete = async () => {
-    if (window.confirm(`¿Eliminar ${selectedIds.length} reportes?`)) {
-      await supabase.from('inspections').delete().in('id', selectedIds);
-      await db.inspections.bulkDelete(selectedIds); setSelectedIds([]);
-      toast.success("Registros eliminados");
-    }
+  // === CORRECCIÓN VISUAL 1: ELIMINACIÓN EN MASA CON TU ALERTA PERSONALIZADA ===
+  const handleBulkDelete = () => {
+    const totalSelected = selectedIds.length;
+    showConfirmDelete(`${totalSelected} REPORTES FILTRADOS`, async () => {
+      const deleteToast = toast.loading("Eliminando registros en masa...");
+      try {
+        await supabase.from('inspections').delete().in('id', selectedIds);
+        await db.inspections.bulkDelete(selectedIds); 
+        setSelectedIds([]);
+        toast.success("Registros eliminados del sistema", { id: deleteToast });
+      } catch (err) {
+        toast.error("Error al procesar el borrado masivo", { id: deleteToast });
+      }
+    });
   };
 
-  const handleDeleteIndividual = async (id) => {
-    if (window.confirm("¿Eliminar reporte permanentemente?")) {
-      await supabase.from('inspections').delete().eq('id', id);
-      await db.inspections.delete(id);
-      toast.success("Reporte eliminado");
-    }
+  // === CORRECCIÓN VISUAL 2: ELIMINACIÓN INDIVIDUAL CON TU ALERTA PERSONALIZADA ===
+  const handleDeleteIndividual = (id, title) => {
+    const displayTitle = title ? title : "ESTE REPORTE TÉCNICO";
+    showConfirmDelete(displayTitle, async () => {
+      const deleteToast = toast.loading("Removiendo del historial...");
+      try {
+        await supabase.from('inspections').delete().eq('id', id);
+        await db.inspections.delete(id);
+        toast.success("Reporte eliminado permanentemente", { id: deleteToast });
+      } catch (err) {
+        toast.error("Error al eliminar el reporte", { id: deleteToast });
+      }
+    });
   };
 
   const handleUpdate = async () => {
@@ -197,7 +208,8 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => generatePDF(item)} className="bg-slate-800 hover:bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[9px] uppercase flex items-center gap-2"><FileDown size={14}/> PDF</button>
-                  <button onClick={() => handleDeleteIndividual(item.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={18}/></button>
+                  {/* PASAMOS EL NOMBRE DEL EQUIPO A LA ALERTA PERSONALIZADA */}
+                  <button onClick={() => handleDeleteIndividual(item.id, item.equipmentName)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={18}/></button>
                 </div>
                 </div>
               </div>
@@ -206,7 +218,7 @@ export default function InspectionHistory({ navigateTo }) {
         )}
       </div>
 
-      {/* MODAL DE VISUALIZACIÓN */}
+      {/* MODAL GIGANTE DE PREVISUALIZACIÓN */}
       {selectedReport && (
         <div className="fixed inset-0 z-[5000] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
           <div className="bg-slate-50 w-full max-w-4xl h-[92vh] rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
@@ -350,7 +362,7 @@ export default function InspectionHistory({ navigateTo }) {
                 )}
               </div>
 
-              {/* === APARTADO VISUAL ADICIONAL: CONSOLA DE FIRMAS DUALES EN MODAL === */}
+              {/* CONSOLA DE FIRMAS DUALES EN MODAL */}
               {(selectedReport.signature || selectedReport.techSignature) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900 p-6 rounded-[2rem] border-2 border-dashed border-white/10 shadow-xl">
                   
