@@ -181,7 +181,7 @@ export default function StaffManagement({ currentUser }) {
           updateData.full_name = editName.toUpperCase();
         }
 
-        const { error } = await supabase.from('profiles').update(updateData).eq('id', editingUser.id);
+        const { error = null } = await supabase.from('profiles').update(updateData).eq('id', editingUser.id);
         if (error) throw error;
       }
 
@@ -190,8 +190,24 @@ export default function StaffManagement({ currentUser }) {
     } catch (err) {
       toast.error("Error: " + err.message, { id: loadingToast });
     } finally {
+      // CORRECCIÓN CLAVE: Removimos la función rota inexistente para que el hilo de React fluya sin trabas
       setIsSubmitting(false);
     }
+  };
+
+  const handleDelete = (userId, userName) => {
+    if (!isAdmin) return; 
+    showConfirmDelete(userName, async () => {
+      const deleteToast = toast.loading("Eliminando accesos del sistema...");
+      try {
+        const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userId });
+        if (error) throw error;
+        toast.success(`${userName} eliminado del sistema.`, { id: deleteToast });
+        fetchStaff(); // Fuerza la actualización de la lista en pantalla tras borrar
+      } catch (err) {
+        toast.error("Error: " + err.message, { id: deleteToast });
+      }
+    });
   };
 
   if (!isAdmin && !isManager) {
@@ -203,7 +219,6 @@ export default function StaffManagement({ currentUser }) {
     );
   }
 
-  // Factor de condición para habilitar inputs si eres Admin o si te estás editando a ti mismo
   const canModifyFields = (person) => {
     if (isAdmin) return true;
     if (isManager && person?.id === currentUser?.id) return true;
@@ -322,7 +337,7 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      {/* MODAL DE EDICIÓN RESPONSIVE CON ACCESO REAL A CONTRASEÑA */}
+      {/* MODAL DE EDICIÓN RESPONSIVE */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
@@ -351,7 +366,6 @@ export default function StaffManagement({ currentUser }) {
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre Completo</label>
-                {/* CORRECCIÓN EXCLUSIVA: Cambiamos isManager por !canModifyFields para habilitar edición propia */}
                 <input type="text" disabled={!canModifyFields(editingUser)} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
 
@@ -362,7 +376,6 @@ export default function StaffManagement({ currentUser }) {
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Móvil</label>
-                {/* CORRECCIÓN EXCLUSIVA: Cambiamos isManager por !canModifyFields para habilitar edición propia */}
                 <input type="tel" disabled={!canModifyFields(editingUser)} autoComplete="off" placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
               </div>
 
@@ -383,7 +396,6 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
 
-              {/* === CONTROL TOTAL DE CREDENCIALES: APARECE SI ERES EL DUEÑO DE LA CUENTA O EL ADMIN GLOBAL === */}
               {canModifyFields(editingUser) && (
                 <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
                   <label className="text-[9px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
