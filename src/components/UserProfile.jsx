@@ -1,30 +1,58 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast'; // <-- IMPORTAMOS NUESTRO SISTEMA GLOBAL DE ALERTAS
-import { User, Mail, Shield, Save, RefreshCw, ChevronLeft } from 'lucide-react';
+import { User, Mail, Shield, Save, RefreshCw, ChevronLeft, Lock } from 'lucide-react';
 
 export default function UserProfile({ currentUser, setCurrentUser, navigateTo }) {
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState(currentUser.full_name || '');
 
+  // === NUEVOS ESTADOS COMPATIBLES PARA AUTOGESTIÓN DE CONTRASEÑA ===
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const handleUpdate = async (e) => {
     e.preventDefault();
+
+    // === VALIDACIONES DE SEGURIDAD ANTES DE ENVIAR A LA NUBE ===
+    if (newPassword.trim() !== "") {
+      if (newPassword !== confirmPassword) {
+        toast.error("⚠️ Las contraseñas introducidas no coinciden.");
+        return;
+      }
+      if (newPassword.length < 6) {
+        toast.error("⚠️ La contraseña debe tener al menos 6 caracteres.");
+        return;
+      }
+    }
+
     setLoading(true);
-    
-    // Lanzamos el toast de carga
     const loadingToast = toast.loading("Actualizando perfil...");
 
     try {
-      const { error } = await supabase
+      // 1. Si el usuario capturó campos de contraseña, actualizamos sus credenciales en Supabase Auth
+      if (newPassword.trim() !== "") {
+        const { error: authError } = await supabase.auth.updateUser({
+          password: newPassword.trim()
+        });
+        if (authError) throw authError;
+      }
+
+      // 2. Actualizamos los metadatos públicos en la tabla de perfiles
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ full_name: fullName })
+        .update({ full_name: fullName.toUpperCase() }) // Normalizamos a mayúsculas institucionales
         .eq('id', currentUser.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
       // Actualizar el estado global en App.jsx para que el header cambie al instante
-      setCurrentUser({ ...currentUser, full_name: fullName });
+      setCurrentUser({ ...currentUser, full_name: fullName.toUpperCase() });
       
+      // Reseteamos las cajas de texto de claves de forma limpia
+      setNewPassword("");
+      setConfirmPassword("");
+
       // Actualizamos el toast a éxito
       toast.success('Perfil actualizado correctamente', { id: loadingToast });
     } catch (err) {
@@ -54,7 +82,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
           </div>
           <h2 className="text-white mt-4 font-black uppercase tracking-tight text-xl">{currentUser.full_name || 'Usuario'}</h2>
           <span className="bg-red-600/20 text-red-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-red-500/30">
-            {currentUser.role}
+            {currentUser.role === 'MANAGER' ? 'JEFE DE SUCURSAL' : currentUser.role}
           </span>
         </div>
 
@@ -68,7 +96,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-sm outline-none focus:border-red-600 transition-all text-slate-700"
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-sm outline-none focus:border-red-600 transition-all text-slate-700 uppercase"
                 />
               </div>
             </div>
@@ -96,6 +124,41 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
                 />
               </div>
             </div>
+
+            {/* === BLOQUE DE AJUSTE RESPONSIVE: APARTADO REAL DE AUTOGESTIÓN DE CLAVES === */}
+            <div className="mt-4 pt-6 border-t border-slate-100 space-y-4">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Lock size={12} className="text-red-600" /> Cambiar Contraseña de Acceso
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nueva Contraseña</label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="w-full bg-slate-50 border-2 border-transparent p-4 rounded-2xl text-sm font-bold outline-none text-slate-700 focus:border-red-600 transition-all"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Confirmar Contraseña</label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="w-full bg-slate-50 border-2 border-transparent p-4 rounded-2xl text-sm font-bold outline-none text-slate-700 focus:border-red-600 transition-all"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-[8px] font-bold text-slate-400 leading-none px-1 uppercase tracking-tight">
+                Si dejas estos campos vacíos, tu contraseña de acceso actual no sufrirá cambios.
+              </p>
+            </div>
+
           </div>
 
           <button 

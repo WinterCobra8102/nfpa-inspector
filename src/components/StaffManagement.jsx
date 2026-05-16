@@ -139,29 +139,49 @@ export default function StaffManagement({ currentUser }) {
 
   const handleUpdateUser = async (e) => {
     if (e) e.preventDefault();
+    
+    if (editPassword.trim() !== '') {
+      if (editPassword.length < 6) {
+        toast.error("⚠️ La contraseña debe tener al menos 6 caracteres.");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     const loadingToast = toast.loading("Actualizando parámetros...");
 
     try {
+      const isSelfEditing = editingUser.id === currentUser?.id;
+
+      if (isSelfEditing && editPassword.trim() !== '') {
+        const { error: authError } = await supabase.auth.updateUser({ password: editPassword.trim() });
+        if (authError) throw authError;
+      }
+
       if (isAdmin) {
         const { error } = await supabase.rpc('admin_update_user', {
           target_user_id: editingUser.id,
           new_email: editEmail, 
           new_name: editName.toUpperCase(),
           new_role: editRole,
-          new_password: editPassword.trim() !== '' ? editPassword : null 
+          new_password: (!isSelfEditing && editPassword.trim() !== '') ? editPassword.trim() : null 
         });
         if (error) throw error;
 
         await supabase.from('profiles').update({ 
           client_id: editRole === 'MANAGER' ? editClientId : null,
-          phone: editPhone || null
+          phone: editPhone || null,
+          full_name: editName.toUpperCase()
         }).eq('id', editingUser.id);
 
       } else if (isManager) {
-        const { error } = await supabase.from('profiles').update({ 
-          client_id: editClientId || null
-        }).eq('id', editingUser.id);
+        const updateData = { client_id: editClientId || null };
+        if (isSelfEditing) {
+          updateData.phone = editPhone || null;
+          updateData.full_name = editName.toUpperCase();
+        }
+
+        const { error } = await supabase.from('profiles').update(updateData).eq('id', editingUser.id);
         if (error) throw error;
       }
 
@@ -174,20 +194,6 @@ export default function StaffManagement({ currentUser }) {
     }
   };
 
-  const handleDelete = (userId, userName) => {
-    if (!isAdmin) return; 
-    showConfirmDelete(userName, async () => {
-      const deleteToast = toast.loading("Eliminando accesos del sistema...");
-      try {
-        const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userId });
-        if (error) throw error;
-        toast.success(`${userName} eliminado del sistema.`, { id: deleteToast });
-      } catch (err) {
-        toast.error("Error: " + err.message, { id: deleteToast });
-      }
-    });
-  };
-
   if (!isAdmin && !isManager) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-20 text-center space-y-4">
@@ -196,6 +202,13 @@ export default function StaffManagement({ currentUser }) {
       </div>
     );
   }
+
+  // Factor de condición para habilitar inputs si eres Admin o si te estás editando a ti mismo
+  const canModifyFields = (person) => {
+    if (isAdmin) return true;
+    if (isManager && person?.id === currentUser?.id) return true;
+    return false;
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 relative">
@@ -269,7 +282,7 @@ export default function StaffManagement({ currentUser }) {
           <div className="md:col-span-1 bg-slate-900 p-6 rounded-[2rem] text-white space-y-3 h-fit border-t-4 border-blue-500 shadow-xl">
             <Shield size={24} className="text-blue-400"/>
             <h4 className="font-black text-xs uppercase tracking-wider">Acceso de Monitoreo</h4>
-            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase">Estás operando bajo el rango de Jefe de Sucursal. Tienes autorización para revisar el staff técnico y coordinar asignaciones, mas no para crear o corromper accesos de seguridad.</p>
+            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase">Estás operando bajo el rango de Jefe de Sucursal. Puedes auditar a tu equipo de inspectores asignados y actualizar tus parámetros de seguridad personal.</p>
           </div>
         )}
 
@@ -286,7 +299,9 @@ export default function StaffManagement({ currentUser }) {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-black text-sm uppercase text-slate-800 leading-none">{person.full_name || 'Sin Nombre'}</h4>
+                      <h4 className="font-black text-sm uppercase text-slate-800 leading-none">
+                        {person.full_name || 'Sin Nombre'} {person.id === currentUser?.id && <span className="text-blue-500 font-normal lowercase">(tú)</span>}
+                      </h4>
                       <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${person.role === 'ADMIN' ? 'bg-slate-900 text-white' : person.role === 'MANAGER' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
                         {person.role === 'MANAGER' ? 'JEFE SUCURSAL' : person.role === 'STAFF' ? 'TÉCNICO' : person.role}
                       </span>
@@ -307,19 +322,19 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      {/* MODAL DE EDICIÓN CON ALTURA CONTROLADA Y BOTÓN FIJO */}
+      {/* MODAL DE EDICIÓN RESPONSIVE CON ACCESO REAL A CONTRASEÑA */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          {/* Al hacer clic en el fondo borroso, también se cierra de forma segura */}
           <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
           
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] text-slate-700 border-t-8 border-slate-900 animate-in zoom-in-95 duration-200">
             
-            {/* CABECERA MAESTRA (SIEMPRE QUEDA FIJA Y VISIBLE EN PANTALLA) */}
             <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0 relative z-30">
               <div>
                 <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">Ficha Técnica</span>
-                <h3 className="font-black text-xl uppercase tracking-tighter mt-1">Modificar Perfil</h3>
+                <h3 className="font-black text-xl uppercase tracking-tighter mt-1">
+                  {editingUser.id === currentUser?.id ? "Mi Cuenta de Acceso" : "Modificar Perfil"}
+                </h3>
               </div>
               <button 
                 type="button" 
@@ -330,29 +345,30 @@ export default function StaffManagement({ currentUser }) {
               </button>
             </div>
 
-            {/* FORMULARIO INTERNO CON DETECTOR DE DESBORDAMIENTO (SCROLL AUTOMÁTICO INTERNO) */}
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar" autoComplete="off">
               <input type="text" style={{ display: 'none' }} />
               <input type="password" style={{ display: 'none' }} />
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre Completo</label>
-                <input type="text" disabled={isManager} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50" value={editName} onChange={e => setEditName(e.target.value)} />
+                {/* CORRECCIÓN EXCLUSIVA: Cambiamos isManager por !canModifyFields para habilitar edición propia */}
+                <input type="text" disabled={!canModifyFields(editingUser)} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Correo Electrónico</label>
-                <input type="text" disabled={isManager} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                <input type="text" disabled={!isAdmin} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Movil</label>
-                <input type="tel" disabled={isManager} autoComplete="off" placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Móvil</label>
+                {/* CORRECCIÓN EXCLUSIVA: Cambiamos isManager por !canModifyFields para habilitar edición propia */}
+                <input type="tel" disabled={!canModifyFields(editingUser)} autoComplete="off" placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Rango / Privilegios</label>
-                <select disabled={isManager} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50" value={editRole} onChange={e => setEditRole(e.target.value)}>
+                <select disabled={!isAdmin} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50 text-slate-800" value={editRole} onChange={e => setEditRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
                   <option value="ADMIN">Administrador Gral.</option>
@@ -361,19 +377,20 @@ export default function StaffManagement({ currentUser }) {
 
               <div className="space-y-1 animate-in slide-in-from-top-2">
                 <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
-                <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
+                <select disabled={!isAdmin} className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 disabled:opacity-50 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                   <option value="">Seleccionar empresa...</option>
                   {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
                 </select>
               </div>
 
-              {isAdmin && (
+              {/* === CONTROL TOTAL DE CREDENCIALES: APARECE SI ERES EL DUEÑO DE LA CUENTA O EL ADMIN GLOBAL === */}
+              {canModifyFields(editingUser) && (
                 <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
                   <label className="text-[9px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
-                    <Lock size={12}/> Reestablecer Contraseña (Soporte)
+                    <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña Personal" : "Restablecer Contraseña (Soporte)"}
                   </label>
                   <div className="relative flex items-center">
-                    <input type={showEditPassword ? "text" : "password"} autoComplete="new-password" placeholder="Nueva contraseña temporal..." className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
+                    <input type={showEditPassword ? "text" : "password"} autoComplete="new-password" placeholder="Escribe la nueva contraseña..." className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
                     <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                       {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -383,7 +400,6 @@ export default function StaffManagement({ currentUser }) {
               )}
             </form>
 
-            {/* PIE DE PÁGINA FIJO (NUNCA SE VA AL FONDO NI SE PIERDE) */}
             <div className="p-4 bg-slate-50 border-t flex gap-3 shrink-0 relative z-30">
               <button 
                 type="button" 
@@ -406,5 +422,13 @@ export default function StaffManagement({ currentUser }) {
         </div>
       )}
     </div>
+  );
+}
+
+function ActionIcon({ icon, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="p-3 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-all active:scale-90">
+      {icon}
+    </button>
   );
 }
