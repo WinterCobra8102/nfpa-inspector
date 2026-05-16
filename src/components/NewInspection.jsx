@@ -22,18 +22,21 @@ const IPM_CATALOG = [
   { id: 'IPM-03', standard: 'NFPA 72', category: 'ALARMAS', name: 'SISTEMA DE ALARMA DE INCENDIO', formCode: 'F-SER-019', icon: Bell, color: '#f97316', sections: [{ title: "INSPECCIONES", points: ["Tablero de control en buen estado y operativo", "Dispositivos manuales operativos", "Detectores de incendio en buen estado", "Fuentes de poder auxiliares operativas", "Baterías de respaldo en buen estado"] }, { title: "PRUEBAS", points: ["Prueba de luces del tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Prueba de notificación sonora y visual", "Verificar dispositivos de monitoreo"] }] },
   { id: 'IPM-04', standard: 'NFPA 25', category: 'HIDRANTES', name: 'SERVICIO A HIDRANTES', formCode: 'F-SER-039', icon: MapPin, color: '#06b6d4', sections: [{ title: "INSPECCIONES", points: ["El hidrante tiene libre acceso", "Las tapas giran libremente", "Verificar que el barril del hidrante esté libre de agua o hielo", "Estado físico del hidrante", "Desgaste de roscas en conectores de descarga y tapas", "Estado físico de la válvula", "Empaques y empaquetaduras en buen estado", "Disponibilidad de la llave del hidrante"] }] },
   { id: 'IPM-05', standard: 'NFPA 25', category: 'VÁLVULAS', name: 'VÁLVULAS DE CONTROL', formCode: 'F-SER-041', icon: Settings, color: '#8b5cf6', sections: [{ title: "INSPECCIÓN", points: ["La válvula se encuentra operativa y libre de daño visible", "La válvula es accesible y libre de obstrucciones", "La válvula está equipada con la correspondiente llave para su manipulación", "La válvula cuenta con candado y/o se encuentra supervisada", "Verificar el estado correcto de la válvula (abierta o cerrada)"] }, { title: "PRUEBA", points: ["Ejercitar cerrando y abriendo 3 vueltas las válvulas normalmente abiertas"] }] },
-  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles y en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
+  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles and en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
   { id: 'IPM-07', standard: 'NFPA 25/72', category: 'OBSERVACIONES', name: 'REPORTE DE OBSERVACIONES TÉCNICAS', formCode: 'F-SER-045', icon: Clipboard, color: '#0f172a', isObservations: true, sections: [] }
 ];
 
-export default function NewInspection({ navigateTo }) {
+export default function NewInspection({ navigateTo, prefillData }) { // <-- CORRECCIÓN: RECIBE PREFILLDATA
   const [step, setStep] = useState(1);
   const [selectedStandard, setSelectedStandard] = useState(null);
   const [selectedIPM, setSelectedIPM] = useState(null);
   const [details, setDetails] = useState({});
   const [voltages, setVoltages] = useState(Array.from({ length: 6 }, () => ({ min: '', max: '' })));
   const [generalObs, setGeneralObs] = useState('');
-  const [selectedClient, setSelectedClient] = useState('');
+  
+  // CORRECCIÓN: Inicializa con la sucursal precargada desde el radar si existe
+  const [selectedClient, setSelectedClient] = useState(prefillData?.clientId || '');
+  
   const [ownerName, setOwnerName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [clientsDb, setClientsDb] = useState([]);
@@ -53,7 +56,6 @@ export default function NewInspection({ navigateTo }) {
 
   useEffect(() => {
     const fetchClients = async () => {
-      // Jalar el campo 'direccion' de forma nativa desde Supabase para la precarga
       const { data } = await supabase.from('clientes').select('id, nombre, direccion').order('nombre');
       if (data) setClientsDb(data);
     };
@@ -66,7 +68,10 @@ export default function NewInspection({ navigateTo }) {
         setTechnicianName(displayName);
       }
 
-      if (navigator.geolocation) {
+      // Si el mapa ya envió las coordenadas de la sucursal, las hereda por defecto para evitar desfases de GPS
+      if (prefillData?.location) {
+        setLocation(prefillData.location);
+      } else if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => setLocation({
             lat: pos.coords.latitude,
@@ -79,10 +84,10 @@ export default function NewInspection({ navigateTo }) {
 
     fetchClients();
     loadUserAndLocation();
-  }, []);
+  }, [prefillData]);
 
   const startDrawing = (e) => {
-    if (e.cancelable) e.preventDefault(); // Cancela el scroll del navegador en móviles
+    if (e.cancelable) e.preventDefault(); 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
@@ -172,7 +177,6 @@ export default function NewInspection({ navigateTo }) {
       const signature = getSignatureDataURL();
       const clientObj = clientsDb.find(c => c.id === selectedClient);
 
-      // Guardado local inmediato incluyendo nombre y dirección de texto real de Supabase
       await db.inspections.add({
         id: crypto.randomUUID(),
         clientId: selectedClient,
