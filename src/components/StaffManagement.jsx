@@ -40,7 +40,6 @@ export default function StaffManagement({ currentUser }) {
   const isManager = currentUser?.role === 'MANAGER';
 
   useEffect(() => {
-    // AHORA: Tanto ADMIN como MANAGER pueden cargar el módulo
     if (isAdmin || isManager) {
       fetchStaff();
       fetchEmpresas(); 
@@ -72,17 +71,16 @@ export default function StaffManagement({ currentUser }) {
     if (data) setListaEmpresas(data);
   }
 
-  // --- FILTRO DE PRIVACIDAD VISUAL CRÍTICO ---
-  // Si el usuario es un MANAGER, limpiamos la lista para ocultar a los administradores generales en caliente.
+  // --- FILTRO DE PRIVACIDAD VISUAL ---
   const visibleStaff = useMemo(() => {
-    if (isAdmin) return staff; // El Admin ve todo
-    if (isManager) return staff.filter(person => person.role !== 'ADMIN'); // El Manager NO ve administradores
+    if (isAdmin) return staff; 
+    if (isManager) return staff.filter(person => person.role !== 'ADMIN'); 
     return [];
   }, [staff, currentUser]);
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!isAdmin) return; // Guardia de seguridad extra
+    if (!isAdmin) return; 
 
     if (!newEmail || !newName || !newPassword) {
       toast.error("Todos los campos obligatorios deben llenarse.");
@@ -140,13 +138,12 @@ export default function StaffManagement({ currentUser }) {
   };
 
   const handleUpdateUser = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSubmitting(true);
     const loadingToast = toast.loading("Actualizando parámetros...");
 
     try {
       if (isAdmin) {
-        // El ADMIN actualiza credenciales globales en la Auth y el Perfil
         const { error } = await supabase.rpc('admin_update_user', {
           target_user_id: editingUser.id,
           new_email: editEmail, 
@@ -162,7 +159,6 @@ export default function StaffManagement({ currentUser }) {
         }).eq('id', editingUser.id);
 
       } else if (isManager) {
-        // El MANAGER solo tiene permiso de alterar la sucursal asignada del técnico, nada más
         const { error } = await supabase.from('profiles').update({ 
           client_id: editClientId || null
         }).eq('id', editingUser.id);
@@ -179,7 +175,7 @@ export default function StaffManagement({ currentUser }) {
   };
 
   const handleDelete = (userId, userName) => {
-    if (!isAdmin) return; // Solo tú puedes borrar cuentas
+    if (!isAdmin) return; 
     showConfirmDelete(userName, async () => {
       const deleteToast = toast.loading("Eliminando accesos del sistema...");
       try {
@@ -215,9 +211,7 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* COMPUERTA 1: EL FORMULARIO DE CREACIÓN SOLO SE PINTA SI ERES EL ADMINISTRADOR GENERAL */}
+      <div className="grid md:grid-cols-3 gap-6">
         {isAdmin ? (
           <div className="md:col-span-1 bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-lg h-fit">
             <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 border-b pb-4">
@@ -272,7 +266,6 @@ export default function StaffManagement({ currentUser }) {
             </form>
           </div>
         ) : (
-          /* SI ES MANAGER: Usamos ese espacio para poner un aviso informativo de rango con estilo */
           <div className="md:col-span-1 bg-slate-900 p-6 rounded-[2rem] text-white space-y-3 h-fit border-t-4 border-blue-500 shadow-xl">
             <Shield size={24} className="text-blue-400"/>
             <h4 className="font-black text-xs uppercase tracking-wider">Acceso de Monitoreo</h4>
@@ -280,7 +273,7 @@ export default function StaffManagement({ currentUser }) {
           </div>
         )}
 
-        {/* LISTADO DE USUARIOS ACTIVOS FILTRADOS */}
+        {/* LISTADO */}
         <div className="md:col-span-2 space-y-3">
           {loading ? (
             <div className="p-10 text-center animate-pulse text-slate-400 font-black uppercase text-[10px]">Cargando Directorio...</div>
@@ -314,14 +307,31 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      {/* MODAL DE EDICIÓN CON CANDADOS SEGÚN ROL */}
+      {/* MODAL DE EDICIÓN CON ALTURA CONTROLADA Y BOTÓN FIJO */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200 text-slate-700">
-            <button onClick={() => setEditingUser(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-600"><X size={20}/></button>
-            <h3 className="font-black text-xl uppercase tracking-tighter mb-6">Modificar Perfil de Usuario</h3>
+          {/* Al hacer clic en el fondo borroso, también se cierra de forma segura */}
+          <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
+          
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] text-slate-700 border-t-8 border-slate-900 animate-in zoom-in-95 duration-200">
+            
+            {/* CABECERA MAESTRA (SIEMPRE QUEDA FIJA Y VISIBLE EN PANTALLA) */}
+            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0 relative z-30">
+              <div>
+                <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">Ficha Técnica</span>
+                <h3 className="font-black text-xl uppercase tracking-tighter mt-1">Modificar Perfil</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setEditingUser(null)} 
+                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-xl transition-all active:scale-90"
+              >
+                <X size={22}/>
+              </button>
+            </div>
 
-            <form onSubmit={handleUpdateUser} className="space-y-4" autoComplete="off">
+            {/* FORMULARIO INTERNO CON DETECTOR DE DESBORDAMIENTO (SCROLL AUTOMÁTICO INTERNO) */}
+            <form onSubmit={handleUpdateUser} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar" autoComplete="off">
               <input type="text" style={{ display: 'none' }} />
               <input type="password" style={{ display: 'none' }} />
 
@@ -342,23 +352,21 @@ export default function StaffManagement({ currentUser }) {
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Rango / Privilegios</label>
-                <select disabled={isManager} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50" value={editRole} onChange={e => setEditRole(e.target.value)}>
+                <select disabled={isManager} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50" value={editRole} onChange={e => setEditRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
                   <option value="ADMIN">Administrador Gral.</option>
                 </select>
               </div>
 
-              {/* LOS DOS ROLES PUEDEN EDITAR/ASIGNAR LA SUCURSAL */}
               <div className="space-y-1 animate-in slide-in-from-top-2">
                 <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
-                <select className="w-full p-3 bg-blue-50 border rounded-xl text-xs font-bold outline-none border border-blue-100" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
+                <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                   <option value="">Seleccionar empresa...</option>
                   {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
                 </select>
               </div>
 
-              {/* COMPUERTA 2: EL CUADRO DE RESTABLECIMIENTO DE CONTRASEÑA SOLO ES VISIBLE PARA EL ADMIN GENERAL */}
               {isAdmin && (
                 <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
                   <label className="text-[9px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
@@ -373,11 +381,27 @@ export default function StaffManagement({ currentUser }) {
                   <p className="text-[7.5px] font-bold text-red-500 leading-none px-1">Si dejas esta celda en blanco, las claves actuales del usuario no sufrirán modificaciones.</p>
                 </div>
               )}
+            </form>
 
-              <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-4 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2">
+            {/* PIE DE PÁGINA FIJO (NUNCA SE VA AL FONDO NI SE PIERDE) */}
+            <div className="p-4 bg-slate-50 border-t flex gap-3 shrink-0 relative z-30">
+              <button 
+                type="button" 
+                onClick={() => setEditingUser(null)} 
+                className="flex-1 bg-white border border-slate-200 text-slate-500 font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                disabled={isSubmitting} 
+                onClick={handleUpdateUser}
+                className="flex-[2] bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
                 {isSubmitting ? <RefreshCw className="animate-spin" size={14}/> : "Guardar Parámetros"}
               </button>
-            </form>
+            </div>
+
           </div>
         </div>
       )}

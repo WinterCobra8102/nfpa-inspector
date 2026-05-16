@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { 
   FileDown, AlertTriangle, CheckCircle, XCircle, ClipboardList, ClipboardCheck, 
   Trash2, Edit3, Eye, X, CheckSquare, Square, Cloud, CloudOff, RefreshCw, 
-  Filter, Home, MapPin, User, FileText, Check, Image as ImageIcon, MessageSquare
+  Filter, Home, MapPin, User, FileText, Check, Image as ImageIcon, MessageSquare, Lock
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
@@ -64,6 +64,7 @@ export default function InspectionHistory({ navigateTo }) {
     setEditMode(isEdit);
   };
 
+  // === MOTOR DE SINCRONIZACIÓN CORREGIDO ===
   const handleSyncAll = async () => {
     setIsSyncing(true);
     try {
@@ -82,7 +83,12 @@ export default function InspectionHistory({ navigateTo }) {
             client_name: report.clientName || 'NO ESPECIFICADO', 
             client_address: report.clientAddress || 'No capturada', 
             owner_name: report.ownerName,
-            signature: report.signature, location: report.location, performed_by: report.performedBy,
+            signature: report.signature, 
+            
+            // CORRECCIÓN CRÍTICA 1: Enviamos de forma explícita la firma Base64 del Técnico evaluador a la nube
+            tech_signature: report.techSignature || null, 
+            
+            location: report.location, performed_by: report.performedBy,
             voltages: report.voltages, details: report.details
           };
           const { error } = await supabase.from('inspections').upsert([dataToSync]);
@@ -97,7 +103,12 @@ export default function InspectionHistory({ navigateTo }) {
           equipmentName: item.equipment_name, standard: item.standard, category: item.category,
           formCode: item.form_code, serviceCode: item.form_code, overallStatus: item.overall_status,
           generalObs: item.general_obs, observations: item.general_obs, details: item.details,
-          voltages: item.voltages, signature: item.signature, location: item.location,
+          voltages: item.voltages, signature: item.signature,
+          
+          // CORRECCIÓN CRÍTICA 2: Mapeamos de vuelta la columna remota hacia la propiedad local IndexedDB (Dexie)
+          techSignature: item.tech_signature, 
+          
+          location: item.location,
           performedBy: item.performed_by, synced: 1
         }));
         await db.inspections.where('synced').equals(1).delete();
@@ -143,7 +154,7 @@ export default function InspectionHistory({ navigateTo }) {
         ownerName: tempOwnerName,
         details: tempDetails,
         voltages: tempVoltages,
-        synced: 0 // Cambiar flag para forzar re-subida en la siguiente sincronización masiva
+        synced: 0 
       });
       toast.success("Reporte modificado con éxito", { id: "update_loader" });
       setEditMode(false); 
@@ -195,14 +206,11 @@ export default function InspectionHistory({ navigateTo }) {
         )}
       </div>
 
-      {/* =====================================================
-          MODAL GIGANTE DE PREVISUALIZACIÓN Y EDICIÓN COMPLETA
-         ===================================================== */}
+      {/* MODAL DE VISUALIZACIÓN */}
       {selectedReport && (
         <div className="fixed inset-0 z-[5000] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
           <div className="bg-slate-50 w-full max-w-4xl h-[92vh] rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
             
-            {/* CABECERA DEL MODAL */}
             <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
               <div>
                 <span className="bg-red-600 px-3 py-1 rounded-md text-[9px] font-black tracking-widest uppercase">{editMode ? "Modo Editor de Datos" : "Previsualización del Reporte"}</span>
@@ -211,10 +219,8 @@ export default function InspectionHistory({ navigateTo }) {
               <button onClick={() => setSelectedReport(null)} className="p-3 bg-white/10 hover:bg-red-600 rounded-full text-white transition-colors"><X size={20}/></button>
             </div>
 
-            {/* CUERPO DEL DOCUMENTO CON SCROLL */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
               
-              {/* ENCABEZADO ESTILO PDF INSTITUCIONAL */}
               <div className="bg-red-600 p-6 rounded-3xl text-white shadow-md">
                 <h4 className="text-xl font-black tracking-tight">TLETL - PROTECCIÓN CONTRA INCENDIOS</h4>
                 <p className="text-xs font-bold opacity-80 mt-1 uppercase">FORMATO TÉCNICO: {selectedReport.formCode || 'IPM'} • NORMA: {selectedReport.standard}</p>
@@ -224,7 +230,6 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
               </div>
 
-              {/* DATOS GENERALES / UBICACIÓN */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><MapPin size={12}/> Datos de Localización de la Sucursal</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold text-slate-700">
@@ -247,7 +252,6 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
               </div>
 
-              {/* CONTROL DE ESTADO GLOBAL DE REVISIÓN */}
               {editMode && (
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-3">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Modificar Diagnóstico del Semáforo Global</p>
@@ -259,7 +263,6 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
               )}
 
-              {/* CUERPO DEL CHECKLIST COMPLETO DINÁMICO */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Puntos del Checklist Evaluados</p>
                 
@@ -316,7 +319,6 @@ export default function InspectionHistory({ navigateTo }) {
                 )}
               </div>
 
-              {/* TABLA DE VOLTAJES DE CICLO DIESEL */}
               {tempVoltages.some(v => v.min || v.max || editMode) && (
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b pb-2">Registros de Voltaje de Arranque</p>
@@ -339,7 +341,6 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
               )}
 
-              {/* ANOTACIONES GENERALES FINALES */}
               <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><FileText size={14}/> Observación Técnica General Final</label>
                 {editMode ? (
@@ -349,19 +350,39 @@ export default function InspectionHistory({ navigateTo }) {
                 )}
               </div>
 
-              {/* SECCIÓN DE FIRMAS DE CONFORMIDAD */}
-              {selectedReport.signature && (
-                <div className="bg-slate-900 p-6 rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 shadow-lg text-center">
-                  <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3">Firma Digital Guardada de la Sucursal</p>
-                  <div className="bg-white rounded-2xl p-2 max-w-sm w-full h-28 flex items-center justify-center overflow-hidden shadow-inner">
-                    <img src={selectedReport.signature} alt="Firma Conformidad" className="max-h-full object-contain" />
+              {/* === APARTADO VISUAL ADICIONAL: CONSOLA DE FIRMAS DUALES EN MODAL === */}
+              {(selectedReport.signature || selectedReport.techSignature) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900 p-6 rounded-[2rem] border-2 border-dashed border-white/10 shadow-xl">
+                  
+                  {/* FIRMA OPERADOR TLETL */}
+                  <div className="flex flex-col items-center text-center p-3 bg-white/5 rounded-2xl">
+                    <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1"><Lock size={10}/> Firma Técnico Operador TLETL</p>
+                    <div className="bg-white rounded-2xl p-2 w-full h-28 flex items-center justify-center overflow-hidden shadow-inner">
+                      {selectedReport.techSignature ? (
+                        <img src={selectedReport.techSignature} alt="Firma Técnico" className="max-h-full object-contain" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400 italic">No capturada en la base local</span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* FIRMA DE CONFORMIDAD DEL CLIENTE */}
+                  <div className="flex flex-col items-center text-center p-3 bg-white/5 rounded-2xl">
+                    <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1"><User size={10}/> Firma Conformidad Cliente</p>
+                    <div className="bg-white rounded-2xl p-2 w-full h-28 flex items-center justify-center overflow-hidden shadow-inner">
+                      {selectedReport.signature ? (
+                        <img src={selectedReport.signature} alt="Firma Cliente" className="max-h-full object-contain" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400 italic">No capturada de conformidad</span>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               )}
 
             </div>
 
-            {/* BARRA DE ACCIONES DEL PIE DE MODAL */}
             <div className="p-6 bg-white border-t flex justify-end gap-3 shrink-0">
               <button type="button" onClick={() => setSelectedReport(null)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all">Cerrar Visualizador</button>
               {editMode && (

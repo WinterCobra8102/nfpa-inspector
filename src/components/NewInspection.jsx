@@ -22,11 +22,11 @@ const IPM_CATALOG = [
   { id: 'IPM-03', standard: 'NFPA 72', category: 'ALARMAS', name: 'SISTEMA DE ALARMA DE INCENDIO', formCode: 'F-SER-019', icon: Bell, color: '#f97316', sections: [{ title: "INSPECCIONES", points: ["Tablero de control en buen estado y operativo", "Dispositivos manuales operativos", "Detectores de incendio en buen estado", "Fuentes de poder auxiliares operativas", "Baterías de respaldo en buen estado"] }, { title: "PRUEBAS", points: ["Prueba de luces del tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Prueba de notificación sonora y visual", "Verificar dispositivos de monitoreo"] }] },
   { id: 'IPM-04', standard: 'NFPA 25', category: 'HIDRANTES', name: 'SERVICIO A HIDRANTES', formCode: 'F-SER-039', icon: MapPin, color: '#06b6d4', sections: [{ title: "INSPECCIONES", points: ["El hidrante tiene libre acceso", "Las tapas giran libremente", "Verificar que el barril del hidrante esté libre de agua o hielo", "Estado físico del hidrante", "Desgaste de roscas en conectores de descarga y tapas", "Estado físico de la válvula", "Empaques y empaquetaduras en buen estado", "Disponibilidad de la llave del hidrante"] }] },
   { id: 'IPM-05', standard: 'NFPA 25', category: 'VÁLVULAS', name: 'VÁLVULAS DE CONTROL', formCode: 'F-SER-041', icon: Settings, color: '#8b5cf6', sections: [{ title: "INSPECCIÓN", points: ["La válvula se encuentra operativa y libre de daño visible", "La válvula es accesible y libre de obstrucciones", "La válvula está equipada con la correspondiente llave para su manipulación", "La válvula cuenta con candado y/o se encuentra supervisada", "Verificar el estado correcto de la válvula (abierta o cerrada)"] }, { title: "PRUEBA", points: ["Ejercitar cerrando y abriendo 3 vueltas las válvulas normalmente abiertas"] }] },
-  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles and en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
-  { id: 'IPM-07', standard: 'NFPA 25/72', category: 'OBSERVACIONES', name: 'REPORTE DE OBSERVACIONES TÉCNICAS', formCode: 'F-SER-045', icon: Clipboard, color: '#0f172a', isObservations: true, sections: [] }
+  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles y en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
+  { id: 'IPM-07', standard: 'NFPA 25/72', category: 'OBSERVACIONES', name: 'REPORTE DE OBSERVACIONES TÉCNICAS', formCode: 'F-SER-045', icon: Clipboard, color: '#0f172a', isObservations: true, sections: [{ title: "REPORTE", points: ["Revisión general de anomalías detectadas en sitio"] }] }
 ];
 
-export default function NewInspection({ navigateTo, prefillData }) { // <-- CORRECCIÓN: RECIBE PREFILLDATA
+export default function NewInspection({ navigateTo, prefillData }) {
   const [step, setStep] = useState(1);
   const [selectedStandard, setSelectedStandard] = useState(null);
   const [selectedIPM, setSelectedIPM] = useState(null);
@@ -34,9 +34,7 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
   const [voltages, setVoltages] = useState(Array.from({ length: 6 }, () => ({ min: '', max: '' })));
   const [generalObs, setGeneralObs] = useState('');
   
-  // CORRECCIÓN: Inicializa con la sucursal precargada desde el radar si existe
   const [selectedClient, setSelectedClient] = useState(prefillData?.clientId || '');
-  
   const [ownerName, setOwnerName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [clientsDb, setClientsDb] = useState([]);
@@ -44,9 +42,14 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
   const [currentUser, setCurrentUser] = useState(null);
   const [technicianName, setTechnicianName] = useState('Detectando técnico...');
 
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSignature, setHasSignature] = useState(false);
+  // REFERENCIAS ABSOLUTAS TRADICIONALES (ESTABLES)
+  const clientCanvasRef = useRef(null);
+  const techCanvasRef = useRef(null);
+  
+  const [isClientDrawing, setIsClientDrawing] = useState(false);
+  const [isTechDrawing, setIsTechDrawing] = useState(false);
+  const [hasClientSignature, setHasClientSignature] = useState(false);
+  const [hasTechSignature, setHasTechSignature] = useState(false);
 
   const [imageToCrop, setImageToCrop] = useState(null);
   const [activePoint, setActivePoint] = useState(null);
@@ -68,15 +71,11 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
         setTechnicianName(displayName);
       }
 
-      // Si el mapa ya envió las coordenadas de la sucursal, las hereda por defecto para evitar desfases de GPS
       if (prefillData?.location) {
         setLocation(prefillData.location);
       } else if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (pos) => setLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          }),
+          (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
           () => {}
         );
       }
@@ -86,34 +85,62 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
     loadUserAndLocation();
   }, [prefillData]);
 
-  const startDrawing = (e) => {
+  // --- INICIALIZADOR DE CONTROL ÚNICO (RESPONSIVE SEGURO) ---
+  // Se ejecuta una sola vez al entrar al paso de firmas, adaptando los dos recuadros sin importar el reporte seleccionado
+  useEffect(() => {
+    if (step === 3 && selectedIPM) {
+      const initTimer = setTimeout(() => {
+        if (clientCanvasRef.current) {
+          const rect = clientCanvasRef.current.parentNode.getBoundingClientRect();
+          clientCanvasRef.current.width = rect.width;
+          clientCanvasRef.current.height = 240;
+          const ctx = clientCanvasRef.current.getContext('2d');
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, rect.width, 240);
+        }
+        if (techCanvasRef.current) {
+          const rect = techCanvasRef.current.parentNode.getBoundingClientRect();
+          techCanvasRef.current.width = rect.width;
+          techCanvasRef.current.height = 240;
+          const ctx = techCanvasRef.current.getContext('2d');
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, rect.width, 240);
+        }
+        // Reseteamos banderas visuales para trazos limpios
+        setHasClientSignature(false);
+        setHasTechSignature(false);
+      }, 200);
+
+      return () => clearTimeout(initTimer);
+    }
+  }, [step, selectedIPM]);
+
+  // --- TRAZOS DE DIBUJO MULTI-TOUCH ---
+  const startClientDrawing = (e) => {
     if (e.cancelable) e.preventDefault(); 
-    const canvas = canvasRef.current;
+    const canvas = clientCanvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    
     if(!clientX || !clientY) return;
 
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 3.0; 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(clientX - rect.left, clientY - rect.top);
-    setIsDrawing(true);
-    setHasSignature(true);
+    setIsClientDrawing(true);
+    setHasClientSignature(true);
   };
 
-  const draw = (e) => {
-    if (!isDrawing) return;
+  const drawClient = (e) => {
+    if (!isClientDrawing) return;
     if (e.cancelable) e.preventDefault();
-    const canvas = canvasRef.current;
+    const canvas = clientCanvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
 
@@ -121,16 +148,122 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
     ctx.stroke();
   };
 
-  const endDrawing = () => setIsDrawing(false);
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
+  const startTechDrawing = (e) => {
+    if (e.cancelable) e.preventDefault(); 
+    const canvas = techCanvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setHasSignature(false);
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    if(!clientX || !clientY) return;
+
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3.0;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    setIsTechDrawing(true);
+    setHasTechSignature(true);
   };
 
-  const getSignatureDataURL = () => canvasRef.current.toDataURL('image/png');
+  const drawTech = (e) => {
+    if (!isTechDrawing) return;
+    if (e.cancelable) e.preventDefault();
+    const canvas = techCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const clearClientSignature = () => {
+    const canvas = clientCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasClientSignature(false);
+  };
+
+  const clearTechSignature = () => {
+    const canvas = techCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasTechSignature(false);
+  };
+
+  // --- ENTRADA DE GUARDADO ---
+  const handleSave = async () => {
+    if (!selectedClient || !ownerName) {
+      toast.error("⚠️ Falta seleccionar cliente o responsable.");
+      return;
+    }
+    if (!hasClientSignature || !clientCanvasRef.current) {
+      toast.error("⚠️ La firma de conformidad del cliente es obligatoria.");
+      return;
+    }
+    if (!hasTechSignature || !techCanvasRef.current) {
+      toast.error("⚠️ La firma de autorización del técnico es obligatoria.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const clientSigURL = clientCanvasRef.current.toDataURL('image/png');
+      const techSigURL = techCanvasRef.current.toDataURL('image/png');
+      const clientObj = clientsDb.find(c => c.id === selectedClient);
+
+      // Parche definitivo de estatus para evitar colapsar reportes sin puntos (IPM-07)
+      const statusesArray = Object.values(details).map(d => d?.status);
+      let calculatedStatus = 'ÓPTIMO';
+      
+      if (statusesArray.length > 0) {
+        if (statusesArray.includes('critico')) {
+          calculatedStatus = 'CRÍTICO';
+        } else if (statusesArray.includes('advertencia')) {
+          calculatedStatus = 'ADVERTENCIA';
+        }
+      }
+
+      const safeLocation = location || { lat: 20.9673, lng: -89.5925 };
+
+      await db.inspections.add({
+        id: crypto.randomUUID(),
+        clientId: selectedClient,
+        clientName: clientObj ? clientObj.nombre : 'NO ESPECIFICADO',
+        clientAddress: clientObj ? clientObj.direccion : 'No capturada',
+        ownerName,
+        equipmentName: selectedIPM.name,
+        standard: selectedIPM.standard,   
+        category: selectedIPM.category,   
+        formCode: selectedIPM.formCode,   
+        details,
+        voltages,
+        generalObs,
+        status: calculatedStatus,        
+        overallStatus: calculatedStatus, 
+        signature: clientSigURL, 
+        techSignature: techSigURL, 
+        location: safeLocation,          
+        performedBy: technicianName,
+        date: new Date().toISOString()
+      });
+
+      toast.success("REPORTE GUARDADO Y LEGALIZADO LOCALMENTE");
+      navigateTo('home'); 
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al guardar el reporte.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const onCropComplete = useCallback((_, pixels) => setCroppedAreaPixels(pixels), []);
 
@@ -159,49 +292,6 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
           toast.error("No se pudo acceder al GPS", { id: "gps" });
         }
       );
-    }
-  };
-
-  const handleSave = async () => {
-    if (!selectedClient || !ownerName) {
-      toast.error("⚠️ Falta seleccionar cliente o responsable.");
-      return;
-    }
-    if (!hasSignature) {
-      toast.error("⚠️ La firma de conformidad es obligatoria.");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const signature = getSignatureDataURL();
-      const clientObj = clientsDb.find(c => c.id === selectedClient);
-
-      await db.inspections.add({
-        id: crypto.randomUUID(),
-        clientId: selectedClient,
-        clientName: clientObj ? clientObj.nombre : 'NO ESPECIFICADO',
-        clientAddress: clientObj ? clientObj.direccion : 'No capturada',
-        ownerName,
-        equipmentName: selectedIPM.name,
-        standard: selectedIPM.standard,   
-        category: selectedIPM.category,   
-        formCode: selectedIPM.formCode,   
-        details,
-        voltages,
-        generalObs,
-        signature,
-        location: location,
-        performedBy: technicianName,
-        date: new Date().toISOString()
-      });
-
-      toast.success("REPORTE GUARDADO Y LEGALIZADO LOCALMENTE");
-      navigateTo('home');
-    } catch (e) {
-      toast.error("Error al guardar el reporte.");
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -284,10 +374,10 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
         <h2 className="text-3xl font-black uppercase mt-1 leading-none tracking-tighter">{selectedIPM.name}</h2>
       </div>
 
-      {selectedIPM.sections.map((sec, sIdx) => (
+      {selectedIPM.sections && selectedIPM.sections.map((sec, sIdx) => (
         <div key={sIdx} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6 mb-4">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-3">{sec.title}</p>
-          {sec.points.map((p, pIdx) => (
+          {sec.points && sec.points.map((p, pIdx) => (
             <div key={pIdx} className="border-b border-slate-50 pb-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <span className="text-xs font-bold text-slate-700 flex-1 leading-tight">{p}</span>
@@ -350,21 +440,46 @@ export default function NewInspection({ navigateTo, prefillData }) { // <-- CORR
         <textarea className="w-full h-32 p-4 bg-slate-50 border border-slate-100 rounded-3xl font-bold text-sm outline-none focus:border-red-500 text-slate-700" placeholder="Escribe un informe general..." value={generalObs} onChange={e => setGeneralObs(e.target.value)} />
       </div>
 
-      <div className="bg-slate-900 p-8 rounded-[3rem] text-white space-y-6 border-4 border-red-600 shadow-2xl">
-        <div>
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Validación de Conformidad</label>
-          <input className="w-full bg-white/5 border-b-2 border-white/20 p-4 mt-2 font-bold outline-none text-white focus:border-red-500 transition-colors" placeholder="Nombre del Responsable que Recibe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+      {/* --- SECCIÓN RESPONSIVE DE DOBLE FIRMA (ESTABLE) --- */}
+      <div className="bg-slate-900 p-4 sm:p-8 rounded-[3rem] text-white space-y-8 border-4 border-red-600 shadow-2xl">
+        
+        {/* BLOQUE FIRMA 1: CLIENTE */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Validación de Conformidad (Cliente)</label>
+            <input className="w-full bg-white/5 border-b-2 border-white/20 p-4 mt-2 font-bold outline-none text-white focus:border-red-500 transition-colors" placeholder="Nombre del Responsable que Recibe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+          </div>
+          <div className="w-full bg-white rounded-3xl p-1.5 border-2 border-white/10 shadow-inner overflow-hidden h-[244px]">
+            {/* Vinculado a la referencia tradicional limpia */}
+            <canvas ref={clientCanvasRef} className="w-full rounded-2xl cursor-crosshair touch-none bg-white" onMouseDown={startClientDrawing} onMouseMove={drawClient} onMouseUp={() => setIsClientDrawing(false)} onMouseLeave={() => setIsClientDrawing(false)} onTouchStart={startClientDrawing} onTouchMove={drawClient} onTouchEnd={() => setIsClientDrawing(false)} />
+          </div>
+          <div className="flex justify-between items-center">
+            <button type="button" onClick={clearClientSignature} className="text-[10px] font-black text-red-400 hover:text-red-500 uppercase tracking-wider transition-colors">Borrar Firma Cliente</button>
+            {hasClientSignature && <span className="text-green-400 text-xs font-black uppercase tracking-wider animate-pulse">✓ Firma Cliente Vinculada</span>}
+          </div>
         </div>
-        <div className="bg-white rounded-3xl p-2 border-2 border-white/10 shadow-inner">
-          <canvas ref={canvasRef} width={600} height={200} className="w-full rounded-2xl cursor-crosshair touch-none bg-white" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={endDrawing} onMouseLeave={endDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={endDrawing} />
+
+        <div className="h-[1px] bg-white/10 my-4" />
+
+        {/* BLOQUE FIRMA 2: TÉCNICO */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Validación de Inspección Normativa (Técnico TLETL)</label>
+            <input className="w-full bg-white/5 border-b-2 border-white/20 p-4 mt-2 font-bold outline-none text-slate-400 cursor-not-allowed" disabled value={`RESPONSABLE: ${technicianName}`} />
+          </div>
+          <div className="w-full bg-white rounded-3xl p-1.5 border-2 border-white/10 shadow-inner overflow-hidden h-[244px]">
+            {/* Vinculado a la referencia tradicional limpia */}
+            <canvas ref={techCanvasRef} className="w-full rounded-2xl cursor-crosshair touch-none bg-white" onMouseDown={startTechDrawing} onMouseMove={drawTech} onMouseUp={() => setIsTechDrawing(false)} onMouseLeave={() => setIsTechDrawing(false)} onTouchStart={startTechDrawing} onTouchMove={drawTech} onTouchEnd={() => setIsTechDrawing(false)} />
+          </div>
+          <div className="flex justify-between items-center">
+            <button type="button" onClick={clearTechSignature} className="text-[10px] font-black text-red-400 hover:text-red-500 uppercase tracking-wider transition-colors">Borrar Firma Técnico</button>
+            {hasTechSignature && <span className="text-green-400 text-xs font-black uppercase tracking-wider animate-pulse">✓ Firma Técnico Vinculada</span>}
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <button type="button" onClick={clearSignature} className="text-[10px] font-black text-red-400 hover:text-red-500 uppercase tracking-wider transition-colors">Borrar Firma</button>
-          {hasSignature && <span className="text-green-400 text-xs font-black uppercase tracking-wider animate-pulse">✓ Firma Vinculada</span>}
-        </div>
+
       </div>
 
-      <button onClick={handleSave} disabled={isSaving} className="w-full py-8 bg-red-600 hover:bg-red-700 text-white rounded-[3.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-3 disabled:opacity-70 active:scale-98 transition-all">{isSaving ? <RefreshCcw className="animate-spin" /> : <Save />} FINALIZAR REPORTE</button>
+      <button onClick={handleSave} disabled={isSaving} className="w-full py-8 bg-red-600 hover:bg-red-700 text-white rounded-[3.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-3 disabled:opacity-70 active:scale-98 transition-all">{isSaving ? <RefreshCcw className="animate-spin" size={24} /> : <Save size={24} />} FINALIZAR REPORTE</button>
 
       {imageToCrop && (
         <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col p-4">
