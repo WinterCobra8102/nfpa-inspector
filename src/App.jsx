@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks'; 
 import { db } from './db';
 import { supabase } from './supabaseClient'; 
-import { Toaster } from 'react-hot-toast'; // <-- 1. IMPORTAMOS TOAST
+import { Toaster } from 'react-hot-toast'; 
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -19,7 +19,8 @@ import {
   Flame,
   LayoutGrid,
   LogOut,
-  Calendar // <-- ÍCONO DE CALENDARIO AGREGADO
+  Calendar,
+  Building2 
 } from 'lucide-react';
 
 import Login from './components/Login'; 
@@ -30,19 +31,21 @@ import SitesView from './components/SitesView';
 import CriticalFindings from './components/CriticalFindings'; 
 import UserProfile from './components/UserProfile'; 
 import StaffManagement from './components/StaffManagement';
-import IPMCalendar from './components/IPMCalendar'; // <-- COMPONENTE DE CALENDARIO AGREGADO
+import IPMCalendar from './components/IPMCalendar'; 
+import CompaniesView from './components/CompaniesView'; 
 
 function App() {
   // --- ESTADO DE AUTENTICACIÓN Y CARGA ---
   const [currentUser, setCurrentUser] = useState(null); 
-  const [isInitializing, setIsInitializing] = useState(true); // Control de Splash Screen
+  const [isInitializing, setIsInitializing] = useState(true); 
   const [activeTab, setActiveTab] = useState('home'); 
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // --- NUEVO ESTADO PARA VINCULAR DATOS ENTRE COMPONENTES ---
+  // --- ESTADO PARA VINCULAR DATOS ENTRE COMPONENTES Y MULTICLIENTE ---
   const [inspectionData, setInspectionData] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null); 
 
   // --- PERSISTENCIA DE SESIÓN Y ROLES ---
   useEffect(() => {
@@ -56,7 +59,7 @@ function App() {
       if (!error && data) {
         setCurrentUser(data);
       }
-      setIsInitializing(false); // Quitar Splash Screen tras cargar perfil
+      setIsInitializing(false); 
     };
 
     const checkInitialSession = async () => {
@@ -65,7 +68,7 @@ function App() {
         if (session) {
           await fetchProfile(session.user.id);
         } else {
-          setIsInitializing(false); // No hay sesión, ir directo al Login
+          setIsInitializing(false); 
         }
       } catch (error) {
         setIsInitializing(false);
@@ -110,18 +113,19 @@ function App() {
     totalAssets: visibleInspections ? [...new Set(visibleInspections.map(i => i.equipmentName))].length : 0
   };
 
-  // --- NAVEGACIÓN MEJORADA: RECIBE DATOS DEL CALENDARIO ---
+  // --- NAVEGACIÓN ---
   const navigateTo = (tab, data = null) => {
     setActiveTab(tab);
-    setInspectionData(data); // Guarda la tarea seleccionada si existe
+    setInspectionData(data); 
     setMobileMenuOpen(false);
-    window.scrollTo(0, 0); // CORRECCIÓN: Resetea el scroll para evitar el efecto de pantalla blanca
+    window.scrollTo(0, 0); 
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setActiveTab('home');
+    setSelectedCompany(null);
   };
 
   // --- CONFIGURACIÓN GLOBAL DE ALERTAS (DISEÑO TLETL) ---
@@ -130,9 +134,9 @@ function App() {
       position="bottom-right"
       toastOptions={{
         style: {
-          background: '#0f172a', // Fondo oscuro (slate-900)
-          color: '#f8fafc', // Letra blanca
-          border: '2px solid #1e293b', // Borde slate-800
+          background: '#0f172a', 
+          color: '#f8fafc', 
+          border: '2px solid #1e293b', 
           borderRadius: '1.5rem',
           fontWeight: '900',
           fontSize: '12px',
@@ -149,7 +153,6 @@ function App() {
     />
   );
 
-  // --- 1. RENDERIZADO DE SPLASH SCREEN (Evita el parpadeo) ---
   if (isInitializing) {
     return (
       <>
@@ -173,7 +176,6 @@ function App() {
     );
   }
 
-  // --- 2. PUERTA DE SEGURIDAD (LOGIN) ---
   if (!currentUser) {
     return (
       <>
@@ -183,7 +185,6 @@ function App() {
     );
   }
 
-  // --- 3. APLICACIÓN PRINCIPAL ---
   return (
     <>
       {GlobalToaster}
@@ -226,6 +227,7 @@ function App() {
               isOpen={isSidebarOpen || isMobileMenuOpen}
             />
             
+            {/* CORRECCIÓN TÉCNICA: Eliminados por completo los tags <option> que rompían el layout */}
             {['ADMIN', 'STAFF'].includes(currentUser.role) && (
               <NavItem 
                 icon={<PlusCircle size={20} />} 
@@ -252,12 +254,11 @@ function App() {
               isOpen={isSidebarOpen || isMobileMenuOpen}
             />
 
-            {/* --- NUEVO BOTÓN DE CALENDARIO IPM --- */}
             <NavItem 
-              icon={<Calendar size={20} />} 
-              label="Calendario IPM" 
-              active={activeTab === 'calendar'} 
-              onClick={() => navigateTo('calendar')} 
+              icon={<Building2 size={20} />} 
+              label="Empresas (IPM)" 
+              active={activeTab === 'companies' || activeTab === 'calendar'} 
+              onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} 
               isOpen={isSidebarOpen || isMobileMenuOpen}
             />
             
@@ -343,7 +344,6 @@ function App() {
               
               {activeTab === 'form' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
                 <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-                  {/* AQUÍ SE PASAN LOS DATOS PRECARGADOS AL FORMULARIO */}
                   <NewInspection navigateTo={navigateTo} prefillData={inspectionData} />
                 </div>
               )}
@@ -366,10 +366,28 @@ function App() {
                 </div>
               )}
 
-              {/* --- NUEVA VISTA DEL CALENDARIO IPM --- */}
+              {activeTab === 'companies' && (
+                <div className="h-full overflow-y-auto p-4 md:p-8">
+                  <CompaniesView 
+                    onSelectCompany={(company) => {
+                      setSelectedCompany(company);
+                      setActiveTab('calendar'); 
+                    }} 
+                  />
+                </div>
+              )}
+
               {activeTab === 'calendar' && (
                 <div className="h-full overflow-y-auto">
-                  <IPMCalendar currentUser={currentUser} navigateTo={navigateTo} />
+                  <IPMCalendar 
+                    currentUser={currentUser} 
+                    navigateTo={navigateTo} 
+                    selectedCompany={selectedCompany} 
+                    onBack={() => {
+                      setSelectedCompany(null);
+                      setActiveTab('companies'); 
+                    }}
+                  />
                 </div>
               )}
 

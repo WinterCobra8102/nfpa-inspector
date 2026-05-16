@@ -3,11 +3,11 @@ import { supabase } from '../supabaseClient';
 import { 
   Calendar as CalendarIcon, Clock, CheckCircle2, SlidersHorizontal, 
   CalendarDays, CalendarRange, Activity, Search, BookOpen, X, Info,
-  UserPlus, Save, FileText, ArrowRight
+  UserPlus, Save, FileText, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function IPMCalendar({ currentUser, navigateTo }) {
+export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, onBack }) {
   const [tasks, setTasks] = useState([]);
   const [technicians, setTechnicians] = useState([]); // Guardará la lista de STAFF
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
   useEffect(() => {
     fetchIPMTasks();
     if (canAssign) fetchTechnicians();
-  }, [currentUser]);
+  }, [currentUser, selectedCompany]); // Re-ejecuta si cambia la empresa seleccionada
 
   const fetchTechnicians = async () => {
     const { data } = await supabase.from('profiles').select('id, full_name, email').eq('role', 'STAFF');
@@ -59,10 +59,18 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
   const fetchIPMTasks = async () => {
     setLoading(true);
     let query = supabase.from('ipm_tasks').select('*');
-    if (currentUser?.role === 'MANAGER') query = query.eq('client_id', currentUser.client_id);
+    
+    // FILTRADO DINÁMICO POR EMPRESA SELECCIONADA
+    if (selectedCompany) {
+      query = query.eq('client_id', selectedCompany.id);
+    } else if (currentUser?.role === 'MANAGER') {
+      query = query.eq('client_id', currentUser.client_id);
+    }
+    
     const { data, error } = await query.order('id', { ascending: true });
     if (error) toast.error("Error al cargar calendario");
     else setTasks(data || []);
+    loading ? setLoading(false) : null;
     setLoading(false);
   };
 
@@ -79,15 +87,14 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
 
   // --- FUNCIÓN GUARDAR MEJORADA CON VALIDACIONES ---
   const handleSaveTask = async () => {
-    // 1. Validaciones amigables para el Administrador/Manager
     if (canAssign) {
       if (!editData.tecnico_id) {
         toast.error("⚠️ Por favor, selecciona un técnico de la lista.");
-        return; // Detiene la función aquí
+        return;
       }
       if (!editData.fecha_programada) {
         toast.error("⚠️ Por favor, selecciona una fecha programada.");
-        return; // Detiene la función aquí
+        return;
       }
     }
 
@@ -95,12 +102,9 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
     
     try {
       const updates = { ...editData };
-      
-      // 2. Prevención del error de base de datos
       if (updates.tecnico_id === '') updates.tecnico_id = null;
       if (updates.fecha_programada === '') updates.fecha_programada = null;
 
-      // Si el técnico la marca como completa, guardamos la fecha exacta automáticamente
       if (editData.status === 'COMPLETO' && selectedTask.status !== 'COMPLETO') {
         updates.fecha_realizacion = new Date().toISOString();
       }
@@ -110,7 +114,7 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
       
       toast.success("Tarea actualizada correctamente", { id: loadingToast });
       setSelectedTask(null);
-      fetchIPMTasks(); // Recarga las tareas para mostrar los cambios
+      fetchIPMTasks(); 
     } catch (error) {
       toast.error("Error al guardar: " + error.message, { id: loadingToast });
     }
@@ -126,7 +130,7 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
       if (filterFreq !== 'ALL' && t.frequency?.toLowerCase() !== filterFreq.toLowerCase()) return false;
       if (searchTerm.trim() !== '') {
         const searchLower = searchTerm.toLowerCase();
-        return t.title.toLowerCase().includes(searchLower) || t.id.toLowerCase().includes(searchLower);
+        return t.title.toLowerCase().includes(searchLower) || String(t.id).toLowerCase().includes(searchLower);
       }
       return true;
     });
@@ -139,7 +143,7 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
   const progressPercent = filteredTasks.length > 0 ? Math.round((completedTasks / filteredTasks.length) * 100) : 0;
 
   if (loading) return (
-    <div className="h-full flex items-center justify-center text-slate-500 font-black uppercase text-[10px] tracking-[0.3em]">
+    <div className="h-full flex items-center justify-center text-slate-500 font-black uppercase text-[10px] tracking-[0.3em] min-h-[50vh]">
       Sincronizando Cronograma...
     </div>
   );
@@ -147,11 +151,24 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 pb-32 relative overflow-hidden">
       
+      {/* BOTÓN REGRESO AL PANEL DE EMPRESAS SI EXISTE LA PROP */}
+      {onBack && (
+        <button 
+          onClick={onBack} 
+          className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 transition-all tracking-wider mb-2"
+        >
+          <ArrowLeft size={14} /> Volver a Directorio de Empresas
+        </button>
+      )}
+
       {/* HEADER PRINCIPAL Y BOTÓN GLOSARIO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl border-2 border-slate-50">
         <div>
           <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em]">Cronograma de Servicios</p>
           <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 leading-none mt-1">Calendario IPM</h2>
+          {selectedCompany && (
+            <p className="text-xs font-black text-red-600 uppercase mt-2">SUCURSAL: {selectedCompany.nombre}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -179,8 +196,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
 
       {/* BARRA SUPERIOR DE FILTROS (Buscador + Menús) */}
       <div className="bg-slate-900 p-4 rounded-[1.5rem] flex flex-col lg:flex-row gap-4 items-center shadow-lg">
-        
-        {/* Buscador de Texto */}
         <div className="w-full lg:w-1/3 bg-white/10 rounded-xl flex items-center px-4 border border-white/10 focus-within:border-red-500 transition-colors h-12">
           <Search size={16} className="text-slate-400 mr-2" />
           <input 
@@ -195,7 +210,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
 
         <div className="h-[1px] w-full lg:w-[1px] lg:h-8 bg-white/10" />
 
-        {/* Filtros Dropdown */}
         <div className="flex-1 flex w-full flex-wrap gap-2">
           <div className="flex-1 min-w-[120px] bg-white/10 rounded-xl flex items-center px-3 border border-white/10 h-12">
             <CalendarDays size={14} className="text-slate-400" />
@@ -254,7 +268,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                   onClick={() => handleTaskClick(task)}
                   className={`group p-4 rounded-2xl border-l-4 bg-slate-50 transition-all hover:bg-white hover:shadow-xl hover:-translate-y-1 cursor-pointer relative overflow-hidden ${task.color_code === 'red' ? 'border-l-red-500' : task.color_code === 'orange' ? 'border-l-orange-500' : task.color_code === 'purple' ? 'border-l-purple-500' : 'border-l-green-500'}`}
                 >
-                  {/* Etiqueta de Técnico asignado visual */}
                   {task.tecnico_id && (
                     <div className="absolute top-0 right-0 bg-blue-100 text-blue-600 text-[8px] font-black px-2 py-1 rounded-bl-xl z-20">
                       ASIGNADA
@@ -304,8 +317,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
             </div>
 
             <div className="p-6 space-y-5 overflow-y-auto max-h-[50vh]">
-              
-              {/* ZONA ADMIN/MANAGER: Asignación */}
               {canAssign && (
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-4">
                   <div>
@@ -331,7 +342,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                 </div>
               )}
 
-              {/* ZONA TÉCNICO: Ejecución */}
               {canExecute && (
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
                   <div>
@@ -356,7 +366,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                     />
                   </div>
                   
-                  {/* Botón directo al Formulario NFPA */}
                   <button 
                     onClick={() => {
                       if(navigateTo) {
@@ -397,7 +406,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
             </div>
             
             <div className="p-6 overflow-y-auto space-y-6">
-              {/* Sección NFPA 25 */}
               <div className="border border-red-100 rounded-2xl overflow-hidden">
                 <div className="bg-red-50 p-3 border-b border-red-100 font-black text-red-700 text-xs uppercase tracking-widest flex items-center gap-2">
                   <div className="w-3 h-3 bg-red-500 rounded-full" /> NFPA 25 - Bombas, Hidrantes y Montantes
@@ -410,7 +418,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                 </div>
               </div>
 
-              {/* Sección NFPA 72 */}
               <div className="border border-orange-100 rounded-2xl overflow-hidden">
                 <div className="bg-orange-50 p-3 border-b border-orange-100 font-black text-orange-700 text-xs uppercase tracking-widest flex items-center gap-2">
                   <div className="w-3 h-3 bg-orange-500 rounded-full" /> NFPA 72 - Detección y Alarmas
@@ -426,7 +433,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                 </div>
               </div>
 
-              {/* Sección NFPA 17A */}
               <div className="border border-purple-100 rounded-2xl overflow-hidden">
                 <div className="bg-purple-50 p-3 border-b border-purple-100 font-black text-purple-700 text-xs uppercase tracking-widest flex items-center gap-2">
                   <div className="w-3 h-3 bg-purple-500 rounded-full" /> NFPA 17A - Agentes Espumosos
@@ -439,7 +445,6 @@ export default function IPMCalendar({ currentUser, navigateTo }) {
                 </div>
               </div>
 
-              {/* Sección NFPA 2001 */}
               <div className="border border-green-100 rounded-2xl overflow-hidden">
                 <div className="bg-green-50 p-3 border-b border-green-100 font-black text-green-700 text-xs uppercase tracking-widest flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full" /> NFPA 2001 - Agentes Limpios
