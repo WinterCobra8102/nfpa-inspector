@@ -3,14 +3,29 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { Building2, MapPin, Calendar, ArrowRight, User } from 'lucide-react';
 
-export default function CompaniesView({ onSelectCompany }) {
+export default function CompaniesView({ onSelectCompany, currentUser }) {
   
-  // --- CORRECCIÓN TÉCNICA 1: CARGA REACTIVA DESDE EL ALMACÉN DE CLIENTES UNIFICADO ---
-  // Reemplaza el useEffect y la consulta directa a la API por una lectura del almacenamiento local indexado.
-  // Esto unifica las altas del mapa de SitesView con esta vista de forma inmediata y offline-ready.
-  const companies = useLiveQuery(() => 
-    db.clientes.orderBy('nombre').toArray()
-  );
+  // --- GESTIÓN DE PRIVACIDAD MAESTRA (OFFLINE-READY Y BLINDADO) ---
+  // Evaluamos el rol del usuario en tiempo de ejecución. Si es MANAGER, filtramos localmente en Dexie
+  // para que solo tenga visibilidad e interacción con su propia sucursal asignada.
+  const companies = useLiveQuery(async () => {
+    if (!db || !db.clientes) return [];
+    
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const isManager = currentUser?.role === 'MANAGER';
+
+    if (isManager) {
+      if (currentUser?.client_id) {
+        // Trae exclusivamente la empresa vinculada al Jefe de Sucursal
+        return await db.clientes.where('id').equals(currentUser.client_id).toArray();
+      }
+      // Si un manager por error no tiene ID de cliente, le escupimos un arreglo vacío por pura seguridad
+      return [];
+    }
+
+    // Si eres el ADMIN general, sigue barriendo el directorio de manera global
+    return await db.clientes.orderBy('nombre').toArray();
+  }, [currentUser]);
 
   // --- CONTROL DE CARGA ASÍNCRONA ---
   if (!companies) {
@@ -26,7 +41,10 @@ export default function CompaniesView({ onSelectCompany }) {
       <div>
         <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Directorio de Empresas</h2>
         <p className="text-xs font-bold text-slate-400 uppercase mt-1">
-          Selecciona una sucursal para gestionar su cronograma de mantenimiento normativo
+          {currentUser?.role === 'MANAGER' 
+            ? "Mi sucursal asignada para el control del cronograma normativo"
+            : "Selecciona una sucursal para gestionar su cronograma de mantenimiento normativo"
+          }
         </p>
       </div>
 
@@ -35,10 +53,13 @@ export default function CompaniesView({ onSelectCompany }) {
         <div className="bg-white border border-slate-100 rounded-[2.5rem] p-12 text-center shadow-sm">
           <Building2 size={40} className="mx-auto text-slate-300 mb-3 animate-pulse" />
           <p className="text-xs font-black text-slate-400 uppercase tracking-wider">
-            No hay sucursales registradas en el radar local.
+            No tienes sucursales vinculadas en tu cuenta de acceso.
           </p>
-          <p className="text-[10px] text-slate-400 font-bold mt-1">
-            Ve al apartado de "Ubicación de Sites" para registrar una nueva sucursal con Google Maps.
+          <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
+            {currentUser?.role === 'MANAGER'
+              ? "Solicita al administrador global que asigne tu ID de sucursal en la ficha de equipo."
+              : "Ve al apartado de 'Ubicación de Sites' para registrar una nueva sucursal con Google Maps."
+            }
           </p>
         </div>
       ) : (
@@ -64,7 +85,6 @@ export default function CompaniesView({ onSelectCompany }) {
                 </div>
 
                 <div className="space-y-2 text-xs font-bold text-slate-600 uppercase">
-                  {/* CORRECCIÓN TÉCNICA 2: Paridad de variables con la tabla 'clientes' de Supabase/Dexie */}
                   <p className="flex items-center gap-2 text-slate-400">
                     <MapPin size={14} className="shrink-0" /> 
                     <span className="text-slate-600 normal-case font-bold leading-tight">
