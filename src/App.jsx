@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks'; 
 import { db } from './db';
 import { supabase } from './supabaseClient'; 
@@ -227,7 +227,6 @@ function App() {
               isOpen={isSidebarOpen || isMobileMenuOpen}
             />
             
-            {/* CORRECCIÓN TÉCNICA: Eliminados por completo los tags <option> que rompían el layout */}
             {['ADMIN', 'STAFF'].includes(currentUser.role) && (
               <NavItem 
                 icon={<PlusCircle size={20} />} 
@@ -256,7 +255,8 @@ function App() {
 
             <NavItem 
               icon={<Building2 size={20} />} 
-              label="Empresas (IPM)" 
+              // UX PREMIUM: Cambiamos dinámicamente la etiqueta si es un Jefe de Sucursal
+              label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} 
               active={activeTab === 'companies' || activeTab === 'calendar'} 
               onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} 
               isOpen={isSidebarOpen || isMobileMenuOpen}
@@ -325,7 +325,9 @@ function App() {
                   <p className="text-xs font-black text-slate-800 leading-none tracking-tight uppercase group-hover:text-red-600 transition-colors">
                     {currentUser.full_name || currentUser.email}
                   </p>
-                  <p className="text-[9px] text-red-600 font-black uppercase mt-1">{currentUser.role}</p>
+                  <p className="text-[9px] text-red-600 font-black uppercase mt-1">
+                    {currentUser.role === 'MANAGER' ? 'JEFE DE SUCURSAL' : currentUser.role}
+                  </p>
                 </div>
                 <div className="w-10 h-10 bg-[#1a1a1a] rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-red-600 transition-all group-active:scale-90">
                   <UserIcon size={18} />
@@ -368,7 +370,9 @@ function App() {
 
               {activeTab === 'companies' && (
                 <div className="h-full overflow-y-auto p-4 md:p-8">
+                  {/* CORRECCIÓN SOBERANA: Inyectamos el prop currentUser para activar los candados de rol en el directorio local */}
                   <CompaniesView 
+                    currentUser={currentUser}
                     onSelectCompany={(company) => {
                       setSelectedCompany(company);
                       setActiveTab('calendar'); 
