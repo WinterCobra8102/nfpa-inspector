@@ -112,7 +112,6 @@ function App() {
 
   // --- NAVEGACIÓN MEJORADA: RECIBE DATOS DEL CALENDARIO ---
   const navigateTo = (tab, data = null) => {
-    console.log(`[TLETL Navigation] Hacia: ${tab}`, data); // Debugging preciso
     setActiveTab(tab);
     setInspectionData(data); // Guarda la tarea seleccionada si existe
     setMobileMenuOpen(false);
