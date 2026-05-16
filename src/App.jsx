@@ -268,7 +268,7 @@ function App() {
               <>
                 <NavItem 
                   icon={<Users size={20} />} 
-                  label="Inspectores" 
+                  label="Usuarios" 
                   active={activeTab === 'staff'}
                   onClick={() => navigateTo('staff')}
                   isOpen={isSidebarOpen || isMobileMenuOpen} 
