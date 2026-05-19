@@ -58,6 +58,23 @@ function App() {
       
       if (!error && data) {
         setCurrentUser(data);
+
+        // ================================================================
+        // ✨ MODIFICACIÓN INYECTADA: PULL INICIAL DE EMPRESAS (SUPABASE -> DEXIE)
+        // ================================================================
+        try {
+          const { data: remoteClientes, error: clientesError } = await supabase
+            .from('clientes')
+            .select('*');
+
+          if (!clientesError && remoteClientes) {
+            await db.clientes.clear();
+            await db.clientes.bulkPut(remoteClientes);
+          }
+        } catch (syncErr) {
+          console.error("Error en la sincronización inicial de empresas:", syncErr);
+        }
+        // ================================================================
       }
       setIsInitializing(false); 
     };
@@ -255,7 +272,6 @@ function App() {
 
             <NavItem 
               icon={<Building2 size={20} />} 
-              // UX PREMIUM: Cambiamos dinámicamente la etiqueta si es un Jefe de Sucursal
               label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} 
               active={activeTab === 'companies' || activeTab === 'calendar'} 
               onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} 
@@ -370,7 +386,6 @@ function App() {
 
               {activeTab === 'companies' && (
                 <div className="h-full overflow-y-auto p-4 md:p-8">
-                  {/* CORRECCIÓN SOBERANA: Inyectamos el prop currentUser para activar los candados de rol en el directorio local */}
                   <CompaniesView 
                     currentUser={currentUser}
                     onSelectCompany={(company) => {

@@ -61,7 +61,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   const canExecute = currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF';
 
   // --- CANDADO CRÍTICO DE JERARQUÍA ---
-  // Si el usuario actual es MANAGER y la tarea fue creada por un ADMIN, se bloquea la edición.
   const isTaskLockedForMe = useMemo(() => {
     if (!selectedTask || !currentUser) return false;
     return currentUser.role === 'MANAGER' && selectedTask.created_by_role === 'ADMIN';
@@ -77,14 +76,23 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
     if (data) setTechnicians(data);
   };
 
+  // ================================================================
+  // 🛡️ CORRECCIÓN DE SEGURIDAD 1: FILTRADO ESTRICTO DE QUERIES DESDE EL BACKEND
+  // ================================================================
   const fetchIPMTasks = async () => {
     setLoading(true);
     let query = supabase.from('ipm_tasks').select('*');
     
-    if (selectedCompany) {
+    // El rol de MANAGER tiene prioridad absoluta sobre cualquier selección previa para evitar fugas
+    if (currentUser?.role === 'MANAGER') {
+      query = query.eq('client_id', currentUser.client_id || '00000000-0000-0000-0000-000000000000');
+    } else if (selectedCompany) {
       query = query.eq('client_id', selectedCompany.id);
-    } else if (currentUser?.role === 'MANAGER') {
-      query = query.eq('client_id', currentUser.client_id);
+    } else {
+      // Si un usuario común entra sin contexto, bloqueamos el retorno de datos
+      setTasks([]);
+      setLoading(false);
+      return;
     }
     
     const { data, error } = await query.order('id', { ascending: true });
@@ -141,13 +149,22 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
     }
   };
 
+  // ================================================================
+  // 🛡️ CORRECCIÓN DE SEGURIDAD 2: ENFORZAMIENTO MULTICLIENTE AL CREAR ACTIVIDAD
+  // ================================================================
   const handleCreateNewTask = async () => {
     if (!newTask.custom_id || !newTask.title) {
       toast.error("⚠️ El código y el título son obligatorios.");
       return;
     }
-    if (!selectedCompany) {
-      toast.error("⚠️ Error: Debes seleccionar una empresa para asignarle esta actividad.");
+
+    // Determinamos el ID destino blindado por software de manera inmutable
+    const targetClientId = currentUser?.role === 'MANAGER' 
+      ? currentUser.client_id 
+      : selectedCompany?.id;
+
+    if (!targetClientId) {
+      toast.error("⚠️ Error: No se detectó una sucursal válida para alojar esta actividad.");
       return;
     }
 
@@ -157,7 +174,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
       
       const taskPayload = {
         id: newTask.custom_id.toUpperCase(),
-        client_id: selectedCompany.id, 
+        client_id: targetClientId, // <-- FIJAMOS LA LLAVE DE IDENTIFICACIÓN VERIFICADA
         title: newTask.title.toUpperCase(),
         color_code: newTask.color_code,
         frequency: newTask.frequency,
@@ -166,7 +183,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
         day_of_week: newTask.day_of_week,
         system: matchedCategory ? matchedCategory.label : 'NFPA 25 (Agua)',
         status: 'PENDIENTE',
-        created_by_role: currentUser?.role || 'ADMIN' // <-- REGISTRAMOS EL ROL DEL CREADOR LOGUEADO
+        created_by_role: currentUser?.role || 'ADMIN' 
       };
 
       const { error } = await supabase.from('ipm_tasks').insert([taskPayload]);
@@ -209,7 +226,8 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 pb-32 relative overflow-hidden">
       
-      {onBack && (
+      {/* OCULTAMOS EL BOTÓN DE VOLVER ATRÁS SI ERES MANAGER YA QUE ES TU VISTA ÚNICA Y FIJA */}
+      {onBack && currentUser?.role !== 'MANAGER' && (
         <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 transition-all tracking-wider mb-2">
           <ArrowLeft size={14} /> Volver a Directorio de Empresas
         </button>
@@ -220,7 +238,9 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
         <div>
           <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em]">Cronograma de Servicios</p>
           <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 leading-none mt-1">Calendario IPM</h2>
-          {selectedCompany && (
+          {currentUser?.role === 'MANAGER' ? (
+            <p className="text-xs font-black text-blue-600 uppercase mt-2">SUCURSAL VINCULADA DE ACCESO</p>
+          ) : selectedCompany && (
             <p className="text-xs font-black text-red-600 uppercase mt-2">SUCURSAL: {selectedCompany.nombre}</p>
           )}
         </div>
@@ -415,7 +435,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
         </div>
       )}
 
-      {/* MODAL EDICIÓN EXISTENTE (CON REGLA DE PROTECCIÓN DE SOLO LECTURA SI CORRESPONDE) */}
+      {/* MODAL EDICIÓN EXISTENTE */}
       {selectedTask && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedTask(null)} />
@@ -431,7 +451,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                 <h3 className="font-black uppercase text-slate-800 text-lg mt-3 leading-tight">{selectedTask.title}</h3>
                 <p className="text-[10px] font-bold text-slate-400 mt-1">{selectedTask.frequency} | {selectedTask.day_of_week} ({selectedTask.semana} de {selectedTask.mes})</p>
                 
-                {/* BANNER AVISO DE CANDADO ACTIVO */}
                 {isTaskLockedForMe && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-[9px] font-black text-red-600 uppercase tracking-wide">
                     <LockIcon size={14}/> Actividad Dictada por Administrador General (Solo Lectura)
@@ -477,7 +496,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                       disabled={isTaskLockedForMe}
                       value={editData.status} 
                       onChange={(e) => setEditData({...editData, status: e.target.value})}
-                      className={`w-full p-3 rounded-xl border text-xs font-black outline-none disabled:opacity-50 ${editData.status === 'COMPLETO' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}
+                      className="w-full p-3 rounded-xl border text-xs font-black outline-none disabled:opacity-50 ${editData.status === 'COMPLETO' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}"
                     >
                       <option value="PENDIENTE">PENDIENTE (Programado)</option>
                       <option value="COMPLETO">COMPLETO (Realizado)</option>
@@ -514,7 +533,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
             <div className="p-4 bg-white border-t border-slate-100 flex gap-3">
               <button onClick={() => setSelectedTask(null)} className="flex-1 bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest py-4 rounded-xl hover:bg-slate-200 transition-colors">Cerrar</button>
               
-              {/* ACCIÓN OCULTA SI LA TAREA TIENE CANDADO GENERAL */}
               {!isTaskLockedForMe && (
                 <button onClick={handleSaveTask} className="flex-[2] flex items-center justify-center gap-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest py-4 rounded-xl shadow-lg hover:bg-red-700 active:scale-95 transition-all">
                   <Save size={16}/> Guardar Registro
