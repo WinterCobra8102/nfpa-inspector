@@ -19,7 +19,43 @@ const IPM_CATALOG = [
   { id: 'IPM-01-D', standard: 'NFPA 25', category: 'BOMBAS', name: 'BOMBA INCENDIO DIESEL (MENSUAL)', formCode: 'F-SER-014', icon: Activity, color: '#ef4444', hasVoltages: true, sections: [{ title: "INSPECCIÓN Y MANTENIMIENTO", points: ["Ejercitar cerrando y abriendo las válvulas normalmente abiertas del cuarto de bombas", "Ejercitar el indicador de nivel del tanque de almacenamiento de agua", "El tanque de almacenamiento de agua no cuenta con materiales extraños o deshechos", "Operar manualmente la válvula de llenado automático del tanque de almacenamiento de agua", "Ejercitar el indicador de nivel del tanque de combustible", "Probar el interruptor aislador del controlador jockey", "Activar la protección térmica del controlador jockey", "Ejercitar los interruptores del suministro de AC del controlador diesel", "Ejercitar los interruptores del suministro de baterías del controlador diesel", "Inspeccionar los componentes internos del controlador diesel", "Rellenar con agua destilada las celdas de las baterías con bajo nivel de electrolito", "Retirar corrosión de la batería y limpiar su carcasa", "Inspeccionar y realizar servicio de limpieza de filtros de la línea de suministro de agua", "Realizar limpieza general del cuarto de bombas en caso necesario"] }, { title: "PRUEBAS", points: ["Durante las pruebas las protecciones térmicas, disyuntores y fusibles operaron correctamente", "Realizar 6 arranques manuales alternando baterías 1 y 2", "Verificar que el cargador está trabajando correctamente", "Verificar que las baterías no sufren de temperatura excesiva"] }] },
   { id: 'IPM-08', standard: 'NFPA 25', category: 'BOMBAS', name: 'BOMBA INCENDIO DIESEL (SEMANAL)', formCode: 'F-SER-015', icon: Activity, color: '#ef4444', sections: [{ title: "INSPECCIÓN Y MANTENIMIENTO SEMANAL", points: ["Inspección visual de equipos operativos", "Verificar estado de bombas, tuberías y mangueras", "Revisar controlador de bomba contra incendio", "Verificar indicador de nivel de combustible", "Inspeccionar terminales de baterías", "Verificar precalentador de motor", "Revisar nivel de aceite del motor", "Verificar nivel de agua del radiador", "Inspeccionar correas y mangueras", "Verificar ausencia de fugas"] }] },
   { id: 'IPM-02', standard: 'NFPA 25', category: 'MANGUERAS', name: 'GABINETES Y RACKS DE MANGUERAS', formCode: 'F-SER-016', icon: Waves, color: '#3b82f6', sections: [{ title: "INSPECCIONES", points: ["Estado del gabinete o rack", "Revisión de etiqueta de mantenimiento", "Inspección del estado de la manguera", "Verificar buen estado del chiflón", "Revisión de válvula", "Soportería en buen estado", "Manguera colocada correctamente"] }, { title: "MANTENIMIENTO", points: ["Servicio de limpieza a gabinete y rack de manguera", "Recorrido de dobleces de manguera"] }] },
-  { id: 'IPM-03', standard: 'NFPA 72', category: 'ALARMAS', name: 'SISTEMA DE ALARMA DE INCENDIO', formCode: 'F-SER-019', icon: Bell, color: '#f97316', sections: [{ title: "INSPECCIONES", points: ["Tablero de control en buen estado y operativo", "Dispositivos manuales operativos", "Detectores de incendio en buen estado", "Fuentes de poder auxiliares operativas", "Baterías de respaldo en buen estado"] }, { title: "PRUEBAS", points: ["Prueba de luces del tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Prueba de notificación sonora y visual", "Verificar dispositivos de monitoreo"] }] },
+  
+  // --- AQUI ESTA EL INVENTARIO DE ALARMAS ACTUALIZADO ---
+  { id: 'IPM-03', standard: 'NFPA 72', category: 'ALARMAS', name: 'SISTEMA DE ALARMA DE INCENDIO', formCode: 'F-SER-019', icon: Bell, color: '#f97316', sections: [
+    { title: "INSPECCIONES DEL PANEL", points: ["Tablero de control en buen estado y operativo", "Dispositivos manuales operativos", "Detectores de incendio en buen estado", "Fuentes de poder auxiliares operativas", "Baterías de respaldo en buen estado"] }, 
+    { title: "PRUEBAS DE SISTEMA", points: ["Prueba de luces del tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Prueba de notificación sonora y visual", "Verificar dispositivos de monitoreo"] },
+    { 
+      title: "INVENTARIO DE DISPOSITIVOS EN CAMPO", 
+      isInventoryTable: true, // ESTO HACE QUE SE FORME LA TABLA OFICIAL "DISPOSITIVO | UBICACION | ESTADO"
+      points: [
+        "SMK | SENSOR HUMO OFI PRODUCCION PB",
+        "SMK | SENSOR HUMO PAS LACTANCIA PB",
+        "SMK | SENSOR HUMO OFI PROD MANAGER PB",
+        "SMK | SENSOR HUMO TALLER TABLERO PB",
+        "SMK | SENSOR HUMO PASILLO OF RH PB",
+        "SMK | SENSOR HUMO BAÑO HOM WPA PB",
+        "SMK | SENSOR HUMO CTO SEPTICO4 PB",
+        "SMK | SENSOR HUMO RH BAÑO MUJ PB",
+        "SMK | SENSOR HUMO SUBESTELECTRIC 1 PB",
+        "SMK | SENSOR HUMO RECURSOS HUMANOS PB",
+        "SMK | SENSOR HUMO RH BAÑO HOMBRE PB",
+        "SMK | SENSOR HUMO PAS PPE PB",
+        "SMK | SENSOR HUMO RH BAÑO MUJE PB",
+        "SMK | SENSOR HUMO PASILLO SERV MEDICO PB",
+        "SMK | SENSOR H PASILLO SINDICATO PB",
+        "SMK | SENSOR HUMO BOD BAÑO MUJ WPA PB",
+        "SMK | SENSOR DE HUMO RH BODEGA PB",
+        "SMK | SENSOR H OFI MANAGER CUTTING PB",
+        "SMK | SENSOR HUMO OFI PPE PB",
+        "SMK | SENSOR HUMO RH ARCHIVOS PB",
+        "SMK | SENSOR HUMO CALIBRACION PB",
+        "SMK | SENSOR HUMO APLICATOR ROOM",
+        "SMK | SENSOR HUMO OFI MANAGER PPE PB"
+      ] 
+    }
+  ] },
+  // ---------------------------------------------------------
+
   { id: 'IPM-04', standard: 'NFPA 25', category: 'HIDRANTES', name: 'SERVICIO A HIDRANTES', formCode: 'F-SER-039', icon: MapPin, color: '#06b6d4', sections: [{ title: "INSPECCIONES", points: ["El hidrante tiene libre acceso", "Las tapas giran libremente", "Verificar que el barril del hidrante esté libre de agua o hielo", "Estado físico del hidrante", "Desgaste de roscas en conectores de descarga y tapas", "Estado físico de la válvula", "Empaques y empaquetaduras en buen estado", "Disponibilidad de la llave del hidrante"] }] },
   { id: 'IPM-05', standard: 'NFPA 25', category: 'VÁLVULAS', name: 'VÁLVULAS DE CONTROL', formCode: 'F-SER-041', icon: Settings, color: '#8b5cf6', sections: [{ title: "INSPECCIÓN", points: ["La válvula se encuentra operativa y libre de daño visible", "La válvula es accesible y libre de obstrucciones", "La válvula está equipada con la correspondiente llave para su manipulación", "La válvula cuenta con candado y/o se encuentra supervisada", "Verificar el estado correcto de la válvula (abierta o cerrada)"] }, { title: "PRUEBA", points: ["Ejercitar cerrando y abriendo 3 vueltas las válvulas normalmente abiertas"] }] },
   { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles y en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
@@ -324,9 +360,16 @@ export default function NewInspection({ navigateTo, prefillData }) {
             <h3 className="text-white font-black text-[11px] uppercase tracking-widest">{sec.title}</h3>
           </div>
 
-          {/* Fila de Encabezados de Columna (Estilo Excel/PDF) */}
+          {/* Renderizado Dinámico de Encabezados (Inventario vs Checklist General) */}
           <div className="hidden md:grid grid-cols-12 bg-slate-100 border-b border-slate-300 divide-x divide-slate-300">
-            <div className="col-span-7 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Descripción del Punto de Inspección</div>
+            {sec.isInventoryTable ? (
+              <>
+                <div className="col-span-2 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Dispositivo</div>
+                <div className="col-span-5 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Ubicación</div>
+              </>
+            ) : (
+              <div className="col-span-7 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Descripción del Punto de Inspección</div>
+            )}
             <div className="col-span-3 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Estado</div>
             <div className="col-span-2 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Evidencia</div>
           </div>
@@ -337,12 +380,25 @@ export default function NewInspection({ navigateTo, prefillData }) {
               <div key={pIdx} className="flex flex-col group hover:bg-slate-50 transition-colors">
                 <div className="grid grid-cols-12 md:divide-x divide-slate-200">
                   
-                  {/* Columna 1: Descripción */}
-                  <div className="col-span-12 md:col-span-7 p-4 flex items-center">
-                    <span className="text-xs font-bold text-slate-700 leading-tight">{p}</span>
-                  </div>
+                  {/* Renderizado Dinámico de Columnas */}
+                  {sec.isInventoryTable ? (
+                    <>
+                      <div className="col-span-12 md:col-span-2 p-3 flex items-center justify-center bg-slate-50/50">
+                        <span className="text-[10px] font-black text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                          {p.split('|')[0]?.trim()}
+                        </span>
+                      </div>
+                      <div className="col-span-12 md:col-span-5 p-4 flex items-center border-t md:border-t-0 border-slate-100">
+                        <span className="text-xs font-bold text-slate-700 leading-tight">{p.split('|')[1]?.trim() || p}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="col-span-12 md:col-span-7 p-4 flex items-center">
+                      <span className="text-xs font-bold text-slate-700 leading-tight">{p}</span>
+                    </div>
+                  )}
 
-                  {/* Columna 2: Estado (Botones formales) */}
+                  {/* Estado (Botones formales) */}
                   <div className="col-span-12 md:col-span-3 p-3 flex justify-center items-center gap-2 border-t md:border-t-0 border-slate-100">
                     {[
                       { key: 'bien', label: 'OK', color: 'bg-green-600', text: 'text-green-700', border: 'border-green-600' },
@@ -367,7 +423,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
                     })}
                   </div>
 
-                  {/* Columna 3: Evidencia (Botones sutiles) */}
+                  {/* Evidencia (Botones sutiles) */}
                   <div className="col-span-12 md:col-span-2 p-3 flex justify-center items-center gap-4 border-t md:border-t-0 border-slate-100">
                     <button 
                       type="button" 
