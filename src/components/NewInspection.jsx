@@ -20,13 +20,13 @@ const IPM_CATALOG = [
   { id: 'IPM-08', standard: 'NFPA 25', category: 'BOMBAS', name: 'BOMBA INCENDIO DIESEL (SEMANAL)', formCode: 'F-SER-015', icon: Activity, color: '#ef4444', sections: [{ title: "INSPECCIÓN Y MANTENIMIENTO SEMANAL", points: ["Inspección visual de equipos operativos", "Verificar estado de bombas, tuberías y mangueras", "Revisar controlador de bomba contra incendio", "Verificar indicador de nivel de combustible", "Inspeccionar terminales de baterías", "Verificar precalentador de motor", "Revisar nivel de aceite del motor", "Verificar nivel de agua del radiador", "Inspeccionar correas y mangueras", "Verificar ausencia de fugas"] }] },
   { id: 'IPM-02', standard: 'NFPA 25', category: 'MANGUERAS', name: 'GABINETES Y RACKS DE MANGUERAS', formCode: 'F-SER-016', icon: Waves, color: '#3b82f6', sections: [{ title: "INSPECCIONES", points: ["Estado del gabinete o rack", "Revisión de etiqueta de mantenimiento", "Inspección del estado de la manguera", "Verificar buen estado del chiflón", "Revisión de válvula", "Soportería en buen estado", "Manguera colocada correctamente"] }, { title: "MANTENIMIENTO", points: ["Servicio de limpieza a gabinete y rack de manguera", "Recorrido de dobleces de manguera"] }] },
   
-  // --- AQUI ESTA EL INVENTARIO DE ALARMAS ACTUALIZADO ---
+  // --- INVENTARIO DE ALARMAS ---
   { id: 'IPM-03', standard: 'NFPA 72', category: 'ALARMAS', name: 'SISTEMA DE ALARMA DE INCENDIO', formCode: 'F-SER-019', icon: Bell, color: '#f97316', sections: [
     { title: "INSPECCIONES DEL PANEL", points: ["Tablero de control en buen estado y operativo", "Dispositivos manuales operativos", "Detectores de incendio en buen estado", "Fuentes de poder auxiliares operativas", "Baterías de respaldo en buen estado"] }, 
     { title: "PRUEBAS DE SISTEMA", points: ["Prueba de luces del tablero", "Prueba de estaciones manuales", "Prueba de detectores de humo", "Prueba de notificación sonora y visual", "Verificar dispositivos de monitoreo"] },
     { 
       title: "INVENTARIO DE DISPOSITIVOS EN CAMPO", 
-      isInventoryTable: true, // ESTO HACE QUE SE FORME LA TABLA OFICIAL "DISPOSITIVO | UBICACION | ESTADO"
+      isInventoryTable: true,
       points: [
         "SMK | SENSOR HUMO OFI PRODUCCION PB",
         "SMK | SENSOR HUMO PAS LACTANCIA PB",
@@ -54,7 +54,6 @@ const IPM_CATALOG = [
       ] 
     }
   ] },
-  // ---------------------------------------------------------
 
   { id: 'IPM-04', standard: 'NFPA 25', category: 'HIDRANTES', name: 'SERVICIO A HIDRANTES', formCode: 'F-SER-039', icon: MapPin, color: '#06b6d4', sections: [{ title: "INSPECCIONES", points: ["El hidrante tiene libre acceso", "Las tapas giran libremente", "Verificar que el barril del hidrante esté libre de agua o hielo", "Estado físico del hidrante", "Desgaste de roscas en conectores de descarga y tapas", "Estado físico de la válvula", "Empaques y empaquetaduras en buen estado", "Disponibilidad de la llave del hidrante"] }] },
   { id: 'IPM-05', standard: 'NFPA 25', category: 'VÁLVULAS', name: 'VÁLVULAS DE CONTROL', formCode: 'F-SER-041', icon: Settings, color: '#8b5cf6', sections: [{ title: "INSPECCIÓN", points: ["La válvula se encuentra operativa y libre de daño visible", "La válvula es accesible y libre de obstrucciones", "La válvula está equipada con la correspondiente llave para su manipulación", "La válvula cuenta con candado y/o se encuentra supervisada", "Verificar el estado correcto de la válvula (abierta o cerrada)"] }, { title: "PRUEBA", points: ["Ejercitar cerrando y abriendo 3 vueltas las válvulas normalmente abiertas"] }] },
@@ -81,7 +80,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
   const [showClientSigModal, setShowClientSigModal] = useState(false);
   const [showTechSigModal, setShowTechSigModal] = useState(false);
-  
   const [clientSigData, setClientSigData] = useState(null);
   const [techSigData, setTechSigData] = useState(null);
 
@@ -266,63 +264,40 @@ export default function NewInspection({ navigateTo, prefillData }) {
     }
   };
 
-  if (step === 1) {
-    return (
+  if (step === 1) return (
       <div className="max-w-2xl mx-auto p-4 space-y-6">
-        <button onClick={() => navigateTo('home')} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest mb-2">
-          <ArrowLeft size={14} /> VOLVER AL PANEL
-        </button>
-        
+        <button onClick={() => navigateTo('home')} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest mb-2"><ArrowLeft size={14} /> VOLVER AL PANEL</button>
         <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
-          <label className="text-[10px] font-black text-red-600 uppercase flex items-center gap-2 tracking-widest">
-            <User size={14} /> SELECCIÓN DE SUCURSAL
-          </label>
+          <label className="text-[10px] font-black text-red-600 uppercase flex items-center gap-2 tracking-widest"><User size={14} /> SELECCIÓN DE SUCURSAL</label>
           <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="w-full p-4 mt-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-red-500 outline-none text-slate-700">
             <option value="">-- Elige Empresa --</option>
             {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
-
         <div className={`${!selectedClient ? 'opacity-30 pointer-events-none' : ''} grid gap-4`}>
           {['NFPA 25', 'NFPA 72'].map(std => (
             <button key={std} onClick={() => { setSelectedStandard(std); setStep(2); }} className="flex justify-between items-center p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-red-600 transition-all shadow-xl group">
-              <div className="flex items-center gap-6">
-                {std === 'NFPA 25' ? <Droplets className="text-blue-500" size={32} /> : <Bell className="text-red-500" size={32} />}
-                <h3 className="font-black text-2xl text-slate-700">{std}</h3>
-              </div>
+              <div className="flex items-center gap-6">{std === 'NFPA 25' ? <Droplets className="text-blue-500" size={32} /> : <Bell className="text-red-500" size={32} />}<h3 className="font-black text-2xl text-slate-700">{std}</h3></div>
               <ChevronRight className="text-slate-300 group-hover:translate-x-1 transition-transform" />
             </button>
           ))}
         </div>
       </div>
-    );
-  }
+  );
 
   if (step === 2) {
     const services = IPM_CATALOG.filter(item => item.standard.includes(selectedStandard) || item.id === 'IPM-07');
     const categories = [...new Set(services.map(s => s.category))];
-
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-8">
-        <button onClick={() => setStep(1)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest">
-          <ArrowLeft size={14} /> VOLVER A SUCURSAL
-        </button>
-
+        <button onClick={() => setStep(1)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest"><ArrowLeft size={14} /> VOLVER A SUCURSAL</button>
         {categories.map(cat => (
           <div key={cat} className="space-y-4">
             <span className="bg-red-50 text-red-600 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">{cat}</span>
             <div className="grid gap-3">
               {services.filter(s => s.category === cat).map(item => (
                 <button key={item.id} onClick={() => { setSelectedIPM(item); setStep(3); }} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center justify-between hover:border-red-500 transition-all text-left group">
-                  <div className="flex items-center gap-5">
-                    <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-red-50 transition-colors">
-                      <Icon name={item.icon} size={24} className="text-slate-400 group-hover:text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{item.id}</p>
-                      <h3 className="font-bold text-slate-700 uppercase text-sm leading-tight">{item.name}</h3>
-                    </div>
-                  </div>
+                  <div className="flex items-center gap-5"><div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-red-50 transition-colors"><Icon name={item.icon} size={24} className="text-slate-400 group-hover:text-red-600" /></div><div><p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{item.id}</p><h3 className="font-bold text-slate-700 uppercase text-sm leading-tight">{item.name}</h3></div></div>
                   <ChevronRight size={20} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
                 </button>
               ))}
@@ -337,125 +312,97 @@ export default function NewInspection({ navigateTo, prefillData }) {
     <div className="max-w-5xl mx-auto p-2 sm:p-4 space-y-6 pb-24">
       {/* HEADER DE NAVEGACIÓN */}
       <div className="flex justify-between items-center mb-2">
-        <button onClick={() => setStep(2)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest">
-          <ArrowLeft size={14} /> CATÁLOGO
-        </button>
-        <div className="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-wider">
-          TÉCNICO: {technicianName}
-        </div>
+        <button onClick={() => setStep(2)} className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 hover:text-red-600 tracking-widest"><ArrowLeft size={14} /> CATÁLOGO</button>
+        <div className="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-wider">TÉCNICO: {technicianName}</div>
       </div>
 
-      {/* TÍTULO DEL REPORTE */}
-      <div className={`${selectedIPM.color === '#ef4444' ? 'bg-red-600' : 'bg-slate-900'} p-8 rounded-2xl text-white shadow-lg relative overflow-hidden`}>
+      <div className={`${selectedIPM.color === '#ef4444' ? 'bg-red-600' : 'bg-slate-900'} p-6 md:p-8 rounded-2xl text-white shadow-lg relative overflow-hidden`}>
         <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">{selectedIPM.standard} | {selectedIPM.formCode}</span>
-        <h2 className="text-2xl font-black uppercase mt-1 tracking-tighter">{selectedIPM.name}</h2>
+        <h2 className="text-xl md:text-2xl font-black uppercase mt-1 tracking-tighter">{selectedIPM.name}</h2>
       </div>
 
-      {/* --- SECCIÓN DE INSPECCIÓN: FORMATO DE TABLA TÉCNICA OFICIAL --- */}
+      {/* --- SECCIÓN DE INSPECCIÓN: FORMATO 100% RESPONSIVO --- */}
       {selectedIPM.sections && selectedIPM.sections.map((sec, sIdx) => (
         <div key={sIdx} className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden mb-6">
-          
-          {/* Encabezado Principal del Apartado */}
-          <div className="bg-slate-900 px-5 py-3 border-b border-slate-900">
+          <div className="bg-slate-900 px-4 md:px-5 py-3 border-b border-slate-900">
             <h3 className="text-white font-black text-[11px] uppercase tracking-widest">{sec.title}</h3>
           </div>
 
-          {/* Renderizado Dinámico de Encabezados (Inventario vs Checklist General) */}
-          <div className="hidden md:grid grid-cols-12 bg-slate-100 border-b border-slate-300 divide-x divide-slate-300">
+          {/* Encabezados solo visibles en pantallas medianas o grandes */}
+          <div className="hidden md:flex bg-slate-100 border-b border-slate-300 divide-x divide-slate-300">
             {sec.isInventoryTable ? (
               <>
-                <div className="col-span-2 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Dispositivo</div>
-                <div className="col-span-5 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Ubicación</div>
+                <div className="w-[20%] px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Dispositivo</div>
+                <div className="w-[45%] px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Ubicación</div>
               </>
             ) : (
-              <div className="col-span-7 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Descripción del Punto de Inspección</div>
+              <div className="w-[65%] px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Descripción del Punto de Inspección</div>
             )}
-            <div className="col-span-3 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Estado</div>
-            <div className="col-span-2 px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Evidencia</div>
+            <div className="w-[20%] px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Estado</div>
+            <div className="w-[15%] px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest text-center">Evidencia</div>
           </div>
 
-          {/* Filas de la Tabla */}
           <div className="divide-y divide-slate-200">
             {sec.points && sec.points.map((p, pIdx) => (
-              <div key={pIdx} className="flex flex-col group hover:bg-slate-50 transition-colors">
-                <div className="grid grid-cols-12 md:divide-x divide-slate-200">
+              <div key={pIdx} className="flex flex-col hover:bg-slate-50 transition-colors">
+                
+                {/* El contenedor cambia de "flex-col" en celular a "flex-row" en desktop. 
+                */}
+                <div className="flex flex-col md:flex-row md:divide-x divide-slate-200 w-full">
                   
-                  {/* Renderizado Dinámico de Columnas */}
+                  {/* Bloque de Textos (Dispositivo y Ubicación o Descripción) */}
                   {sec.isInventoryTable ? (
-                    <>
-                      <div className="col-span-12 md:col-span-2 p-3 flex items-center justify-center bg-slate-50/50">
+                    <div className="flex flex-col sm:flex-row w-full md:w-[65%] border-b md:border-b-0 border-slate-100">
+                      {/* En móvil: badge alineado a la izquierda. En PC: centrado en su columna */}
+                      <div className="w-full sm:w-[30%] md:w-[30%] p-3 flex items-center justify-start md:justify-center bg-slate-50/50 md:border-r border-slate-200">
                         <span className="text-[10px] font-black text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
                           {p.split('|')[0]?.trim()}
                         </span>
                       </div>
-                      <div className="col-span-12 md:col-span-5 p-4 flex items-center border-t md:border-t-0 border-slate-100">
+                      <div className="w-full sm:w-[70%] md:w-[70%] p-3 md:p-4 flex items-center">
                         <span className="text-xs font-bold text-slate-700 leading-tight">{p.split('|')[1]?.trim() || p}</span>
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <div className="col-span-12 md:col-span-7 p-4 flex items-center">
+                    <div className="w-full md:w-[65%] p-4 flex items-center border-b md:border-b-0 border-slate-100">
                       <span className="text-xs font-bold text-slate-700 leading-tight">{p}</span>
                     </div>
                   )}
 
-                  {/* Estado (Botones formales) */}
-                  <div className="col-span-12 md:col-span-3 p-3 flex justify-center items-center gap-2 border-t md:border-t-0 border-slate-100">
-                    {[
-                      { key: 'bien', label: 'OK', color: 'bg-green-600', text: 'text-green-700', border: 'border-green-600' },
-                      { key: 'advertencia', label: 'OBS', color: 'bg-yellow-500', text: 'text-yellow-600', border: 'border-yellow-500' },
-                      { key: 'critico', label: 'MAL', color: 'bg-red-600', text: 'text-red-600', border: 'border-red-600' },
-                    ].map(opt => {
-                      const isSelected = details[p]?.status === opt.key;
-                      return (
+                  {/* Bloque Inferior Móvil / Derecho Desktop: Estado y Acciones */}
+                  <div className="flex flex-row w-full md:w-[35%] justify-between md:justify-center bg-slate-50 md:bg-transparent">
+                    
+                    {/* Botones de Estado */}
+                    <div className="w-[60%] md:w-[60%] p-3 flex justify-start md:justify-center items-center gap-1 md:gap-2">
+                      {[ { key: 'bien', label: 'OK', color: 'bg-green-600', text: 'text-green-700', border: 'border-green-600' }, { key: 'advertencia', label: 'OBS', color: 'bg-yellow-500', text: 'text-yellow-600', border: 'border-yellow-500' }, { key: 'critico', label: 'MAL', color: 'bg-red-600', text: 'text-red-600', border: 'border-red-600' } ].map(opt => (
                         <button 
                           key={opt.key} 
-                          type="button"
-                          onClick={() => setDetails(prev => ({ ...prev, [p]: { ...prev[p], status: opt.key } }))}
-                          className={`w-11 h-8 rounded text-[10px] font-black transition-all border ${
-                            isSelected 
-                              ? `${opt.color} border-transparent text-white shadow-inner scale-105` 
-                              : `bg-white ${opt.text} border-slate-200 hover:${opt.border}`
-                          }`}
+                          type="button" 
+                          onClick={() => setDetails(prev => ({ ...prev, [p]: { ...prev[p], status: opt.key } }))} 
+                          className={`flex-1 md:flex-none md:w-11 h-9 rounded text-[10px] font-black transition-all border ${details[p]?.status === opt.key ? `${opt.color} border-transparent text-white shadow-inner scale-105` : `bg-white ${opt.text} border-slate-300 hover:${opt.border}`}`}
                         >
                           {opt.label}
                         </button>
-                      );
-                    })}
-                  </div>
+                      ))}
+                    </div>
 
-                  {/* Evidencia (Botones sutiles) */}
-                  <div className="col-span-12 md:col-span-2 p-3 flex justify-center items-center gap-4 border-t md:border-t-0 border-slate-100">
-                    <button 
-                      type="button" 
-                      onClick={() => setActiveComments(prev => ({ ...prev, [p]: !prev[p] }))} 
-                      className={`p-2 rounded-lg transition-colors ${activeComments[p] || details[p]?.note ? 'bg-blue-100 text-blue-600 border border-blue-200' : 'bg-slate-100 text-slate-400 border border-transparent hover:bg-slate-200'}`}
-                      title="Agregar Observación"
-                    >
-                      <MessageSquare size={16} />
-                    </button>
+                    {/* Botones de Evidencia (Comentario y Foto) */}
+                    <div className="w-[40%] md:w-[40%] p-3 flex justify-end md:justify-center items-center gap-2 border-l border-slate-200">
+                      <button type="button" onClick={() => setActiveComments(prev => ({ ...prev, [p]: !prev[p] }))} className={`p-2 rounded-lg transition-colors ${activeComments[p] || details[p]?.note ? 'bg-blue-100 text-blue-600 border border-blue-200' : 'bg-white text-slate-400 border border-slate-200 shadow-sm hover:bg-slate-100'}`}><MessageSquare size={16} /></button>
+                      <label className={`p-2 rounded-lg cursor-pointer transition-colors ${details[p]?.photo ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-white text-slate-400 border border-slate-200 shadow-sm hover:bg-slate-100'}`}>
+                        {details[p]?.photo ? <ImageIcon size={16} /> : <Camera size={16} />}
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const r = new FileReader(); r.onload = () => { setImageToCrop(r.result); setActivePoint(p); }; r.readAsDataURL(e.target.files[0]); }} />
+                      </label>
+                    </div>
 
-                    <label className={`p-2 rounded-lg cursor-pointer transition-colors ${details[p]?.photo ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-100 text-slate-400 border border-transparent hover:bg-slate-200'}`} title="Adjuntar Fotografía">
-                      {details[p]?.photo ? <ImageIcon size={16} /> : <Camera size={16} />}
-                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => {
-                        const r = new FileReader();
-                        r.onload = () => { setImageToCrop(r.result); setActivePoint(p); };
-                        r.readAsDataURL(e.target.files[0]);
-                      }} />
-                    </label>
                   </div>
                 </div>
-
-                {/* Sub-fila de Observaciones (Expande si se requiere) */}
+                
+                {/* Cuadro de texto expandible */}
                 {(activeComments[p] || details[p]?.note) && (
-                  <div className="bg-slate-50 border-t border-slate-200 p-3 flex gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="bg-slate-100 border-t border-slate-200 p-3 flex gap-3 animate-in fade-in slide-in-from-top-2">
                     <div className="mt-1"><MessageSquare size={14} className="text-slate-400" /></div>
-                    <input 
-                      className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none placeholder-slate-400" 
-                      placeholder="Redactar hallazgo u observación técnica para este punto..." 
-                      value={details[p]?.note || ''} 
-                      onChange={e => setDetails(prev => ({ ...prev, [p]: { ...prev[p], note: e.target.value } }))} 
-                      autoFocus 
-                    />
+                    <input className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none placeholder-slate-400" placeholder="Redactar hallazgo u observación técnica para este punto..." value={details[p]?.note || ''} onChange={e => setDetails(prev => ({ ...prev, [p]: { ...prev[p], note: e.target.value } }))} autoFocus />
                   </div>
                 )}
               </div>
@@ -471,15 +418,15 @@ export default function NewInspection({ navigateTo, prefillData }) {
                 <h3 className="text-white font-black text-[11px] uppercase tracking-widest text-center">PRUEBA DE 6 ARRANQUES MANUALES</h3>
               </div>
               <div className="grid grid-cols-3 bg-slate-100 border-b border-slate-300 divide-x divide-slate-300 text-center">
-                <div className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Nº Arranque</div>
-                <div className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Voltaje Mínimo</div>
-                <div className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Voltaje Máximo</div>
+                <div className="px-2 md:px-4 py-2 text-[8px] md:text-[9px] font-black text-slate-600 uppercase tracking-widest">Nº Arranque</div>
+                <div className="px-2 md:px-4 py-2 text-[8px] md:text-[9px] font-black text-slate-600 uppercase tracking-widest">Voltaje Mínimo</div>
+                <div className="px-2 md:px-4 py-2 text-[8px] md:text-[9px] font-black text-slate-600 uppercase tracking-widest">Voltaje Máximo</div>
               </div>
               <div className="divide-y divide-slate-200">
                 {voltages.map((v, i) => (
                     <div key={i} className="grid grid-cols-3 divide-x divide-slate-200 hover:bg-slate-50">
-                        <div className="p-4 flex items-center justify-center">
-                          <span className="font-bold text-xs text-slate-700">{i+1}º Prueba</span>
+                        <div className="p-3 md:p-4 flex items-center justify-center">
+                          <span className="font-bold text-[10px] md:text-xs text-slate-700">{i+1}º Prueba</span>
                         </div>
                         <div className="p-2">
                           <input type="number" placeholder="0.0 V" className="w-full p-2 bg-transparent text-center text-xs font-bold outline-none text-slate-700 placeholder-slate-300" value={v.min} onChange={e => { const n=[...voltages]; n[i].min=e.target.value; setVoltages(n); }} />
@@ -494,15 +441,15 @@ export default function NewInspection({ navigateTo, prefillData }) {
       )}
 
       {/* UBICACIÓN GPS */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className={`p-4 rounded-xl ${location ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}><MapPin size={24} /></div>
-          <div>
+      <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className={`p-4 rounded-xl shrink-0 ${location ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}><MapPin size={24} /></div>
+          <div className="overflow-hidden">
             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Coordenadas del Sitio</h4>
-            <p className="text-xs font-black text-slate-800 mt-0.5 uppercase tracking-wide">{location ? `Lat: ${location.lat.toFixed(6)} | Lng: ${location.lng.toFixed(6)}` : 'Coordenadas No Vinculadas'}</p>
+            <p className="text-xs font-black text-slate-800 mt-0.5 uppercase tracking-wide truncate">{location ? `Lat: ${location.lat.toFixed(6)} | Lng: ${location.lng.toFixed(6)}` : 'Coordenadas No Vinculadas'}</p>
           </div>
         </div>
-        <button type="button" onClick={updateGPS} className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"><RefreshCcw size={14} /> Capturar</button>
+        <button type="button" onClick={updateGPS} className="w-full sm:w-auto px-5 py-4 sm:py-3 bg-slate-900 hover:bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"><RefreshCcw size={14} /> Capturar</button>
       </div>
 
       {/* OBSERVACIÓN GENERAL */}
