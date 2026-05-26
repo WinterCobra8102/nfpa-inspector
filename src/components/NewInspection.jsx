@@ -626,56 +626,57 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
         {/* --- SECCIÓN DE FIRMAS Y LEGALIZACIÓN (ESTILO DOCUMENTO) --- */}
         <div className="border-t-[3px] border-slate-800 bg-slate-50 p-6 md:p-10">
-          <h3 className="text-center font-black text-slate-800 uppercase tracking-widest mb-10 text-sm">Validación y Firmas de Conformidad</h3>
+          <h3 className="text-center font-black text-slate-800 uppercase tracking-widest mb-12 text-sm">Validación y Firmas de Conformidad</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-8 max-w-3xl mx-auto">
+          {/* Aumentamos el gap vertical en celulares (gap-16) para que no se encimen los bloques */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 max-w-3xl mx-auto">
             
             {/* Firma Cliente */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
-                 className="w-full bg-transparent border-none text-center font-bold text-sm outline-none text-slate-800 mb-2 placeholder-slate-400" 
-                 placeholder="NOMBRE DEL RESPONSABLE (CLIENTE)" 
+                 className="w-full bg-transparent border-b border-transparent focus:border-blue-400 text-center font-bold text-sm outline-none text-slate-800 mb-6 placeholder-slate-400 transition-colors" 
+                 placeholder="NOMBRE DEL RESPONSABLE" 
                  value={ownerName} 
                  onChange={(e) => setOwnerName(e.target.value)} 
               />
               <div 
                  onClick={() => setShowClientSigModal(true)} 
-                 className="w-full h-24 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-1 relative"
+                 className="w-full h-28 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
               >
                  {clientSigData ? (
-                     <img src={clientSigData} alt="Firma Cliente" className="h-20 w-auto object-contain" />
+                     <img src={clientSigData} alt="Firma Cliente" className="max-h-24 w-auto object-contain mb-2" />
                  ) : (
                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-600 transition-colors mb-2">Tocar para firmar</span>
                  )}
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 text-center">Firma de Recibido y Conformidad</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-3 text-center">Firma de Recibido y Conformidad</p>
             </div>
 
             {/* Firma Técnico */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
-                 className="w-full bg-transparent border-none text-center font-bold text-sm outline-none text-slate-800 mb-2" 
+                 className="w-full bg-transparent border-b border-transparent text-center font-bold text-sm outline-none text-slate-800 mb-6" 
                  disabled 
                  value={technicianName} 
               />
               <div 
                  onClick={() => setShowTechSigModal(true)} 
-                 className="w-full h-24 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-1 relative"
+                 className="w-full h-28 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
               >
                  {techSigData ? (
-                     <img src={techSigData} alt="Firma Técnico" className="h-20 w-auto object-contain" />
+                     <img src={techSigData} alt="Firma Técnico" className="max-h-24 w-auto object-contain mb-2" />
                  ) : (
                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-600 transition-colors mb-2">Tocar para firmar</span>
                  )}
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 text-center">Técnico Autorizado TLETL</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-3 text-center">Técnico Autorizado TLETL</p>
             </div>
 
           </div>
           
-          {/* Botón Guardar - Único elemento con color llamativo para llamar a la acción */}
-          <div className="mt-12 flex justify-center">
-            <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 hover:bg-blue-600 text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg">
+          {/* Botón Guardar con más separación superior (mt-16) */}
+          <div className="mt-16 flex justify-center">
+            <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 hover:bg-blue-600 text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
               {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />} 
               Cerrar y Guardar Documento
             </button>

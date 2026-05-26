@@ -222,7 +222,11 @@ function App() {
         `}>
           <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
             <div className="flex items-center gap-3">
-              <Flame size={28} className="shrink-0 text-white animate-pulse" />
+               <img 
+               src="/favicon.png" 
+               alt="TLETL Logo" 
+               className="h-10 w-auto object-contain" // Ajusta el tamaño h-10 según necesites
+               />
               {(isSidebarOpen || isMobileMenuOpen) && (
                 <div className="flex flex-col">
                   <span className="font-black text-lg tracking-tighter uppercase leading-none">TLETL</span>
