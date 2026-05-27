@@ -42,6 +42,9 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // --- ✨ NUEVO ESTADO: CONTROL DE BLOQUEO POR PAGO ---
+  const [isCompanyActive, setIsCompanyActive] = useState(true);
 
   // --- ESTADO PARA VINCULAR DATOS ENTRE COMPONENTES Y MULTICLIENTE ---
   const [inspectionData, setInspectionData] = useState(null);
@@ -60,7 +63,27 @@ function App() {
         setCurrentUser(data);
 
         // ================================================================
-        // ✨ MODIFICACIÓN INYECTADA: PULL INICIAL DE EMPRESAS (SUPABASE -> DEXIE)
+        // 🔒 VERIFICACIÓN DE ESTATUS DE PAGO (KILL SWITCH)
+        // ================================================================
+        if (data.client_id) {
+          const { data: clientData } = await supabase
+            .from('clientes')
+            .select('is_active')
+            .eq('id', data.client_id)
+            .single();
+            
+          if (clientData && clientData.is_active === false) {
+            setIsCompanyActive(false); // ¡Se activa el bloqueo!
+          } else {
+            setIsCompanyActive(true);
+          }
+        } else {
+          // Si no tiene client_id (ej. ADMIN global), no se bloquea
+          setIsCompanyActive(true);
+        }
+
+        // ================================================================
+        // PULL INICIAL DE EMPRESAS (SUPABASE -> DEXIE)
         // ================================================================
         try {
           const { data: remoteClientes, error: clientesError } = await supabase
@@ -74,7 +97,6 @@ function App() {
         } catch (syncErr) {
           console.error("Error en la sincronización inicial de empresas:", syncErr);
         }
-        // ================================================================
       }
       setIsInitializing(false); 
     };
@@ -99,6 +121,7 @@ function App() {
         fetchProfile(session.user.id);
       } else {
         setCurrentUser(null);
+        setIsCompanyActive(true); // Reseteamos al cerrar sesión
         setIsInitializing(false);
       }
     });
@@ -143,6 +166,7 @@ function App() {
     setCurrentUser(null);
     setActiveTab('home');
     setSelectedCompany(null);
+    setIsCompanyActive(true);
   };
 
   // --- CONFIGURACIÓN GLOBAL DE ALERTAS (DISEÑO TLETL) ---
@@ -170,6 +194,7 @@ function App() {
     />
   );
 
+  // 1. PANTALLA DE CARGA
   if (isInitializing) {
     return (
       <>
@@ -193,6 +218,7 @@ function App() {
     );
   }
 
+  // 2. PANTALLA DE LOGIN
   if (!currentUser) {
     return (
       <>
@@ -202,6 +228,34 @@ function App() {
     );
   }
 
+  // 3. 🚨 PANTALLA DE BLOQUEO POR SUSPENSIÓN DE PAGO 🚨
+  if (!isCompanyActive) {
+    return (
+      <>
+        {GlobalToaster}
+        <div className="flex h-screen flex-col items-center justify-center bg-white p-6 text-center border-t-4 border-red-600 animate-in fade-in duration-500">
+          <div className="w-20 h-20 bg-red-50 text-red-600 flex items-center justify-center rounded-sm mb-6 border border-red-200 shadow-sm">
+            <ShieldAlert size={40} />
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Acceso Suspendido</h1>
+          <p className="text-sm text-slate-500 max-w-sm mt-3 font-medium">
+            El acceso a la plataforma para esta cuenta corporativa ha sido restringido temporalmente por el departamento de administración.
+          </p>
+          <p className="text-[10px] text-slate-400 mt-8 uppercase font-black tracking-widest border border-slate-200 px-4 py-2 bg-slate-50 rounded">
+            Código de Estatus: SUSP_SYS_2.0
+          </p>
+          <button 
+            onClick={handleLogout} 
+            className="mt-10 text-[10px] font-black text-slate-400 hover:text-red-600 uppercase tracking-widest transition-colors flex items-center gap-2"
+          >
+            <LogOut size={14} /> Cerrar Sesión
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // 4. APLICACIÓN PRINCIPAL (Si todo está pagado y correcto)
   return (
     <>
       {GlobalToaster}
@@ -223,9 +277,9 @@ function App() {
           <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
             <div className="flex items-center gap-3">
                <img 
-               src="/favicon.png" 
+               src="/logo-tietl.png" 
                alt="TLETL Logo" 
-               className="h-10 w-auto object-contain" // Ajusta el tamaño h-10 según necesites
+               className="h-10 w-auto object-contain"
                />
               {(isSidebarOpen || isMobileMenuOpen) && (
                 <div className="flex flex-col">
