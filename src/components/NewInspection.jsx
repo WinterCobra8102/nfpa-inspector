@@ -756,13 +756,12 @@ export default function NewInspection({ navigateTo, prefillData }) {
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4 animate-in fade-in duration-200">
           <div className="flex justify-between items-center mb-4 mt-2">
              <div>
-               <h3 className="text-white font-black uppercase tracking-widest text-base">Firma de Conformidad</h3>
+               <h3 className="text-white font-black uppercase tracking-widest text-base">Firma de Conformidad del Encargado</h3>
                <p className="text-slate-400 text-xs font-bold uppercase">{ownerName || 'Sin responsable capturado'}</p>
              </div>
              <button onClick={() => setShowClientSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={28} /></button>
           </div>
           <div className="flex-1 w-full bg-white rounded overflow-hidden relative shadow-inner">
-             {/* Línea guía de firma en el canvas */}
              <div className="absolute top-1/2 left-10 right-10 border-b-2 border-slate-200 pointer-events-none"></div>
              <canvas ref={clientCanvasRef} className="absolute inset-0 w-full h-full touch-none cursor-crosshair" onMouseDown={(e) => startDrawing(e, clientCanvasRef)} onMouseMove={(e) => draw(e, clientCanvasRef)} onMouseUp={() => setIsDrawing(false)} onMouseLeave={() => setIsDrawing(false)} onTouchStart={(e) => startDrawing(e, clientCanvasRef)} onTouchMove={(e) => draw(e, clientCanvasRef)} onTouchEnd={() => setIsDrawing(false)} />
           </div>
@@ -784,7 +783,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
              <button onClick={() => setShowTechSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={28} /></button>
           </div>
           <div className="flex-1 w-full bg-white rounded overflow-hidden relative shadow-inner">
-             {/* Línea guía de firma en el canvas */}
              <div className="absolute top-1/2 left-10 right-10 border-b-2 border-slate-200 pointer-events-none"></div>
              <canvas ref={techCanvasRef} className="absolute inset-0 w-full h-full touch-none cursor-crosshair" onMouseDown={(e) => startDrawing(e, techCanvasRef)} onMouseMove={(e) => draw(e, techCanvasRef)} onMouseUp={() => setIsDrawing(false)} onMouseLeave={() => setIsDrawing(false)} onTouchStart={(e) => startDrawing(e, techCanvasRef)} onTouchMove={(e) => draw(e, techCanvasRef)} onTouchEnd={() => setIsDrawing(false)} />
           </div>
@@ -794,12 +792,10 @@ export default function NewInspection({ navigateTo, prefillData }) {
           </div>
         </div>
       )}
-
-      {/* MODAL RECORTE DE IMAGEN */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4">
           <div className="relative flex-1 rounded overflow-hidden border border-slate-700"><Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={5/4} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} /></div>
-          <button onClick={getCroppedImg} className="mt-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-black flex items-center justify-center gap-2 transition-colors text-xs uppercase tracking-widest"><Scissors size={18} /> Recortar y Anexar</button>
+          <button onClick={getCroppedImg} className="mt-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-black flex items-center justify-center gap-2 transition-colors text-xs uppercase tracking-widest"><Scissors size={18} /> Recortar y Anexar Imagen</button>
         </div>
       )}
     </div>
