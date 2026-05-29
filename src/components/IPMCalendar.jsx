@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { 
   Calendar as CalendarIcon, Clock, CheckCircle2, SlidersHorizontal, 
   CalendarDays, CalendarRange, Activity, Search, BookOpen, X, Info,
-  UserPlus, Save, FileText, ArrowRight, ArrowLeft, Plus, Lock as LockIcon
+  UserPlus, Save, FileText, ArrowRight, ArrowLeft, Plus, Lock as LockIcon, ShieldAlert
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,6 +24,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   const [showGlossary, setShowGlossary] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false); 
   const [selectedTask, setSelectedTask] = useState(null); 
+  const [showLockAlert, setShowLockAlert] = useState(false); 
   
   // ESTADO TEMPORAL PARA FORMULARIO DE ASIGNACIÓN/EJECUCIÓN
   const [editData, setEditData] = useState({
@@ -60,12 +61,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   const canAssign = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
   const canExecute = currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF';
 
-  // --- CANDADO CRÍTICO DE JERARQUÍA ---
-  const isTaskLockedForMe = useMemo(() => {
-    if (!selectedTask || !currentUser) return false;
-    return currentUser.role === 'MANAGER' && selectedTask.created_by_role === 'ADMIN';
-  }, [selectedTask, currentUser]);
-
   useEffect(() => {
     fetchIPMTasks();
     if (canAssign) fetchTechnicians();
@@ -76,20 +71,15 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
     if (data) setTechnicians(data);
   };
 
-  // ================================================================
-  // 🛡️ CORRECCIÓN DE SEGURIDAD 1: FILTRADO ESTRICTO DE QUERIES DESDE EL BACKEND
-  // ================================================================
   const fetchIPMTasks = async () => {
     setLoading(true);
     let query = supabase.from('ipm_tasks').select('*');
     
-    // El rol de MANAGER tiene prioridad absoluta sobre cualquier selección previa para evitar fugas
     if (currentUser?.role === 'MANAGER') {
       query = query.eq('client_id', currentUser.client_id || '00000000-0000-0000-0000-000000000000');
     } else if (selectedCompany) {
       query = query.eq('client_id', selectedCompany.id);
     } else {
-      // Si un usuario común entra sin contexto, bloqueamos el retorno de datos
       setTasks([]);
       setLoading(false);
       return;
@@ -102,6 +92,17 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   };
 
   const handleTaskClick = (task) => {
+    // ✨ INTERCEPCIÓN DEL CLIC ✨
+    // Verificamos en el acto si la tarjeta que clickeó está bloqueada para él
+    const isLocked = currentUser?.role === 'MANAGER' && task.created_by_role === 'ADMIN';
+
+    if (isLocked) {
+      // Si está bloqueada, abortamos la edición y disparamos la pantalla roja directo a la cara
+      setShowLockAlert(true);
+      return; // Detenemos la ejecución aquí
+    }
+
+    // Si NO está bloqueada, abrimos el modal de edición normal
     setSelectedTask(task);
     setEditData({
       tecnico_id: task.tecnico_id || '',
@@ -112,11 +113,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   };
 
   const handleSaveTask = async () => {
-    if (isTaskLockedForMe) {
-      toast.error("❌ Esta actividad fue dictada por el Administrador General y no puedes modificarla.");
-      return;
-    }
-
     if (canAssign) {
       if (!editData.tecnico_id) {
         toast.error("⚠️ Por favor, selecciona un técnico de la lista.");
@@ -149,16 +145,12 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
     }
   };
 
-  // ================================================================
-  // 🛡️ CORRECCIÓN DE SEGURIDAD 2: ENFORZAMIENTO MULTICLIENTE AL CREAR ACTIVIDAD
-  // ================================================================
   const handleCreateNewTask = async () => {
     if (!newTask.custom_id || !newTask.title) {
       toast.error("⚠️ El código y el título son obligatorios.");
       return;
     }
 
-    // Determinamos el ID destino blindado por software de manera inmutable
     const targetClientId = currentUser?.role === 'MANAGER' 
       ? currentUser.client_id 
       : selectedCompany?.id;
@@ -174,7 +166,7 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
       
       const taskPayload = {
         id: newTask.custom_id.toUpperCase(),
-        client_id: targetClientId, // <-- FIJAMOS LA LLAVE DE IDENTIFICACIÓN VERIFICADA
+        client_id: targetClientId,
         title: newTask.title.toUpperCase(),
         color_code: newTask.color_code,
         frequency: newTask.frequency,
@@ -226,7 +218,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 pb-32 relative overflow-hidden">
       
-      {/* OCULTAMOS EL BOTÓN DE VOLVER ATRÁS SI ERES MANAGER YA QUE ES TU VISTA ÚNICA Y FIJA */}
       {onBack && currentUser?.role !== 'MANAGER' && (
         <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase hover:text-red-600 transition-all tracking-wider mb-2">
           <ArrowLeft size={14} /> Volver a Directorio de Empresas
@@ -450,12 +441,6 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                 </span>
                 <h3 className="font-black uppercase text-slate-800 text-lg mt-3 leading-tight">{selectedTask.title}</h3>
                 <p className="text-[10px] font-bold text-slate-400 mt-1">{selectedTask.frequency} | {selectedTask.day_of_week} ({selectedTask.semana} de {selectedTask.mes})</p>
-                
-                {isTaskLockedForMe && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-[9px] font-black text-red-600 uppercase tracking-wide">
-                    <LockIcon size={14}/> Actividad Dictada por Administrador General (Solo Lectura)
-                  </div>
-                )}
               </div>
               <button onClick={() => setSelectedTask(null)} className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 rounded-xl transition-colors"><X size={20}/></button>
             </div>
@@ -466,10 +451,9 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                   <div>
                     <label className="text-[10px] font-black uppercase text-blue-700 tracking-widest flex items-center gap-2 mb-2"><UserPlus size={14}/> Asignar a Técnico</label>
                     <select 
-                      disabled={isTaskLockedForMe}
                       value={editData.tecnico_id} 
                       onChange={(e) => setEditData({...editData, tecnico_id: e.target.value})}
-                      className="w-full p-3 rounded-xl bg-white border border-blue-200 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full p-3 rounded-xl bg-white border border-blue-200 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
                     >
                       <option value="">-- Seleccionar Técnico --</option>
                       {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
@@ -479,10 +463,9 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                     <label className="text-[10px] font-black uppercase text-blue-700 tracking-widest flex items-center gap-2 mb-2"><CalendarDays size={14}/> Fecha Programada</label>
                     <input 
                       type="date" 
-                      disabled={isTaskLockedForMe}
                       value={editData.fecha_programada} 
                       onChange={(e) => setEditData({...editData, fecha_programada: e.target.value})}
-                      className="w-full p-3 rounded-xl bg-white border border-blue-200 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full p-3 rounded-xl bg-white border border-blue-200 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -493,10 +476,9 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-600 tracking-widest flex items-center gap-2 mb-2"><Activity size={14}/> Estatus de Inspección</label>
                     <select 
-                      disabled={isTaskLockedForMe}
                       value={editData.status} 
                       onChange={(e) => setEditData({...editData, status: e.target.value})}
-                      className="w-full p-3 rounded-xl border text-xs font-black outline-none disabled:opacity-50 ${editData.status === 'COMPLETO' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}"
+                      className="w-full p-3 rounded-xl border text-xs font-black outline-none ${editData.status === 'COMPLETO' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}"
                     >
                       <option value="PENDIENTE">PENDIENTE (Programado)</option>
                       <option value="COMPLETO">COMPLETO (Realizado)</option>
@@ -506,11 +488,10 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
                     <label className="text-[10px] font-black uppercase text-slate-600 tracking-widest flex items-center gap-2 mb-2"><FileText size={14}/> Observaciones / Hallazgos</label>
                     <textarea 
                       rows="3"
-                      disabled={isTaskLockedForMe}
                       placeholder="Ej: Se encontró oxidación ligera en brida..."
                       value={editData.notas_tecnico} 
                       onChange={(e) => setEditData({...editData, notas_tecnico: e.target.value})}
-                      className="w-full p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:border-slate-400 disabled:opacity-50"
+                      className="w-full p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:border-slate-400"
                     />
                   </div>
                   
@@ -533,11 +514,42 @@ export default function IPMCalendar({ currentUser, navigateTo, selectedCompany, 
             <div className="p-4 bg-white border-t border-slate-100 flex gap-3">
               <button onClick={() => setSelectedTask(null)} className="flex-1 bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest py-4 rounded-xl hover:bg-slate-200 transition-colors">Cerrar</button>
               
-              {!isTaskLockedForMe && (
-                <button onClick={handleSaveTask} className="flex-[2] flex items-center justify-center gap-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest py-4 rounded-xl shadow-lg hover:bg-red-700 active:scale-95 transition-all">
-                  <Save size={16}/> Guardar Registro
-                </button>
-              )}
+              <button onClick={handleSaveTask} className="flex-[2] flex items-center justify-center gap-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest py-4 rounded-xl shadow-lg hover:bg-red-700 active:scale-95 transition-all">
+                <Save size={16}/> Guardar Registro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✨ MODAL ROJO DE ALERTA DE BLOQUEO DE SEGURIDAD ✨ */}
+      {showLockAlert && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm animate-in fade-in" onClick={() => setShowLockAlert(false)} />
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col text-center border-t-8 border-red-600 animate-in zoom-in-95 duration-200">
+            
+            <div className="bg-red-50 p-8 flex flex-col items-center justify-center border-b border-red-100">
+              <ShieldAlert size={64} className="text-red-600 mb-4 animate-bounce" />
+              <h3 className="font-black uppercase tracking-tighter text-2xl text-slate-900 leading-none">Acceso<br/>Denegado</h3>
+            </div>
+            
+            <div className="p-8">
+              <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                Esta actividad forma parte del <span className="text-slate-900 font-black">Plan Maestro Normativo</span> y ha sido inyectada directamente por el <span className="text-red-600 font-black">Administrador General</span>.
+              </p>
+              <div className="mt-6 p-4 bg-slate-100 rounded-xl border border-slate-200 text-left">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 flex items-center gap-1.5"><LockIcon size={12}/> Detalles del Bloqueo</p>
+                <p className="text-xs font-bold text-slate-700">Tu rango de <strong>{currentUser?.role}</strong> no cuenta con los privilegios necesarios para alterar, posponer o eliminar registros de esta jerarquía.</p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 flex gap-3">
+              <button 
+                onClick={() => setShowLockAlert(false)} 
+                className="w-full bg-slate-900 text-white font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95 shadow-md"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>
