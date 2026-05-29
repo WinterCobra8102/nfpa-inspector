@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
-import { Building2, MapPin, Calendar, ArrowRight, User, CheckCircle2, XOctagon } from 'lucide-react';
+import { Building2, MapPin, Calendar, ArrowRight, User, CheckCircle2, XOctagon, X, ShieldAlert } from 'lucide-react';
 
 export default function CompaniesView({ onSelectCompany, currentUser }) {
   
   const isAdmin = currentUser?.role === 'ADMIN';
   const isManager = currentUser?.role === 'MANAGER';
+  
+  // Modal de confirmación estilizado TLETL
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedCompanyAction, setSelectedCompanyAction] = useState(null);
 
   // --- GESTIÓN DE PRIVACIDAD MAESTRA Y DATOS ---
   const companies = useLiveQuery(async () => {
@@ -16,37 +20,44 @@ export default function CompaniesView({ onSelectCompany, currentUser }) {
     
     if (isManager) {
       if (currentUser?.client_id) {
-        // Trae exclusivamente la empresa vinculada al Jefe de Sucursal
         return await db.clientes.where('id').equals(currentUser.client_id).toArray();
       }
       return [];
     }
 
-    // Si eres el ADMIN general, barriendo el directorio global
     return await db.clientes.orderBy('nombre').toArray();
   }, [currentUser]);
 
-  // --- CONTROL DE PAGOS / SUSPENSIÓN (SÓLO ADMIN) ---
-  const togglePaymentStatus = async (companyId, currentStatus) => {
-    const actionText = currentStatus ? "SUSPENDER" : "HABILITAR";
-    
-    if (window.confirm(`¿Está seguro de que desea ${actionText} el acceso a este cliente?`)) {
-      try {
-        const { error } = await supabase
-          .from('clientes')
-          .update({ is_active: !currentStatus })
-          .eq('id', companyId);
+  // --- PREPARAR SUSPENSIÓN CON MODAL ELEGANTE ---
+  const triggerPaymentStatus = (company) => {
+    setSelectedCompanyAction(company);
+    setShowConfirmModal(true);
+  };
 
-        if (!error) {
-          // Actualizamos la base de datos local para que la UI se refresque instantáneamente
-          await db.clientes.update(companyId, { is_active: !currentStatus });
-          toast.success(`Estatus actualizado: Cliente ${actionText === 'SUSPENDER' ? 'bloqueado' : 'activo'}`);
-        } else {
-          toast.error("Error al sincronizar con el servidor de licencias.");
-        }
-      } catch (err) {
-        toast.error("Ocurrió un error de conexión.");
-      }
+  // --- EJECUTAR SUSPENSIÓN REAL AL SERVIDOR Y BASE DE DATOS LOCAL ---
+  const confirmPaymentStatus = async () => {
+    if (!selectedCompanyAction) return;
+    
+    const newStatus = !selectedCompanyAction.is_active; // Invertimos el estatus actual
+    const loadingToast = toast.loading(`Actualizando estatus de acceso...`);
+
+    try {
+      // 1. Mandamos la actualización real al servidor Supabase
+      const { error } = await supabase
+        .from('clientes')
+        .update({ is_active: newStatus })
+        .eq('id', selectedCompanyAction.id);
+
+      if (error) throw error;
+
+      // 2. Reflejamos el cambio de inmediato en la base local (Dexie)
+      await db.clientes.update(selectedCompanyAction.id, { is_active: newStatus });
+      
+      toast.success(`Estatus actualizado. El cliente ahora está ${newStatus ? 'ACTIVO' : 'BLOQUEADO'}.`, { id: loadingToast });
+      setShowConfirmModal(false);
+      setSelectedCompanyAction(null);
+    } catch (err) {
+      toast.error(`Error de servidor: ${err.message}`, { id: loadingToast });
     }
   };
 
@@ -73,75 +84,65 @@ export default function CompaniesView({ onSelectCompany, currentUser }) {
         </p>
       </div>
 
-      {/* RENDERIZADO EN CASO DE TABLA VACÍA */}
       {companies.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-[2.5rem] p-12 text-center shadow-sm">
           <Building2 size={40} className="mx-auto text-slate-300 mb-3 animate-pulse" />
           <p className="text-xs font-black text-slate-400 uppercase tracking-wider">
             No tienes sucursales vinculadas en tu cuenta de acceso.
           </p>
-          <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
-            {isManager
-              ? "Solicita al administrador global que asigne tu ID de sucursal en la ficha de equipo."
-              : "Ve al apartado de 'Ubicación de Sites' para registrar una nueva sucursal con Google Maps."
-            }
-          </p>
         </div>
       ) : (
         <>
-          {/* ========================================== */}
-          {/* VISTA PARA ADMINISTRADORES: GESTIÓN DE LICENCIAS */}
-          {/* ========================================== */}
           {isAdmin ? (
-            <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg shadow-sm">
+            <div className="overflow-x-auto bg-white border border-slate-200 rounded-[2rem] shadow-lg">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 font-black text-slate-600 uppercase tracking-widest text-[9px]">
-                    <th className="p-4">Planta Corporativa</th>
-                    <th className="p-4 text-center">Estatus Licencia</th>
-                    <th className="p-4 text-center">Control de Cobranza</th>
-                    <th className="p-4 text-right">Mantenimientos</th>
+                  <tr className="bg-slate-900 border-b border-slate-700 font-black text-white uppercase tracking-widest text-[9px]">
+                    <th className="p-5">Planta Corporativa</th>
+                    <th className="p-5 text-center">Estatus Licencia</th>
+                    <th className="p-5 text-center">Control de Cobranza</th>
+                    <th className="p-5 text-right">Mantenimientos</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {companies.map((company) => (
                     <tr key={company.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4">
+                      <td className="p-5">
                         <p className="font-bold text-slate-900 uppercase text-xs">{company.nombre}</p>
                         <p className="text-[10px] text-slate-400 font-bold mt-0.5 truncate max-w-xs">{company.direccion}</p>
                       </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                      <td className="p-5 text-center">
+                        <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
                           company.is_active !== false 
-                            ? 'bg-green-100 text-green-700 border border-green-200' 
-                            : 'bg-red-100 text-red-700 border border-red-200'
+                            ? 'bg-green-100 text-green-700 border border-green-200 shadow-inner' 
+                            : 'bg-red-100 text-red-700 border border-red-200 shadow-inner'
                         }`}>
-                          {company.is_active !== false ? 'Activo / Pagado' : 'Suspendido'}
+                          {company.is_active !== false ? '✅ Servicio Activo' : '❌ Acceso Suspendido'}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-5 text-center">
                         <button
                           type="button"
-                          onClick={() => togglePaymentStatus(company.id, company.is_active !== false)}
-                          className={`mx-auto px-4 py-2 rounded font-black uppercase text-[9px] tracking-widest transition-all shadow-sm flex items-center gap-1.5 border active:scale-95 ${
+                          onClick={() => triggerPaymentStatus(company)}
+                          className={`mx-auto px-5 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all shadow-md flex items-center justify-center gap-2 border active:scale-95 ${
                             company.is_active !== false
                               ? 'bg-white text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300'
-                              : 'bg-slate-900 text-white border-transparent hover:bg-blue-600 shadow-lg'
+                              : 'bg-slate-900 text-white border-transparent hover:bg-blue-600'
                           }`}
                         >
                           {company.is_active !== false ? (
-                            <> <XOctagon size={14}/> Suspender Servicio </>
+                            <> <XOctagon size={14}/> Bloquear </>
                           ) : (
-                            <> <CheckCircle2 size={14}/> Reactivar Acceso </>
+                            <> <CheckCircle2 size={14}/> Reactivar </>
                           )}
                         </button>
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-5 text-right">
                         <button
                           onClick={() => onSelectCompany(company)}
-                          className="inline-flex px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded font-black text-[9px] uppercase tracking-widest items-center gap-2 transition-colors border border-blue-200"
+                          className="inline-flex px-5 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest items-center gap-2 transition-colors border border-blue-200 shadow-sm"
                         >
-                          <Calendar size={12} /> Calendario IPM
+                          <Calendar size={14} /> Calendario
                         </button>
                       </td>
                     </tr>
@@ -150,10 +151,6 @@ export default function CompaniesView({ onSelectCompany, currentUser }) {
               </table>
             </div>
           ) : (
-            
-            /* ========================================== */
-            /* VISTA ESTÁNDAR: TARJETAS (MANAGER/STAFF)  */
-            /* ========================================== */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {companies.map((company) => (
                 <div 
@@ -203,6 +200,55 @@ export default function CompaniesView({ onSelectCompany, currentUser }) {
             </div>
           )}
         </>
+      )}
+
+      {/* MODAL ELEGANTE TLETL PARA CONFIRMAR SUSPENSIÓN */}
+      {showConfirmModal && selectedCompanyAction && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm animate-in fade-in" onClick={() => setShowConfirmModal(false)} />
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col border-t-8 border-red-600 animate-in zoom-in-95 duration-200 text-center">
+            
+            <div className="bg-red-50 p-8 flex flex-col items-center justify-center border-b border-red-100">
+              <ShieldAlert size={64} className="text-red-600 mb-4 animate-pulse" />
+              <h3 className="font-black uppercase tracking-tighter text-2xl text-slate-900 leading-none">
+                {selectedCompanyAction.is_active !== false ? '¿Bloquear Acceso?' : '¿Reactivar Cuenta?'}
+              </h3>
+            </div>
+            
+            <div className="p-8">
+              <p className="text-sm font-bold text-slate-600 leading-relaxed uppercase">
+                {selectedCompanyAction.is_active !== false 
+                  ? `Estás a punto de suspender las licencias operativas de la empresa `
+                  : `Se reactivarán los servicios en la nube para `}
+                <span className="text-red-600 font-black block text-lg mt-2">{selectedCompanyAction.nombre}</span>
+              </p>
+              
+              <div className="mt-6 p-4 bg-slate-100 rounded-xl border border-slate-200 text-left">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Impacto del Estatus</p>
+                <p className="text-[11px] font-bold text-slate-700">
+                  {selectedCompanyAction.is_active !== false 
+                    ? "Los técnicos, gerentes y administradores asignados a esta sucursal perderán acceso total a la plataforma web de inmediato."
+                    : "Los usuarios recuperarán el acceso a sus reportes y calendarios de inspección."}
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 flex gap-3">
+              <button 
+                onClick={() => setShowConfirmModal(false)} 
+                className="flex-1 bg-white border border-slate-200 text-slate-500 font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-all shadow-sm"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmPaymentStatus}
+                className="flex-[2] bg-slate-900 hover:bg-red-600 text-white font-black text-[10px] py-4 rounded-xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                Confirmar Acción
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
