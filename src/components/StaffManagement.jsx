@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast'; 
 import { showConfirmDelete } from '../alerts'; 
 import { 
-  Users, UserPlus, Trash2, Shield, 
-  RefreshCw, X, Lock, Eye, EyeOff, Edit, Building2, Smartphone
+  Users, UserPlus, Trash2, Shield, Mail, 
+  RefreshCw, CheckCircle, X, Lock, Eye, EyeOff, Edit, Building2, Smartphone, DollarSign, XCircle, CheckCircle2
 } from 'lucide-react';
 
 export default function StaffManagement({ currentUser }) {
@@ -13,7 +13,7 @@ export default function StaffManagement({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // --- GESTIÓN DE EMPRESAS ---
+  // --- GESTIÓN DE EMPRESAS Y ESTATUS ---
   const [listaEmpresas, setListaEmpresas] = useState([]);
   const [newClientId, setNewClientId] = useState('');
   const [editClientId, setEditClientId] = useState('');
@@ -34,6 +34,10 @@ export default function StaffManagement({ currentUser }) {
   const [editPhone, setEditPhone] = useState(''); 
   const [editPassword, setEditPassword] = useState(''); 
   const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // ESTADO DE ESTATUS DE PAGO MODAL
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // --- CONTROL DE PERMISOS SEGÚN EL ROL LOGUEADO ---
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -67,7 +71,10 @@ export default function StaffManagement({ currentUser }) {
   }
 
   async function fetchEmpresas() {
-    const { data } = await supabase.from('clientes').select('id, nombre').order('nombre', { ascending: true });
+    const { data } = await supabase
+      .from('clientes')
+      .select('id, nombre, is_active')
+      .order('nombre', { ascending: true });
     if (data) setListaEmpresas(data);
   }
 
@@ -209,6 +216,29 @@ export default function StaffManagement({ currentUser }) {
     });
   };
 
+  // --- LOGICA DE CONTROL DE COBRANZA ---
+  const handleTogglePaymentStatus = async (empresa) => {
+     setIsProcessingPayment(true);
+     const newStatus = !empresa.is_active;
+     const actionToast = toast.loading(`Cambiando estatus de ${empresa.nombre}...`);
+
+     try {
+       const { error } = await supabase
+         .from('clientes')
+         .update({ is_active: newStatus })
+         .eq('id', empresa.id);
+
+       if (error) throw error;
+
+       toast.success(`Estatus actualizado. El cliente ahora está ${newStatus ? 'ACTIVO' : 'BLOQUEADO'}.`, { id: actionToast });
+       fetchEmpresas(); // Refrescar lista de empresas
+     } catch (err) {
+       toast.error(`Error: ${err.message}`, { id: actionToast });
+     } finally {
+       setIsProcessingPayment(false);
+     }
+  };
+
   if (!isAdmin && !isManager) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-20 text-center space-y-4">
@@ -226,7 +256,7 @@ export default function StaffManagement({ currentUser }) {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 relative">
-      <div className="flex items-center justify-between bg-white p-8 rounded-[2.5rem] shadow-xl border-2 border-slate-50">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border-2 border-slate-50">
         <div className="flex items-center gap-4">
           <div className="bg-slate-900 p-4 rounded-2xl text-white">
             <Users size={32} />
@@ -236,6 +266,16 @@ export default function StaffManagement({ currentUser }) {
             <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Directorio Central de Usuarios</p>
           </div>
         </div>
+        
+        {/* BOTÓN PARA CONTROL DE PAGO (SOLO ADMIN) */}
+        {isAdmin && (
+           <button 
+             onClick={() => setPaymentModalOpen(true)}
+             className="px-6 py-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
+           >
+             <DollarSign size={16} /> Panel de Cobranza
+           </button>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -248,23 +288,23 @@ export default function StaffManagement({ currentUser }) {
             <form onSubmit={handleCreateUser} className="space-y-4 text-slate-700">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nombre Completo</label>
-                <input type="text" autoComplete="off" placeholder="Ej: CARLOS MENDOZA" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase" value={newName} onChange={e => setNewName(e.target.value)} />
+                <input type="text" autoComplete="off" placeholder="Ej: CARLOS MENDOZA" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newName} onChange={e => setNewName(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Correo Electrónico</label>
-                <input type="email" autoComplete="new-email" placeholder="ejemplo@tletl.com" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                <input type="email" autoComplete="new-email" placeholder="ejemplo@tletl.com" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Teléfono Celular</label>
                 <div className="relative flex items-center">
                   <Smartphone size={14} className="absolute left-3 text-slate-400" />
-                  <input type="tel" placeholder="9999002211" className="w-full p-3 pl-9 bg-slate-50 rounded-xl text-xs font-bold outline-none" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+                  <input type="tel" placeholder="9999002211" className="w-full p-3 pl-9 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Password Inicial</label>
                 <div className="relative flex items-center">
-                  <input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="••••••••" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                  <input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="••••••••" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -272,7 +312,7 @@ export default function StaffManagement({ currentUser }) {
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Rango / Rol</label>
-                <select className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none" value={newRole} onChange={e => setNewRole(e.target.value)}>
+                <select className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newRole} onChange={e => setNewRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
                   <option value="ADMIN">Administrador Gral.</option>
@@ -287,7 +327,7 @@ export default function StaffManagement({ currentUser }) {
                   </select>
                 </div>
               )}
-              <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2">
+              <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-colors active:scale-95">
                 {isSubmitting ? <RefreshCw className="animate-spin" size={16}/> : "Registrar en Sistema"}
               </button>
             </form>
@@ -300,7 +340,7 @@ export default function StaffManagement({ currentUser }) {
           </div>
         )}
 
-        {/* LISTADO */}
+        {/* LISTADO DE PERSONAL */}
         <div className="md:col-span-2 space-y-3">
           {loading ? (
             <div className="p-10 text-center animate-pulse text-slate-400 font-black uppercase text-[10px]">Cargando Directorio...</div>
@@ -336,7 +376,68 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      {/* MODAL DE EDICIÓN RESPONSIVE */}
+      {/* MODAL DE CONTROL DE COBRANZA (KILLS SWITCH) */}
+      {isAdmin && paymentModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0" onClick={() => setPaymentModalOpen(false)} />
+          
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] border-t-8 border-red-600 animate-in zoom-in-95 duration-200">
+            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0 relative z-30">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-100 text-red-600 rounded-xl"><DollarSign size={24}/></div>
+                <div>
+                  <h3 className="font-black text-xl uppercase tracking-tighter leading-none text-slate-800">Control de Accesos</h3>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Habilitar / Suspender Operaciones de Clientes</p>
+                </div>
+              </div>
+              <button onClick={() => setPaymentModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-800 transition-colors"><X size={24}/></button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+               <div className="space-y-3">
+                 {listaEmpresas.length === 0 ? (
+                    <p className="text-center text-xs font-bold text-slate-400 p-10 uppercase">No hay empresas registradas.</p>
+                 ) : (
+                    listaEmpresas.map(empresa => (
+                      <div key={empresa.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-2xl bg-white hover:border-slate-300 transition-colors">
+                         <div>
+                            <h4 className="font-black text-sm text-slate-800 uppercase leading-none">{empresa.nombre}</h4>
+                            <div className="flex items-center gap-1.5 mt-2">
+                               <div className={`w-2 h-2 rounded-full ${empresa.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                               <span className={`text-[9px] font-black uppercase tracking-widest ${empresa.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                                  {empresa.is_active ? 'Servicio Activo' : 'Cuenta Suspendida'}
+                               </span>
+                            </div>
+                         </div>
+                         <button 
+                           onClick={() => handleTogglePaymentStatus(empresa)}
+                           disabled={isProcessingPayment}
+                           className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 border shadow-sm ${
+                             empresa.is_active 
+                               ? 'bg-white border-slate-200 text-red-600 hover:bg-red-50 hover:border-red-200' 
+                               : 'bg-slate-900 border-transparent text-white hover:bg-blue-600'
+                           }`}
+                         >
+                            {empresa.is_active ? <><XCircle size={14}/> Bloquear</> : <><CheckCircle2 size={14}/> Habilitar</>}
+                         </button>
+                      </div>
+                    ))
+                 )}
+               </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0 relative z-30">
+              <button 
+                onClick={() => setPaymentModalOpen(false)} 
+                className="px-8 py-3 bg-white border border-slate-200 text-slate-600 font-black text-[10px] rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors shadow-sm"
+              >
+                Cerrar Panel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
@@ -383,7 +484,7 @@ export default function StaffManagement({ currentUser }) {
                 <select disabled={!isAdmin} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50 text-slate-800" value={editRole} onChange={e => setEditRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
-                  <option value="ADMIN">Administrador Gral.</option>
+                  <option value="ADMIN">Administrador General</option>
                 </select>
               </div>
 

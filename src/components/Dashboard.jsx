@@ -65,6 +65,10 @@ export default function Dashboard({ navigateTo, stats }) {
 
     const { data, error } = await query.order('nombre', { ascending: true });
     if (!error && data) setClientes(data);
+    if (error) {
+        console.error("Error al cargar clientes:", error.message);
+        toast.error("Error al cargar empresas.");
+    }
     setLoading(false);
   };
 
@@ -141,10 +145,10 @@ export default function Dashboard({ navigateTo, stats }) {
   };
 
   const menuItems = [
-    { id: 'form', label: 'Nueva Inspección', desc: 'Protocolo NFPA', icon: <Flame size={32} />, color: 'bg-red-600' },
-    { id: 'sites', label: 'Asset Radar', desc: 'Mapa en vivo', icon: <MapIcon size={32} />, color: 'bg-slate-900', count: stats?.totalAssets || 0 },
-    { id: 'list', label: 'Historial Técnico', desc: 'Reportes y PDF', icon: <ClipboardList size={32} />, color: 'bg-slate-800', count: stats?.totalReports || 0 },
-    { id: 'critical', label: 'Hallazgos Críticos', desc: 'Urgencias', icon: <AlertOctagon size={32} />, color: 'bg-orange-600', count: stats?.criticals || 0 }
+    { id: 'form', label: 'Nueva Inspección', desc: 'Protocolo NFPA', icon: Flame, color: 'bg-[#ee3924]' },
+    { id: 'sites', label: 'Asset Radar', desc: 'Mapa en vivo', icon: MapIcon, count: stats?.totalAssets || 0, color: 'bg-[#182939]' },
+    { id: 'list', label: 'Historial Técnico', desc: 'Reportes y PDF', icon: ClipboardList, count: stats?.totalReports || 0, color: 'bg-[#182939]' },
+    { id: 'critical', label: 'Hallazgos Críticos', desc: 'Urgencias', icon: AlertOctagon, count: stats?.criticals || 0, color: 'bg-[#ee3924]' }
   ];
 
   return (
@@ -163,15 +167,39 @@ export default function Dashboard({ navigateTo, stats }) {
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
-        {menuItems.map((item) => (
-          <button key={item.id} onClick={() => navigateTo(item.id)} className="relative overflow-hidden bg-white border-2 border-slate-50 p-8 rounded-[2.5rem] text-left shadow-xl shadow-slate-100 hover:border-red-600 transition-all group active:scale-95">
-            <div className={`inline-flex p-4 rounded-[1.5rem] ${item.color} text-white mb-6 shadow-lg group-hover:scale-110 transition-transform`}>{item.icon}</div>
-            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{item.desc}</p>
-            {item.count !== undefined && <div className="absolute top-8 right-8 text-2xl font-black text-slate-200 group-hover:text-red-50 transition-colors">{item.count.toString().padStart(2, '0')}</div>}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 px-2 max-w-2xl mx-auto">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigateTo(item.id)}
+              className="relative flex flex-col w-full overflow-hidden rounded-3xl text-left shadow-lg shadow-slate-200/50 hover:scale-[1.02] transition-transform group active:scale-95 bg-white border-2 border-transparent hover:border-slate-100"
+            >
+              {/* Mitad Superior: Bloque de Color, Icono y Contador (Más pequeño) */}
+              <div className={`w-full h-[110px] ${item.color} flex items-center justify-center relative p-4`}>
+                <Icon size={52} className="text-white" strokeWidth={1.5} />
+                
+                {item.count !== undefined && (
+                  <div className="absolute bottom-2 right-3 text-[10px] font-black text-white tracking-widest">
+                    {item.count.toString().padStart(2, '0')}
+                  </div>
+                )}
+              </div>
+
+              {/* Mitad Inferior: Título y Subtítulo (Más compacto) */}
+              <div className="bg-white px-4 py-4 flex flex-col justify-center min-h-[80px]">
+                <h3 className="font-black text-slate-900 text-[12px] sm:text-[13px] leading-tight uppercase tracking-tighter mb-0.5">
+                  {item.label}
+                </h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
+                  {item.desc}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* DIRECTORIO */}
@@ -180,25 +208,31 @@ export default function Dashboard({ navigateTo, stats }) {
           <div className="flex items-center gap-2">
             <Building2 className="text-slate-400" size={22} />
             <h3 className="font-black text-slate-800 uppercase tracking-tighter text-xl">
-               {isAdmin ? 'Directorio de Empresas' : 'Mi Sucursal Asignada'}
+                {isAdmin ? 'Directorio de Empresas' : 'Mi Sucursal Asignada'}
             </h3>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
-          {clientes.map(cliente => (
-            <button key={cliente.id} onClick={() => handleOpenDetails(cliente)} className="bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex items-center justify-between group hover:border-red-600 hover:-translate-y-1 transition-all text-left">
-              <div className="flex items-center gap-4 overflow-hidden">
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:bg-red-50 group-hover:text-red-600 transition-all duration-500"><Building size={20} /></div>
-                <div className="overflow-hidden">
-                  <h4 className="font-black text-[11px] uppercase text-slate-700 truncate tracking-tight">{cliente.nombre}</h4>
-                  <p className="text-[9px] font-bold text-slate-300 uppercase truncate mt-0.5">{cliente.encargado_nombre || 'Sin encargado'}</p>
-                </div>
-              </div>
-              <ChevronRight className="text-slate-200 group-hover:text-red-600" size={18} />
-            </button>
-          ))}
-        </div>
+        {loading ? (
+            <div className='p-8 text-center text-slate-400 font-bold'>Cargando empresas...</div>
+        ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
+              {clientes.length > 0 ? (clientes.map(cliente => (
+                <button key={cliente.id} onClick={() => handleOpenDetails(cliente)} className="bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex items-center justify-between group hover:border-red-600 hover:-translate-y-1 transition-all text-left">
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:bg-red-50 group-hover:text-red-600 transition-all duration-500"><Building size={20} /></div>
+                    <div className="overflow-hidden">
+                      <h4 className="font-black text-[11px] uppercase text-slate-700 truncate tracking-tight">{cliente.nombre}</h4>
+                      <p className="text-[9px] font-bold text-slate-300 uppercase truncate mt-0.5">{cliente.encargado_nombre || 'Sin encargado'}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="text-slate-200 group-hover:text-red-600" size={18} />
+                </button>
+              ))) : (
+                <div className='p-8 text-center text-slate-400 font-bold'>No hay empresas registradas o no tienes acceso.</div>
+              )}
+            </div>
+        )}
       </div>
 
       {/* PANEL LATERAL */}
@@ -271,32 +305,32 @@ export default function Dashboard({ navigateTo, stats }) {
                    </div>
                    
                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Email de Acceso</label>
-                        {isEditing ? (
-                          <input className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-red-500" value={editData.encargado_email || ''} onChange={e => setEditData({...editData, encargado_email: e.target.value})}/>
-                        ) : (
-                          <p className="text-[10px] font-bold text-red-500 truncate">{selectedClient.encargado_email || 'Sin vincular'}</p>
-                        )}
-                      </div>
+                     <div>
+                       <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Email de Acceso</label>
+                       {isEditing ? (
+                         <input className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-red-500" value={editData.encargado_email || ''} onChange={e => setEditData({...editData, encargado_email: e.target.value})}/>
+                       ) : (
+                         <p className="text-[10px] font-bold text-red-500 truncate">{selectedClient.encargado_email || 'Sin vincular'}</p>
+                       )}
+                     </div>
 
-                      {isEditing && (
-                        <div className="animate-in slide-in-from-bottom-2 duration-300">
-                          <label className="text-[8px] font-black text-blue-400 uppercase block mb-1">Asignar Contraseña</label>
-                          <div className="relative">
-                            <input 
-                              type={showPass ? "text" : "password"} 
-                              className="w-full bg-white/10 border border-white/20 rounded-xl p-3 pr-10 text-xs font-bold text-white outline-none focus:border-blue-500"
-                              placeholder="Nueva contraseña..."
-                              value={editData.password || ''}
-                              onChange={e => setEditData({...editData, password: e.target.value})}
-                            />
-                            <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">
-                              {showPass ? <EyeOff size={16}/> : <Eye size={16}/>}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                     {isEditing && (
+                       <div className="animate-in slide-in-from-bottom-2 duration-300">
+                         <label className="text-[8px] font-black text-blue-400 uppercase block mb-1">Asignar Contraseña</label>
+                         <div className="relative">
+                           <input 
+                             type={showPass ? "text" : "password"} 
+                             className="w-full bg-white/10 border border-white/20 rounded-xl p-3 pr-10 text-xs font-bold text-white outline-none focus:border-blue-500"
+                             placeholder="Nueva contraseña..."
+                             value={editData.password || ''}
+                             onChange={e => setEditData({...editData, password: e.target.value})}
+                           />
+                           <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">
+                             {showPass ? <EyeOff size={16}/> : <Eye size={16}/>}
+                           </button>
+                         </div>
+                       </div>
+                     )}
                    </div>
                 </div>
               </div>

@@ -20,7 +20,8 @@ import {
   LayoutGrid,
   LogOut,
   Calendar,
-  Building2 
+  Building2,
+  Activity // <--- Importamos el ícono Activity para el nuevo botón
 } from 'lucide-react';
 
 import Login from './components/Login'; 
@@ -34,6 +35,7 @@ import StaffManagement from './components/StaffManagement';
 import IPMCalendar from './components/IPMCalendar'; 
 import CompaniesView from './components/CompaniesView';
 import NFPALibrary from './components/NFPALibrary'; 
+import PumpEfficiency from './components/PumpEfficiency'; // <--- Importamos el nuevo módulo
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null); 
@@ -242,7 +244,6 @@ function App() {
         `}>
           <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
             <div className="flex items-center gap-3">
-              {/* ¡AQUÍ ESTÁ LA FLAMA REPARADA! */}
               <Flame size={28} className="shrink-0 text-white animate-pulse" />
               {(isSidebarOpen || isMobileMenuOpen) && (
                 <div className="flex flex-col">
@@ -274,6 +275,17 @@ function App() {
                 <NavItem icon={<Users size={20} />} label="Usuarios" active={activeTab === 'staff'} onClick={() => navigateTo('staff')} isOpen={isSidebarOpen || isMobileMenuOpen} />
                 <NavItem icon={<Settings size={20} />} label="Parámetros NFPA" active={activeTab === 'nfpa'} onClick={() => navigateTo('nfpa')} isOpen={isSidebarOpen || isMobileMenuOpen} />
               </>
+            )}
+
+            {/* --- NUEVO BOTÓN: EFICIENCIA DE BOMBA (Solo Staff y Admin) --- */}
+            {['ADMIN', 'STAFF'].includes(currentUser.role) && (
+              <NavItem 
+                icon={<Activity size={20} />} 
+                label="Eficiencia Bomba" 
+                active={activeTab === 'pump-calc'} 
+                onClick={() => navigateTo('pump-calc')} 
+                isOpen={isSidebarOpen || isMobileMenuOpen}
+              />
             )}
 
             <div className="mt-auto mb-4">
@@ -325,6 +337,13 @@ function App() {
               {activeTab === 'profile' && <div className="h-full overflow-y-auto p-4 md:p-8"><UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} /></div>}
               {activeTab === 'staff' && currentUser.role === 'ADMIN' && <div className="h-full overflow-y-auto"><StaffManagement currentUser={currentUser} /></div>}
               {activeTab === 'nfpa' && currentUser.role === 'ADMIN' && <div className="h-full w-full overflow-y-auto"><NFPALibrary /></div>}
+              
+              {/* --- RUTA DEL NUEVO MÓDULO --- */}
+              {activeTab === 'pump-calc' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
+                <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
+                  <PumpEfficiency />
+                </div>
+              )}
             </div>
           </section>
         </main>
