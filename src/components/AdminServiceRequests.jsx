@@ -11,16 +11,27 @@ export default function AdminServiceRequests() {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedTechs, setSelectedTechs] = useState({}); // Guarda el técnico seleccionado por cada fila o ticket
+  const [selectedTechs, setSelectedTechs] = useState({}); 
 
   useEffect(() => {
     fetchRequests();
     fetchTechnicians();
 
-    // Suscripción en tiempo real para ver solicitudes nuevas de inmediato
+    // Suscripción en tiempo real: Separamos INSERT de UPDATE
     const channel = supabase
       .channel('realtime-requests')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => {
+      // 1. Escuchar solo NUEVAS solicitudes (INSERT) para lanzar la alerta
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'service_requests' }, (payload) => {
+        toast.success("🚨 ¡NUEVA SOLICITUD DE SERVICIO!", {
+          duration: 6000,
+          position: 'top-right',
+          style: { background: '#ef4444', color: '#fff', fontWeight: '900', letterSpacing: '0.05em' },
+          iconTheme: { primary: '#fff', secondary: '#ef4444' }
+        });
+        fetchRequests();
+      })
+      // 2. Escuchar ACTUALIZACIONES (UPDATE) solo para refrescar la pantalla en silencio
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_requests' }, () => {
         fetchRequests();
       })
       .subscribe();
@@ -30,7 +41,6 @@ export default function AdminServiceRequests() {
     };
   }, []);
 
-  // Obtener las solicitudes uniendo los datos del cliente para saber qué negocio lo pide
   async function fetchRequests() {
     const { data, error } = await supabase
       .from('service_requests')
@@ -50,7 +60,6 @@ export default function AdminServiceRequests() {
     setLoading(false);
   }
 
-  // Obtener la lista de técnicos disponibles para el menú desplegable
   async function fetchTechnicians() {
     const { data, error } = await supabase
       .from('profiles')
@@ -63,7 +72,6 @@ export default function AdminServiceRequests() {
     }
   }
 
-  // Manejar el cambio de opción en el select de técnicos
   const handleTechChange = (requestId, techId) => {
     setSelectedTechs(prev => ({
       ...prev,
@@ -71,7 +79,6 @@ export default function AdminServiceRequests() {
     }));
   };
 
-  // Confirmar y guardar la asignación del técnico manualmente
   const handleAssignTechnician = async (requestId) => {
     const tecnicoId = selectedTechs[requestId];
     
@@ -96,7 +103,7 @@ export default function AdminServiceRequests() {
       if (error) throw error;
 
       toast.success("Solicitud confirmada. Al cliente le aparecerá el estatus actualizado.", { id: actionToast });
-      fetchRequests(); // Refrescar la lista
+      fetchRequests(); 
     } catch (err) {
       toast.error(`Error: ${err.message}`, { id: actionToast });
     } finally {
@@ -104,7 +111,6 @@ export default function AdminServiceRequests() {
     }
   };
 
-  // Función auxiliar para pintar los colores del estatus
   const getStatusBadge = (status) => {
     switch (status) {
       case 'PENDIENTE':
