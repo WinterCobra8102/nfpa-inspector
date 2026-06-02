@@ -7,16 +7,12 @@ import {
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
-import { createClient } from '@supabase/supabase-js'; 
 import toast from 'react-hot-toast';
 
 // --- CONFIGURACIÓN CRÍTICA ---
 const LIBRARIES = ['places'];
 const CENTER_MERIDA = { lat: 20.9673, lng: -89.5925 };
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100vh' };
-
-const supabaseUrl = 'https://wkjqbtmnrqbafzytrtfn.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc';
 
 const DARK_MAP_STYLE = [
   { "elementType": "geometry", "stylers": [{ "color": "#1d1d1b" }] },
@@ -25,7 +21,7 @@ const DARK_MAP_STYLE = [
   { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
 ];
 
-export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COMO PROP CONTROLADA
+export default function SitesView({ navigateTo }) { 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: "AIzaSyBveI-_k-o2HEhcY9QkBiGPMgquQQEOsJY",
@@ -34,7 +30,7 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
 
   // --- ESTADOS ---
   const [map, setMap] = useState(null);
-  const [sites, setSites] = useState([]); // AHORA GUARDARÁ LAS EMPRESAS REALES (CLIENTES)
+  const [sites, setSites] = useState([]); 
   const [userPos, setUserPos] = useState(null);
   
   const [autocomplete, setAutocomplete] = useState(null);
@@ -60,10 +56,8 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
 
   const loadSitesFromDB = async () => {
     try {
-      // CORRECCIÓN TÉCNICA 1: Mapeamos el radar para leer de la tabla unificada de 'clientes'
       const allCompanies = await db.clientes.toArray();
       
-      // Adaptamos el mapeo de campos por si la tabla usa latitud/longitud o el objeto location anterior
       const standardizedSites = allCompanies.map(c => ({
         id: c.id,
         name: c.nombre,
@@ -72,7 +66,7 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
         lng: parseFloat(c.longitud || c.location?.lng),
         responsable: c.encargado_nombre || c.responsable,
         email: c.encargado_email,
-        overallStatus: c.overallStatus || 'ÓPTIMO', // Semáforo de control visual
+        overallStatus: c.overallStatus || 'ÓPTIMO', 
         standard: c.standard || 'ALL'
       })).filter(s => !isNaN(s.lat) && !isNaN(s.lng));
 
@@ -129,7 +123,7 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
       const companyId = crypto.randomUUID();
 
       // 1. Crear la empresa físicamente en la BD Remota (Supabase)
-      const { data: newClient, error: clientError } = await supabase
+      const { error: clientError } = await supabase
         .from('clientes')
         .insert([{
           id: companyId,
@@ -139,12 +133,11 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
           longitud: selectedPlace.lng,
           encargado_nombre: managerData.name,
           encargado_email: managerData.email
-        }])
-        .select().single();
+        }]);
 
       if (clientError) throw clientError;
 
-      // CORRECCIÓN TÉCNICA 2: Inyección inmediata en la base de datos local Dexie de la misma empresa
+      // 2. Inyección inmediata en la base de datos local Dexie
       await db.clientes.put({
         id: companyId,
         nombre: selectedPlace.name.toUpperCase(),
@@ -155,35 +148,35 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
         encargado_email: managerData.email
       });
 
-      // 2. Autenticación y Perfil (Ghost Client)
+      // 3. Autenticación y Perfil (CORRECCIÓN APLICADA AQUÍ)
       const { data: existingProfile } = await supabase.from('profiles').select('id').eq('email', managerData.email).maybeSingle();
 
       if (existingProfile) {
         await supabase.rpc('admin_update_user', { target_user_id: existingProfile.id, new_password: managerData.pass });
         await supabase.from('profiles').update({ client_id: companyId, role: 'MANAGER' }).eq('id', existingProfile.id);
       } else {
-        const ghostClient = createClient(
-          supabaseUrl,
-          supabaseAnonKey,
-          { auth: { persistSession: false, autoRefreshToken: false } }
-        );
-        
-        const { error: authError } = await ghostClient.auth.signUp({ email: managerData.email, password: managerData.pass });
-        if (authError) throw authError;
-
-        const { error: rpcError } = await supabase.rpc('admin_set_role', {
-          target_email: managerData.email, new_role: 'MANAGER', full_name_val: managerData.name
+        // Creamos nuevo usuario y obtenemos su ID real
+        const { data: newUserId, error: createError } = await supabase.rpc('admin_create_user', {
+          email: managerData.email, 
+          password: managerData.pass, 
+          full_name: managerData.name.toUpperCase(), 
+          role: 'MANAGER'
         });
-        if (rpcError) throw rpcError;
 
-        await supabase.from('profiles').update({ client_id: companyId }).eq('email', managerData.email);
+        if (createError) throw createError;
+
+        // Vinculamos el ID recién creado con la empresa
+        await supabase
+          .from('profiles')
+          .update({ client_id: companyId })
+          .eq('id', newUserId);
       }
 
       toast.success("Empresa y Accesos creados con éxito", { id: loading });
       setSelectedPlace(null);
       setManagerData({ name: '', email: '', pass: '' });
       setShowManagerForm(false);
-      loadSitesFromDB(); // Recargar los pines reactivamente
+      loadSitesFromDB(); 
     } catch (e) {
       toast.error(e.message, { id: loading });
     }
@@ -337,7 +330,6 @@ export default function SitesView({ navigateTo }) { // <-- RECIBE NAVIGATETO COM
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {/* CORRECCIÓN TÉCNICA 3: Disparador dinámico para inyectar la sucursal directo al formulario */}
                 <button 
                   className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] py-2.5 rounded-lg font-black uppercase flex items-center justify-center gap-2 shadow transition-all active:scale-95"
                   onClick={() => {

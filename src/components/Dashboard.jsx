@@ -201,7 +201,6 @@ export default function Dashboard({ navigateTo, stats }) {
           );
         })}
       </div>
-
       {/* DIRECTORIO */}
       <div className="space-y-6 pt-4">
         <div className="flex items-center justify-between px-4">
@@ -259,9 +258,7 @@ export default function Dashboard({ navigateTo, stats }) {
                 </div>
               </div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
-              
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><MapPin size={14} className="text-red-600"/> Planta</h4>
@@ -334,7 +331,6 @@ export default function Dashboard({ navigateTo, stats }) {
                    </div>
                 </div>
               </div>
-
               <div className="bg-orange-50 p-6 rounded-[2rem] border border-orange-100 shadow-inner">
                 <h4 className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-3 flex items-center gap-2"><FileText size={16}/> Notas Internas</h4>
                 {isEditing ? (

@@ -21,7 +21,8 @@ import {
   LogOut,
   Calendar,
   Building2,
-  Activity // <--- Importamos el ícono Activity para el nuevo botón
+  Activity,
+  MessageSquare // <--- Ícono para el Centro de Soporte / Tickets
 } from 'lucide-react';
 
 import Login from './components/Login'; 
@@ -35,7 +36,12 @@ import StaffManagement from './components/StaffManagement';
 import IPMCalendar from './components/IPMCalendar'; 
 import CompaniesView from './components/CompaniesView';
 import NFPALibrary from './components/NFPALibrary'; 
-import PumpEfficiency from './components/PumpEfficiency'; // <--- Importamos el nuevo módulo
+import PumpEfficiency from './components/PumpEfficiency';
+
+// --- IMPORTAMOS LOS 3 NUEVOS COMPONENTES DEL SISTEMA DE TICKETS ---
+import AdminServiceRequests from './components/AdminServiceRequests';
+import StaffServiceRequests from './components/StaffServiceRequests';
+import ClientServiceRequests from './components/ClientServiceRequests';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null); 
@@ -265,6 +271,16 @@ function App() {
             )}
 
             <NavItem icon={<LayoutDashboard size={20} />} label={currentUser.role === 'CLIENTE' ? "Mis Reportes" : "Historial Técnico"} active={activeTab === 'list'} onClick={() => navigateTo('list')} isOpen={isSidebarOpen || isMobileMenuOpen} />
+            
+            {/* --- NUEVO BOTÓN: SISTEMA DE TICKETS / SOLICITUDES --- */}
+            <NavItem 
+              icon={<MessageSquare size={20} />} 
+              label={currentUser.role === 'CLIENTE' ? "Soporte Técnico" : "Órdenes de Servicio"} 
+              active={activeTab === 'tickets'} 
+              onClick={() => navigateTo('tickets')} 
+              isOpen={isSidebarOpen || isMobileMenuOpen} 
+            />
+
             <NavItem icon={<MapPin size={20} />} label="Ubicación de Sites" active={activeTab === 'sites'} onClick={() => navigateTo('sites')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             <NavItem icon={<Building2 size={20} />} label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} active={activeTab === 'companies' || activeTab === 'calendar'} onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
@@ -277,7 +293,6 @@ function App() {
               </>
             )}
 
-            {/* --- NUEVO BOTÓN: EFICIENCIA DE BOMBA (Solo Staff y Admin) --- */}
             {['ADMIN', 'STAFF'].includes(currentUser.role) && (
               <NavItem 
                 icon={<Activity size={20} />} 
@@ -337,13 +352,21 @@ function App() {
               {activeTab === 'profile' && <div className="h-full overflow-y-auto p-4 md:p-8"><UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} /></div>}
               {activeTab === 'staff' && currentUser.role === 'ADMIN' && <div className="h-full overflow-y-auto"><StaffManagement currentUser={currentUser} /></div>}
               {activeTab === 'nfpa' && currentUser.role === 'ADMIN' && <div className="h-full w-full overflow-y-auto"><NFPALibrary /></div>}
-              
-              {/* --- RUTA DEL NUEVO MÓDULO --- */}
               {activeTab === 'pump-calc' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
                 <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
                   <PumpEfficiency />
                 </div>
               )}
+
+              {/* --- ENRUTAMIENTO DEL SISTEMA DE TICKETS --- */}
+              {activeTab === 'tickets' && (
+                <div className="h-full overflow-y-auto w-full bg-[#f8fafc]">
+                  {currentUser.role === 'ADMIN' && <AdminServiceRequests currentUser={currentUser} />}
+                  {currentUser.role === 'STAFF' && <StaffServiceRequests currentUser={currentUser} />}
+                  {['CLIENTE', 'MANAGER'].includes(currentUser.role) && <ClientServiceRequests currentUser={currentUser} />}
+                </div>
+              )}
+              
             </div>
           </section>
         </main>

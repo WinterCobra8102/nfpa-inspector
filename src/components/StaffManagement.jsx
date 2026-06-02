@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
-import { createClient } from '@supabase/supabase-js'; 
 import toast from 'react-hot-toast'; 
 import { showConfirmDelete } from '../alerts'; 
 import { 
-  Users, UserPlus, Trash2, Shield, Mail, 
-  RefreshCw, CheckCircle, X, Lock, Eye, EyeOff, Edit, Building2, Smartphone, DollarSign, XCircle, CheckCircle2
+  Users, UserPlus, Trash2, Shield, 
+  RefreshCw, X, Lock, Eye, EyeOff, Edit, Building2, Smartphone
 } from 'lucide-react';
 
 export default function StaffManagement({ currentUser }) {
@@ -34,10 +33,6 @@ export default function StaffManagement({ currentUser }) {
   const [editPhone, setEditPhone] = useState(''); 
   const [editPassword, setEditPassword] = useState(''); 
   const [showEditPassword, setShowEditPassword] = useState(false);
-
-  // ESTADO DE ESTATUS DE PAGO MODAL
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // --- CONTROL DE PERMISOS SEGÚN EL ROL LOGUEADO ---
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -93,8 +88,9 @@ export default function StaffManagement({ currentUser }) {
       toast.error("Todos los campos obligatorios deben llenarse.");
       return;
     }
-    if (newRole === 'MANAGER' && !newClientId) {
-      toast.error("Debes asignar una empresa al encargado.");
+    // Exigimos empresa para cualquier rol que NO sea ADMIN
+    if (newRole !== 'ADMIN' && !newClientId) {
+      toast.error("Debes asignar una empresa a este usuario.");
       return;
     }
     if (newPassword.length < 6) {
@@ -103,31 +99,35 @@ export default function StaffManagement({ currentUser }) {
     }
     
     setIsSubmitting(true);
-    const loadingToast = toast.loading("Registrando usuario en el sistema...");
+    const loadingToast = toast.loading("Registrando usuario y vinculando empresa...");
 
     try {
-      const ghostClient = createClient(
-        'https://wkjqbtmnrqbafzytrtfn.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc',
-        { auth: { persistSession: false, autoRefreshToken: false } }
-      );
-      const { error: authError } = await ghostClient.auth.signUp({ email: newEmail, password: newPassword });
-      if (authError) throw authError;
-
-      const { error: rpcError } = await supabase.rpc('admin_set_role', {
-        target_email: newEmail, new_role: newRole, full_name_val: newName.toUpperCase()
+      // 1. Usamos tu función SQL personalizada que devuelve el ID del nuevo usuario
+      const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
+        email: newEmail, 
+        password: newPassword, 
+        full_name: newName.toUpperCase(), 
+        role: newRole
       });
+      
       if (rpcError) throw rpcError;
 
-      await supabase.from('profiles').update({ 
-        phone: newPhone || null,
-        client_id: newRole === 'MANAGER' ? newClientId : null 
-      }).eq('email', newEmail);
+      // 2. Usamos ese ID exacto para vincularlo a la empresa en la tabla profiles
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          phone: newPhone || null,
+          client_id: newRole !== 'ADMIN' ? newClientId : null 
+        })
+        .eq('id', newUserId); 
 
-      toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
+      if (updateError) throw updateError;
+
+      toast.success(`${newName.toUpperCase()} registrado y vinculado correctamente.`, { id: loadingToast });
       setNewEmail(''); setNewName(''); setNewPassword(''); setNewClientId(''); setNewPhone('');
+      fetchStaff();
     } catch (err) {
-      toast.error("Error: " + err.message, { id: loadingToast });
+      toast.error("Error al registrar: " + err.message, { id: loadingToast });
     } finally {
       setIsSubmitting(false);
     }
@@ -176,7 +176,7 @@ export default function StaffManagement({ currentUser }) {
         if (error) throw error;
 
         await supabase.from('profiles').update({ 
-          client_id: editRole === 'MANAGER' ? editClientId : null,
+          client_id: editRole !== 'ADMIN' ? editClientId : null, // También ajustamos aquí por si se cambia el rol al editar
           phone: editPhone || null,
           full_name: editName.toUpperCase()
         }).eq('id', editingUser.id);
@@ -216,29 +216,6 @@ export default function StaffManagement({ currentUser }) {
     });
   };
 
-  // --- LOGICA DE CONTROL DE COBRANZA ---
-  const handleTogglePaymentStatus = async (empresa) => {
-     setIsProcessingPayment(true);
-     const newStatus = !empresa.is_active;
-     const actionToast = toast.loading(`Cambiando estatus de ${empresa.nombre}...`);
-
-     try {
-       const { error } = await supabase
-         .from('clientes')
-         .update({ is_active: newStatus })
-         .eq('id', empresa.id);
-
-       if (error) throw error;
-
-       toast.success(`Estatus actualizado. El cliente ahora está ${newStatus ? 'ACTIVO' : 'BLOQUEADO'}.`, { id: actionToast });
-       fetchEmpresas(); // Refrescar lista de empresas
-     } catch (err) {
-       toast.error(`Error: ${err.message}`, { id: actionToast });
-     } finally {
-       setIsProcessingPayment(false);
-     }
-  };
-
   if (!isAdmin && !isManager) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-20 text-center space-y-4">
@@ -266,16 +243,6 @@ export default function StaffManagement({ currentUser }) {
             <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Directorio Central de Usuarios</p>
           </div>
         </div>
-        
-        {/* BOTÓN PARA CONTROL DE PAGO (SOLO ADMIN) */}
-        {isAdmin && (
-           <button 
-             onClick={() => setPaymentModalOpen(true)}
-             className="px-6 py-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
-           >
-             <DollarSign size={16} /> Panel de Cobranza
-           </button>
-        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -318,7 +285,8 @@ export default function StaffManagement({ currentUser }) {
                   <option value="ADMIN">Administrador Gral.</option>
                 </select>
               </div>
-              {newRole === 'MANAGER' && (
+              
+              {newRole !== 'ADMIN' && (
                 <div className="space-y-1 animate-in slide-in-from-top-2">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2 flex items-center gap-1"><Building2 size={10}/> Asignar Sucursal</label>
                   <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={newClientId} onChange={e => setNewClientId(e.target.value)}>
@@ -327,6 +295,7 @@ export default function StaffManagement({ currentUser }) {
                   </select>
                 </div>
               )}
+
               <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-colors active:scale-95">
                 {isSubmitting ? <RefreshCw className="animate-spin" size={16}/> : "Registrar en Sistema"}
               </button>
@@ -375,68 +344,6 @@ export default function StaffManagement({ currentUser }) {
           )}
         </div>
       </div>
-
-      {/* MODAL DE CONTROL DE COBRANZA (KILLS SWITCH) */}
-      {isAdmin && paymentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0" onClick={() => setPaymentModalOpen(false)} />
-          
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] border-t-8 border-red-600 animate-in zoom-in-95 duration-200">
-            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0 relative z-30">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-red-100 text-red-600 rounded-xl"><DollarSign size={24}/></div>
-                <div>
-                  <h3 className="font-black text-xl uppercase tracking-tighter leading-none text-slate-800">Control de Accesos</h3>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Habilitar / Suspender Operaciones de Clientes</p>
-                </div>
-              </div>
-              <button onClick={() => setPaymentModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-800 transition-colors"><X size={24}/></button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-               <div className="space-y-3">
-                 {listaEmpresas.length === 0 ? (
-                    <p className="text-center text-xs font-bold text-slate-400 p-10 uppercase">No hay empresas registradas.</p>
-                 ) : (
-                    listaEmpresas.map(empresa => (
-                      <div key={empresa.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-2xl bg-white hover:border-slate-300 transition-colors">
-                         <div>
-                            <h4 className="font-black text-sm text-slate-800 uppercase leading-none">{empresa.nombre}</h4>
-                            <div className="flex items-center gap-1.5 mt-2">
-                               <div className={`w-2 h-2 rounded-full ${empresa.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                               <span className={`text-[9px] font-black uppercase tracking-widest ${empresa.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                                  {empresa.is_active ? 'Servicio Activo' : 'Cuenta Suspendida'}
-                               </span>
-                            </div>
-                         </div>
-                         <button 
-                           onClick={() => handleTogglePaymentStatus(empresa)}
-                           disabled={isProcessingPayment}
-                           className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 border shadow-sm ${
-                             empresa.is_active 
-                               ? 'bg-white border-slate-200 text-red-600 hover:bg-red-50 hover:border-red-200' 
-                               : 'bg-slate-900 border-transparent text-white hover:bg-blue-600'
-                           }`}
-                         >
-                            {empresa.is_active ? <><XCircle size={14}/> Bloquear</> : <><CheckCircle2 size={14}/> Habilitar</>}
-                         </button>
-                      </div>
-                    ))
-                 )}
-               </div>
-            </div>
-            
-            <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0 relative z-30">
-              <button 
-                onClick={() => setPaymentModalOpen(false)} 
-                className="px-8 py-3 bg-white border border-slate-200 text-slate-600 font-black text-[10px] rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors shadow-sm"
-              >
-                Cerrar Panel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -488,13 +395,16 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
 
-              <div className="space-y-1 animate-in slide-in-from-top-2">
-                <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
-                <select disabled={!isAdmin} className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 disabled:opacity-50 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
-                  <option value="">Seleccionar empresa...</option>
-                  {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
-                </select>
-              </div>
+              {/* Se muestra también si cambiamos a alguien a STAFF o MANAGER al editar */}
+              {editRole !== 'ADMIN' && isAdmin && (
+                <div className="space-y-1 animate-in slide-in-from-top-2">
+                  <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
+                  <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
+                    <option value="">Seleccionar empresa...</option>
+                    {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
+                  </select>
+                </div>
+              )}
 
               {canModifyFields(editingUser) && (
                 <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
@@ -534,13 +444,5 @@ export default function StaffManagement({ currentUser }) {
         </div>
       )}
     </div>
-  );
-}
-
-function ActionIcon({ icon, onClick }) {
-  return (
-    <button type="button" onClick={onClick} className="p-3 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-all active:scale-90">
-      {icon}
-    </button>
   );
 }
