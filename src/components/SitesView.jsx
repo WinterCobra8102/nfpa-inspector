@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
-import { createClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 
 const LIBRARIES = ['places'];
@@ -97,18 +96,19 @@ export default function SitesView({ navigateTo }) {
     }
   };
 
-  // ==================== FUNCIÓN CORREGIDA ====================
+  // ==================== VERSIÓN SIMPLIFICADA ====================
   const handleFinalRegistration = async () => {
-    if (!managerData.name || !managerData.email || !managerData.pass) {
-      toast.error("Nombre, Email y Contraseña del Jefe son obligatorios");
+    if (!managerData.name || !managerData.email) {
+      toast.error("Nombre y Email del responsable son obligatorios");
       return;
     }
 
-    const loading = toast.loading("Creando empresa y credenciales de acceso...");
+    const loading = toast.loading("Registrando empresa...");
+
     try {
       const companyId = crypto.randomUUID();
 
-      // 1. Crear Empresa
+      // Solo crear la empresa
       const { error: clientError } = await supabase
         .from('clientes')
         .insert([{
@@ -120,8 +120,10 @@ export default function SitesView({ navigateTo }) {
           encargado_nombre: managerData.name,
           encargado_email: managerData.email
         }]);
+
       if (clientError) throw clientError;
 
+      // Guardar también en IndexedDB (local)
       await db.clientes.put({
         id: companyId,
         nombre: selectedPlace.name.toUpperCase(),
@@ -132,67 +134,19 @@ export default function SitesView({ navigateTo }) {
         encargado_email: managerData.email
       });
 
-      // 2. Crear Usuario (Método corregido)
-      const ghostClient = createClient(
-        'https://wkjqbtmnrqbafzytrtfn.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndranFidG1ucnFiYWZ6eXRydGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNjkwNTEsImV4cCI6MjA5Mzg0NTA1MX0.FVAh5nO7m0ixIuEM--uQqy3lRBYpz3L4GqodSDOmGkc',
-        { auth: { persistSession: false, autoRefreshToken: false } }
-      );
+      toast.success("Empresa registrada con éxito", { id: loading });
 
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', managerData.email)   // Nota: si profiles no tiene email, esto puede fallar
-        .maybeSingle();
-
-      if (existingProfile) {
-        await supabase.rpc('admin_update_user', { 
-          target_user_id: existingProfile.id, 
-          new_password: managerData.pass 
-        });
-        await supabase.from('profiles')
-          .update({ client_id: companyId, role: 'MANAGER' })
-          .eq('id', existingProfile.id);
-      } else {
-        // Crear nuevo usuario
-        const { error: authError } = await ghostClient.auth.signUp({ 
-          email: managerData.email, 
-          password: managerData.pass 
-        });
-        if (authError) throw authError;
-
-        const { error: rpcError } = await supabase.rpc('admin_set_role', {
-          target_email: managerData.email, 
-          new_role: 'MANAGER', 
-          full_name_val: managerData.name.toUpperCase()
-        });
-        if (rpcError) throw rpcError;
-
-        // === FIX PRINCIPAL: Obtener ID y vincular por ID ===
-        const { data: authUser } = await supabase
-          .from('auth.users')
-          .select('id')
-          .eq('email', managerData.email)
-          .single();
-
-        if (authUser?.id) {
-          await supabase
-            .from('profiles')
-            .update({ client_id: companyId, role: 'MANAGER' })
-            .eq('id', authUser.id);
-        }
-      }
-
-      toast.success("Empresa y Accesos creados con éxito", { id: loading });
+      // Limpiar formulario
       setSelectedPlace(null);
       setManagerData({ name: '', email: '', pass: '' });
       setShowManagerForm(false);
-      loadSitesFromDB(); 
+      loadSitesFromDB();
+
     } catch (e) {
       toast.error(e.message, { id: loading });
     }
   };
-  // ========================================================
+  // ============================================================
 
   const filteredSites = useMemo(() => {
     let result = sites;
@@ -204,7 +158,7 @@ export default function SitesView({ navigateTo }) {
   }, [sites, selectedNFPA, searchTerm]);
 
   if (loadError) return <div className="h-full flex items-center justify-center bg-black text-red-500 font-black">ERROR AL CARGAR MAPS</div>;
-  if (!isLoaded) return <div className="h-full flex flex-col items-center justify-center bg-slate-950 text-white font-black"><Loader2 className="animate_spin text-red-600 mb-4" size={40}/> INICIANDO RADAR...</div>;
+  if (!isLoaded) return <div className="h-full flex flex-col items-center justify-center bg-slate-950 text-white font-black"><Loader2 className="animate-spin text-red-600 mb-4" size={40}/> INICIANDO RADAR...</div>;
 
   return (
     <div className="h-full w-full relative overflow-hidden bg-[#111]">
@@ -242,13 +196,30 @@ export default function SitesView({ navigateTo }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest text-center border-b pb-2">Asignar Jefe de Sucursal</p>
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest text-center border-b pb-2">Datos del Responsable</p>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200"><UserPlus size={14} className="text-slate-400"/><input placeholder="Nombre Completo" className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" value={managerData.name} onChange={e => setManagerData({...managerData, name: e.target.value})} /></div>
-                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200"><Mail size={14} className="text-slate-400"/><input placeholder="Email del Jefe" className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" value={managerData.email} onChange={e => setManagerData({...managerData, email: e.target.value})} /></div>
-                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200"><Key size={14} className="text-slate-400"/><input type="password" placeholder="Pass Temporal" className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" value={managerData.pass} onChange={e => setManagerData({...managerData, pass: e.target.value})} /></div>
+                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+                      <UserPlus size={14} className="text-slate-400"/>
+                      <input 
+                        placeholder="Nombre del Responsable" 
+                        className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" 
+                        value={managerData.name} 
+                        onChange={e => setManagerData({...managerData, name: e.target.value})} 
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+                      <Mail size={14} className="text-slate-400"/>
+                      <input 
+                        placeholder="Email del Responsable" 
+                        className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" 
+                        value={managerData.email} 
+                        onChange={e => setManagerData({...managerData, email: e.target.value})} 
+                      />
+                    </div>
                   </div>
-                  <button onClick={handleFinalRegistration} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-xl mt-2 active:scale-95 transition-all">Guardar y Vincular</button>
+                  <button onClick={handleFinalRegistration} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-xl mt-2 active:scale-95 transition-all">
+                    Registrar Empresa
+                  </button>
                   <button onClick={() => setShowManagerForm(false)} className="w-full text-slate-400 font-bold text-[8px] uppercase mt-1">Cancelar</button>
                 </div>
               )}
@@ -265,10 +236,26 @@ export default function SitesView({ navigateTo }) {
         {activeSite && (
           <InfoWindow position={{ lat: activeSite.lat, lng: activeSite.lng }} onCloseClick={() => setActiveSite(null)}>
             <div className="p-3 text-center min-w-[200px] space-y-3">
-              <div><span className={`text-[8px] font-black px-2 py-0.5 rounded-full text-white ${activeSite.overallStatus === 'CRÍTICO' ? 'bg-red-500' : 'bg-green-500'}`}>{activeSite.overallStatus}</span><h4 className="font-black text-xs uppercase text-slate-800 mt-2 leading-tight tracking-tight">{activeSite.name}</h4><p className="text-[8px] font-bold text-slate-400 mt-1 max-w-[180px] mx-auto truncate">{activeSite.address}</p></div>
+              <div>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full text-white ${activeSite.overallStatus === 'CRÍTICO' ? 'bg-red-500' : 'bg-green-500'}`}>
+                  {activeSite.overallStatus}
+                </span>
+                <h4 className="font-black text-xs uppercase text-slate-800 mt-2 leading-tight tracking-tight">{activeSite.name}</h4>
+                <p className="text-[8px] font-bold text-slate-400 mt-1 max-w-[180px] mx-auto truncate">{activeSite.address}</p>
+              </div>
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <button className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] py-2.5 rounded-lg font-black uppercase flex items-center justify-center gap-2 shadow transition-all active:scale-95" onClick={() => { if (navigateTo) navigateTo('form', { clientId: activeSite.id, clientName: activeSite.name, clientAddress: activeSite.address, location: { lat: activeSite.lat, lng: activeSite.lng } }); }}><ClipboardPlus size={14}/> Crear Inspección</button>
-                <button className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-[8px] py-2 rounded-lg font-black uppercase transition-all" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${activeSite.lat},${activeSite.lng}`)}>Ver Ruta GPS</button>
+                <button 
+                  className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] py-2.5 rounded-lg font-black uppercase flex items-center justify-center gap-2 shadow transition-all active:scale-95" 
+                  onClick={() => { if (navigateTo) navigateTo('form', { clientId: activeSite.id, clientName: activeSite.name, clientAddress: activeSite.address, location: { lat: activeSite.lat, lng: activeSite.lng } }); }}
+                >
+                  <ClipboardPlus size={14}/> Crear Inspección
+                </button>
+                <button 
+                  className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-[8px] py-2 rounded-lg font-black uppercase transition-all" 
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${activeSite.lat},${activeSite.lng}`)}
+                >
+                  Ver Ruta GPS
+                </button>
               </div>
             </div>
           </InfoWindow>
@@ -277,18 +264,37 @@ export default function SitesView({ navigateTo }) {
 
       <div className="absolute top-28 left-5 z-[1000] flex flex-col gap-4">
         <div className="bg-[#111827]/90 backdrop-blur-xl border border-white/10 p-2 rounded-3xl shadow-2xl flex flex-col gap-2 w-fit">
-          <button onClick={() => setSelectedNFPA('ALL')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'ALL' ? 'bg-red-600 text-white shadow-xl' : 'text-slate-500 hover:bg-white/5'}`}><LayoutGrid size={22}/></button><div className="h-[1px] w-8 bg-white/10 mx-auto"></div>
+          <button onClick={() => setSelectedNFPA('ALL')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'ALL' ? 'bg-red-600 text-white shadow-xl' : 'text-slate-500 hover:bg-white/5'}`}><LayoutGrid size={22}/></button>
+          <div className="h-[1px] w-8 bg-white/10 mx-auto"></div>
           <button onClick={() => setSelectedNFPA('NFPA 25')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 25' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-500 hover:text-white'}`}><Droplets size={22}/></button>
           <button onClick={() => setSelectedNFPA('NFPA 72')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 72' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-500 hover:text-white'}`}><Bell size={22}/></button>
         </div>
       </div>
-      <div className="absolute bottom-36 right-6 z-[1000]"><button onClick={() => userPos && map?.panTo(userPos)} className="bg-red-600 p-5 rounded-3xl border-4 border-red-400/30 text-white active:scale-90 shadow-2xl transition-all hover:bg-red-500"><LocateFixed size={28} /></button></div>
+
+      <div className="absolute bottom-36 right-6 z-[1000]">
+        <button onClick={() => userPos && map?.panTo(userPos)} className="bg-red-600 p-5 rounded-3xl border-4 border-red-400/30 text-white active:scale-90 shadow-2xl transition-all hover:bg-red-500">
+          <LocateFixed size={28} />
+        </button>
+      </div>
+
       <div className="absolute bottom-8 left-5 right-5 z-[1000]">
         <div className="bg-[#111827]/95 backdrop-blur-2xl border border-white/10 p-5 rounded-[2.5rem] shadow-2xl max-w-2xl mx-auto flex items-center justify-around overflow-hidden relative">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-50"></div>
-          <div className="text-center group"><span className="block text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Empresas en Radar</span><div className="flex items-center gap-2 justify-center"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-3xl font-black text-white">{filteredSites.length}</span></div></div>
+          <div className="text-center group">
+            <span className="block text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Empresas en Radar</span>
+            <div className="flex items-center gap-2 justify-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-3xl font-black text-white">{filteredSites.length}</span>
+            </div>
+          </div>
           <div className="h-12 w-[1px] bg-white/10"></div>
-          <div className="text-center group"><span className="block text-[8px] font-black text-red-500/50 uppercase tracking-[0.2em] mb-1">Zonas de Riesgo</span><div className="flex items-center gap-2 justify-center"><ShieldCheck className="text-red-500" size={18}/><span className="text-3xl font-black text-red-500">{filteredSites.filter(s => s.overallStatus === 'CRÍTICO').length}</span></div></div>
+          <div className="text-center group">
+            <span className="block text-[8px] font-black text-red-500/50 uppercase tracking-[0.2em] mb-1">Zonas de Riesgo</span>
+            <div className="flex items-center gap-2 justify-center">
+              <ShieldCheck className="text-red-500" size={18}/>
+              <span className="text-3xl font-black text-red-500">{filteredSites.filter(s => s.overallStatus === 'CRÍTICO').length}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
