@@ -12,12 +12,11 @@ export default function StaffManagement({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // --- GESTIÓN DE EMPRESAS Y ESTATUS ---
   const [listaEmpresas, setListaEmpresas] = useState([]);
   const [newClientId, setNewClientId] = useState('');
   const [editClientId, setEditClientId] = useState('');
 
-  // ESTADOS DE CREACIÓN (EXCLUSIVOS ADMIN)
+  // ESTADOS DE CREACIÓN
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -34,7 +33,6 @@ export default function StaffManagement({ currentUser }) {
   const [editPassword, setEditPassword] = useState(''); 
   const [showEditPassword, setShowEditPassword] = useState(false);
 
-  // --- CONTROL DE PERMISOS SEGÚN EL ROL LOGUEADO ---
   const isAdmin = currentUser?.role === 'ADMIN';
   const isManager = currentUser?.role === 'MANAGER';
 
@@ -73,13 +71,13 @@ export default function StaffManagement({ currentUser }) {
     if (data) setListaEmpresas(data);
   }
 
-  // --- FILTRO DE PRIVACIDAD VISUAL ---
   const visibleStaff = useMemo(() => {
     if (isAdmin) return staff; 
     if (isManager) return staff.filter(person => person.role !== 'ADMIN'); 
     return [];
   }, [staff, currentUser]);
 
+  // ==================== CREAR USUARIO (CORREGIDO) ====================
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return; 
@@ -88,7 +86,6 @@ export default function StaffManagement({ currentUser }) {
       toast.error("Todos los campos obligatorios deben llenarse.");
       return;
     }
-    // Exigimos empresa para cualquier rol que NO sea ADMIN
     if (newRole !== 'ADMIN' && !newClientId) {
       toast.error("Debes asignar una empresa a este usuario.");
       return;
@@ -99,33 +96,30 @@ export default function StaffManagement({ currentUser }) {
     }
     
     setIsSubmitting(true);
-    const loadingToast = toast.loading("Registrando usuario y vinculando empresa...");
+    const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // 1. Usamos tu función SQL personalizada que devuelve el ID del nuevo usuario
+      // Llamada correcta con los nombres de parámetros que espera la función SQL
       const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
-        email: newEmail, 
-        password: newPassword, 
-        full_name: newName.toUpperCase(), 
-        role: newRole
+        p_email: newEmail,
+        p_password: newPassword,
+        p_full_name: newName.toUpperCase(),
+        p_role: newRole,
+        p_client_id: newRole !== 'ADMIN' ? newClientId : null
       });
       
       if (rpcError) throw rpcError;
 
-      // 2. Usamos ese ID exacto para vincularlo a la empresa en la tabla profiles
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          phone: newPhone || null,
-          client_id: newRole !== 'ADMIN' ? newClientId : null 
-        })
-        .eq('id', newUserId); 
-
-      if (updateError) throw updateError;
-
-      toast.success(`${newName.toUpperCase()} registrado y vinculado correctamente.`, { id: loadingToast });
-      setNewEmail(''); setNewName(''); setNewPassword(''); setNewClientId(''); setNewPhone('');
+      toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
+      
+      // Limpiar formulario
+      setNewEmail(''); 
+      setNewName(''); 
+      setNewPassword(''); 
+      setNewClientId(''); 
+      setNewPhone('');
       fetchStaff();
+      
     } catch (err) {
       toast.error("Error al registrar: " + err.message, { id: loadingToast });
     } finally {
@@ -147,11 +141,9 @@ export default function StaffManagement({ currentUser }) {
   const handleUpdateUser = async (e) => {
     if (e) e.preventDefault();
     
-    if (editPassword.trim() !== '') {
-      if (editPassword.length < 6) {
-        toast.error("⚠️ La contraseña debe tener al menos 6 caracteres.");
-        return;
-      }
+    if (editPassword.trim() !== '' && editPassword.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres.");
+      return;
     }
 
     setIsSubmitting(true);
@@ -171,12 +163,12 @@ export default function StaffManagement({ currentUser }) {
           new_email: editEmail, 
           new_name: editName.toUpperCase(),
           new_role: editRole,
-          new_password: (!isSelfEditing && editPassword.trim() !== '') ? editPassword.trim() : null 
+          new_password: (!isSelfEditing && editPassword.trim() !== '') ? editPassword.trim() : ''
         });
         if (error) throw error;
 
         await supabase.from('profiles').update({ 
-          client_id: editRole !== 'ADMIN' ? editClientId : null, // También ajustamos aquí por si se cambia el rol al editar
+          client_id: editRole !== 'ADMIN' ? editClientId : null,
           phone: editPhone || null,
           full_name: editName.toUpperCase()
         }).eq('id', editingUser.id);
@@ -187,13 +179,13 @@ export default function StaffManagement({ currentUser }) {
           updateData.phone = editPhone || null;
           updateData.full_name = editName.toUpperCase();
         }
-
-        const { error = null } = await supabase.from('profiles').update(updateData).eq('id', editingUser.id);
+        const { error } = await supabase.from('profiles').update(updateData).eq('id', editingUser.id);
         if (error) throw error;
       }
 
       toast.success("Parámetros actualizados con éxito.", { id: loadingToast });
       setEditingUser(null);
+      fetchStaff();
     } catch (err) {
       toast.error("Error: " + err.message, { id: loadingToast });
     } finally {
@@ -255,11 +247,11 @@ export default function StaffManagement({ currentUser }) {
             <form onSubmit={handleCreateUser} className="space-y-4 text-slate-700">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nombre Completo</label>
-                <input type="text" autoComplete="off" placeholder="Ej: CARLOS MENDOZA" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newName} onChange={e => setNewName(e.target.value)} />
+                <input type="text" placeholder="Ej: CARLOS MENDOZA" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newName} onChange={e => setNewName(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Correo Electrónico</label>
-                <input type="email" autoComplete="new-email" placeholder="ejemplo@tletl.com" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                <input type="email" placeholder="ejemplo@tletl.com" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Teléfono Celular</label>
@@ -271,7 +263,7 @@ export default function StaffManagement({ currentUser }) {
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Password Inicial</label>
                 <div className="relative flex items-center">
-                  <input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="••••••••" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                  <input type={showPassword ? "text" : "password"} placeholder="••••••••" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -287,7 +279,7 @@ export default function StaffManagement({ currentUser }) {
               </div>
               
               {newRole !== 'ADMIN' && (
-                <div className="space-y-1 animate-in slide-in-from-top-2">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2 flex items-center gap-1"><Building2 size={10}/> Asignar Sucursal</label>
                   <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={newClientId} onChange={e => setNewClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
@@ -305,7 +297,7 @@ export default function StaffManagement({ currentUser }) {
           <div className="md:col-span-1 bg-slate-900 p-6 rounded-[2rem] text-white space-y-3 h-fit border-t-4 border-blue-500 shadow-xl">
             <Shield size={24} className="text-blue-400"/>
             <h4 className="font-black text-xs uppercase tracking-wider">Acceso de Monitoreo</h4>
-            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase">Estás operando bajo el rango de Jefe de Sucursal. Puedes auditar a tu equipo de inspectores asignados y actualizar tus parámetros de seguridad personal.</p>
+            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase">Estás operando bajo el rango de Jefe de Sucursal.</p>
           </div>
         )}
 
@@ -345,24 +337,21 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
+      {/* MODAL DE EDICIÓN */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
           
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] text-slate-700 border-t-8 border-slate-900 animate-in zoom-in-95 duration-200">
             
-            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0 relative z-30">
+            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0">
               <div>
                 <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">Ficha Técnica</span>
                 <h3 className="font-black text-xl uppercase tracking-tighter mt-1">
                   {editingUser.id === currentUser?.id ? "Mi Cuenta de Acceso" : "Modificar Perfil"}
                 </h3>
               </div>
-              <button 
-                type="button" 
-                onClick={() => setEditingUser(null)} 
-                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-xl transition-all active:scale-90"
-              >
+              <button type="button" onClick={() => setEditingUser(null)} className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-xl transition-all active:scale-90">
                 <X size={22}/>
               </button>
             </div>
@@ -373,17 +362,17 @@ export default function StaffManagement({ currentUser }) {
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre Completo</label>
-                <input type="text" disabled={!canModifyFields(editingUser)} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" value={editName} onChange={e => setEditName(e.target.value)} />
+                <input type="text" disabled={!canModifyFields(editingUser)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Correo Electrónico</label>
-                <input type="text" disabled={!isAdmin} autoComplete="off" className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                <input type="text" disabled={!isAdmin} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Móvil</label>
-                <input type="tel" disabled={!canModifyFields(editingUser)} autoComplete="off" placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                <input type="tel" disabled={!canModifyFields(editingUser)} placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
               </div>
 
               <div className="space-y-1">
@@ -395,9 +384,8 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
 
-              {/* Se muestra también si cambiamos a alguien a STAFF o MANAGER al editar */}
               {editRole !== 'ADMIN' && isAdmin && (
-                <div className="space-y-1 animate-in slide-in-from-top-2">
+                <div className="space-y-1">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
                   <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
@@ -409,37 +397,27 @@ export default function StaffManagement({ currentUser }) {
               {canModifyFields(editingUser) && (
                 <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
                   <label className="text-[9px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
-                    <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña Personal" : "Restablecer Contraseña (Soporte)"}
+                    <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña Personal" : "Restablecer Contraseña"}
                   </label>
                   <div className="relative flex items-center">
-                    <input type={showEditPassword ? "text" : "password"} autoComplete="new-password" placeholder="Escribe la nueva contraseña..." className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
+                    <input type={showEditPassword ? "text" : "password"} placeholder="Escribe la nueva contraseña..." className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
                     <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                       {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <p className="text-[7.5px] font-bold text-red-500 leading-none px-1">Si dejas esta celda en blanco, las claves actuales del usuario no sufrirán modificaciones.</p>
+                  <p className="text-[7.5px] font-bold text-red-500 leading-none px-1">Si dejas esta celda en blanco, la contraseña actual no se modificará.</p>
                 </div>
               )}
             </form>
 
-            <div className="p-4 bg-slate-50 border-t flex gap-3 shrink-0 relative z-30">
-              <button 
-                type="button" 
-                onClick={() => setEditingUser(null)} 
-                className="flex-1 bg-white border border-slate-200 text-slate-500 font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors shadow-sm"
-              >
+            <div className="p-4 bg-slate-50 border-t flex gap-3 shrink-0">
+              <button type="button" onClick={() => setEditingUser(null)} className="flex-1 bg-white border border-slate-200 text-slate-500 font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
-              <button 
-                type="button"
-                disabled={isSubmitting} 
-                onClick={handleUpdateUser}
-                className="flex-[2] bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
+              <button type="button" disabled={isSubmitting} onClick={handleUpdateUser} className="flex-[2] bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
                 {isSubmitting ? <RefreshCw className="animate-spin" size={14}/> : "Guardar Parámetros"}
               </button>
             </div>
-
           </div>
         </div>
       )}
