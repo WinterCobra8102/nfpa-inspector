@@ -77,7 +77,7 @@ export default function StaffManagement({ currentUser }) {
     return [];
   }, [staff, currentUser]);
 
-  // ==================== CREAR USUARIO (CORREGIDO) ====================
+  // ==================== CREAR USUARIO ====================
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return; 
@@ -99,7 +99,6 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // Llamada correcta con los nombres de parámetros que espera la función SQL
       const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
         p_email: newEmail,
         p_password: newPassword,
@@ -112,7 +111,7 @@ export default function StaffManagement({ currentUser }) {
 
       toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
       
-      // Limpiar formulario
+      // Limpiar formulario completamente
       setNewEmail(''); 
       setNewName(''); 
       setNewPassword(''); 
@@ -122,6 +121,12 @@ export default function StaffManagement({ currentUser }) {
       
     } catch (err) {
       toast.error("Error al registrar: " + err.message, { id: loadingToast });
+      // Limpiar también en caso de error para que no queden datos pegados
+      setNewEmail(''); 
+      setNewName(''); 
+      setNewPassword(''); 
+      setNewClientId(''); 
+      setNewPhone('');
     } finally {
       setIsSubmitting(false);
     }
