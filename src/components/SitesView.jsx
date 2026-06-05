@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { 
-  LocateFixed, Search, LayoutGrid, MapPin, 
-  Navigation2, Droplets, Bell, ChevronRight, X, Loader2, PlusCircle, ShieldCheck, 
-  Activity, Waves, Box, Clipboard, UserPlus, Key, Mail, ClipboardPlus
+  LocateFixed, Search, LayoutGrid, X, Loader2, PlusCircle, ShieldCheck 
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
@@ -30,14 +28,9 @@ export default function SitesView({ navigateTo }) {
   const [map, setMap] = useState(null);
   const [sites, setSites] = useState([]); 
   const [userPos, setUserPos] = useState(null);
-  
   const [autocomplete, setAutocomplete] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [activeSite, setActiveSite] = useState(null);
-  
-  const [showManagerForm, setShowManagerForm] = useState(false);
-  const [managerData, setManagerData] = useState({ name: '', email: '', pass: '' });
-
   const [selectedNFPA, setSelectedNFPA] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -60,8 +53,6 @@ export default function SitesView({ navigateTo }) {
         address: c.direccion,
         lat: parseFloat(c.latitud || c.location?.lat),
         lng: parseFloat(c.longitud || c.location?.lng),
-        responsable: c.encargado_nombre || c.responsable,
-        email: c.encargado_email,
         overallStatus: c.overallStatus || 'ÓPTIMO', 
         standard: c.standard || 'ALL'
       })).filter(s => !isNaN(s.lat) && !isNaN(s.lng));
@@ -80,66 +71,46 @@ export default function SitesView({ navigateTo }) {
       toast.error("Selecciona un lugar de la lista de Google.");
       return;
     }
-    try {
-      const newPos = {
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-        name: place.name || "Ubicación Seleccionada",
-        address: place.formatted_address || "Sin dirección"
-      };
-      setSelectedPlace(newPos);
-      setShowManagerForm(false);
-      setActiveSite(null);
-      if (map) { map.panTo(newPos); map.setZoom(17); }
-    } catch (err) {
-      console.error("Error al mover el mapa:", err);
-    }
+    const newPos = {
+      lat: place.geometry.location.lat(),
+      lng: place.geometry.location.lng(),
+      name: place.name || "Ubicación Seleccionada",
+      address: place.formatted_address || "Sin dirección"
+    };
+    setSelectedPlace(newPos);
+    setActiveSite(null);
+    if (map) { map.panTo(newPos); map.setZoom(17); }
   };
 
-  // ==================== VERSIÓN SIMPLIFICADA ====================
-  const handleFinalRegistration = async () => {
-    if (!managerData.name || !managerData.email) {
-      toast.error("Nombre y Email del responsable son obligatorios");
-      return;
-    }
+  // ==================== SOLO REGISTRA LA EMPRESA ====================
+  const handleRegisterCompany = async () => {
+    if (!selectedPlace) return;
 
     const loading = toast.loading("Registrando empresa...");
 
     try {
       const companyId = crypto.randomUUID();
 
-      // Solo crear la empresa
-      const { error: clientError } = await supabase
-        .from('clientes')
-        .insert([{
-          id: companyId,
-          nombre: selectedPlace.name.toUpperCase(),
-          direccion: selectedPlace.address,
-          latitud: selectedPlace.lat,
-          longitud: selectedPlace.lng,
-          encargado_nombre: managerData.name,
-          encargado_email: managerData.email
-        }]);
+      const { error } = await supabase.from('clientes').insert([{
+        id: companyId,
+        nombre: selectedPlace.name.toUpperCase(),
+        direccion: selectedPlace.address,
+        latitud: selectedPlace.lat,
+        longitud: selectedPlace.lng
+      }]);
 
-      if (clientError) throw clientError;
+      if (error) throw error;
 
-      // Guardar también en IndexedDB (local)
       await db.clientes.put({
         id: companyId,
         nombre: selectedPlace.name.toUpperCase(),
         direccion: selectedPlace.address,
         latitud: selectedPlace.lat,
-        longitud: selectedPlace.lng,
-        encargado_nombre: managerData.name,
-        encargado_email: managerData.email
+        longitud: selectedPlace.lng
       });
 
       toast.success("Empresa registrada con éxito", { id: loading });
-
-      // Limpiar formulario
       setSelectedPlace(null);
-      setManagerData({ name: '', email: '', pass: '' });
-      setShowManagerForm(false);
       loadSitesFromDB();
 
     } catch (e) {
@@ -168,68 +139,59 @@ export default function SitesView({ navigateTo }) {
         .pac-item:hover { background-color: #f1f5f9 !important; }
       `}</style>
 
-      {/* BUSCADOR SUPERIOR */}
+      {/* BUSCADOR */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[500px] z-[2000]">
-        <div className="bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-3xl px-6 py-4 flex items-center gap-4 shadow-2xl focus-within:ring-4 focus-within:ring-blue-500/20 transition-all">
+        <div className="bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-3xl px-6 py-4 flex items-center gap-4 shadow-2xl">
           <Search className="text-slate-500 shrink-0" size={22} />
           <div className="flex-1">
             <Autocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar sucursal o plaza..." className="bg-transparent border-none w-full text-white font-bold text-sm outline-none placeholder:text-slate-600" />
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                placeholder="Buscar sucursal o plaza..." 
+                className="bg-transparent border-none w-full text-white font-bold text-sm outline-none placeholder:text-slate-600" 
+              />
             </Autocomplete>
           </div>
           {searchTerm && (
-            <button onClick={() => { setSearchTerm(''); setSelectedPlace(null); }} className="shrink-0"><X className="text-slate-500 hover:text-white" size={18}/></button>
+            <button onClick={() => { setSearchTerm(''); setSelectedPlace(null); }}>
+              <X className="text-slate-500 hover:text-white" size={18}/>
+            </button>
           )}
         </div>
       </div>
 
       <GoogleMap mapContainerStyle={MAP_CONTAINER_STYLE} center={CENTER_MERIDA} zoom={13} onLoad={setMap} options={{ disableDefaultUI: true, styles: DARK_MAP_STYLE }}>
+        
         {selectedPlace && <Marker position={{ lat: selectedPlace.lat, lng: selectedPlace.lng }} icon="http://maps.google.com/mapfiles/ms/icons/blue-dot.png" />}
 
+        {/* InfoWindow simplificado - Solo botón de registrar empresa */}
         {selectedPlace && (
-          <InfoWindow position={{ lat: selectedPlace.lat, lng: selectedPlace.lng }} onCloseClick={() => { setSelectedPlace(null); setShowManagerForm(false); }}>
-            <div className="p-4 min-w-[260px] bg-white rounded-xl shadow-none">
-              {!showManagerForm ? (
-                <div className="text-center">
-                  <h4 className="font-black text-xs uppercase mb-3 text-slate-800 leading-tight border-b pb-2">{selectedPlace.name}</h4>
-                  <button onClick={() => setShowManagerForm(true)} className="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"><PlusCircle size={16}/> Registrar Empresa</button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest text-center border-b pb-2">Datos del Responsable</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200">
-                      <UserPlus size={14} className="text-slate-400"/>
-                      <input 
-                        placeholder="Nombre del Responsable" 
-                        className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" 
-                        value={managerData.name} 
-                        onChange={e => setManagerData({...managerData, name: e.target.value})} 
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200">
-                      <Mail size={14} className="text-slate-400"/>
-                      <input 
-                        placeholder="Email del Responsable" 
-                        className="bg-transparent text-[10px] font-bold outline-none w-full text-slate-700" 
-                        value={managerData.email} 
-                        onChange={e => setManagerData({...managerData, email: e.target.value})} 
-                      />
-                    </div>
-                  </div>
-                  <button onClick={handleFinalRegistration} className="w-full bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-xl mt-2 active:scale-95 transition-all">
-                    Registrar Empresa
-                  </button>
-                  <button onClick={() => setShowManagerForm(false)} className="w-full text-slate-400 font-bold text-[8px] uppercase mt-1">Cancelar</button>
-                </div>
-              )}
+          <InfoWindow position={{ lat: selectedPlace.lat, lng: selectedPlace.lng }} onCloseClick={() => setSelectedPlace(null)}>
+            <div className="p-5 min-w-[260px] bg-white rounded-2xl text-center">
+              <h4 className="font-black text-sm uppercase mb-1 text-slate-800">{selectedPlace.name}</h4>
+              <p className="text-[10px] text-slate-500 mb-4 line-clamp-2">{selectedPlace.address}</p>
+              
+              <button 
+                onClick={handleRegisterCompany}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <PlusCircle size={16}/> REGISTRAR EMPRESA
+              </button>
             </div>
           </InfoWindow>
         )}
 
         <MarkerClusterer>
           {(clusterer) => filteredSites.map(site => (
-            <Marker key={site.id} position={{ lat: site.lat, lng: site.lng }} clusterer={clusterer} onClick={() => setActiveSite(site)} icon={site.overallStatus === 'CRÍTICO' ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"} />
+            <Marker 
+              key={site.id} 
+              position={{ lat: site.lat, lng: site.lng }} 
+              clusterer={clusterer} 
+              onClick={() => setActiveSite(site)} 
+              icon={site.overallStatus === 'CRÍTICO' ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"} 
+            />
           ))}
         </MarkerClusterer>
 
@@ -240,21 +202,15 @@ export default function SitesView({ navigateTo }) {
                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full text-white ${activeSite.overallStatus === 'CRÍTICO' ? 'bg-red-500' : 'bg-green-500'}`}>
                   {activeSite.overallStatus}
                 </span>
-                <h4 className="font-black text-xs uppercase text-slate-800 mt-2 leading-tight tracking-tight">{activeSite.name}</h4>
-                <p className="text-[8px] font-bold text-slate-400 mt-1 max-w-[180px] mx-auto truncate">{activeSite.address}</p>
+                <h4 className="font-black text-xs uppercase text-slate-800 mt-2">{activeSite.name}</h4>
+                <p className="text-[8px] text-slate-400 mt-1">{activeSite.address}</p>
               </div>
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
                 <button 
-                  className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] py-2.5 rounded-lg font-black uppercase flex items-center justify-center gap-2 shadow transition-all active:scale-95" 
-                  onClick={() => { if (navigateTo) navigateTo('form', { clientId: activeSite.id, clientName: activeSite.name, clientAddress: activeSite.address, location: { lat: activeSite.lat, lng: activeSite.lng } }); }}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] py-2.5 rounded-lg font-black uppercase flex items-center justify-center gap-2" 
+                  onClick={() => navigateTo && navigateTo('form', { clientId: activeSite.id, clientName: activeSite.name })}
                 >
-                  <ClipboardPlus size={14}/> Crear Inspección
-                </button>
-                <button 
-                  className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-[8px] py-2 rounded-lg font-black uppercase transition-all" 
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${activeSite.lat},${activeSite.lng}`)}
-                >
-                  Ver Ruta GPS
+                  Crear Inspección
                 </button>
               </div>
             </div>
@@ -262,25 +218,25 @@ export default function SitesView({ navigateTo }) {
         )}
       </GoogleMap>
 
+      {/* Botones de filtro NFPA */}
       <div className="absolute top-28 left-5 z-[1000] flex flex-col gap-4">
         <div className="bg-[#111827]/90 backdrop-blur-xl border border-white/10 p-2 rounded-3xl shadow-2xl flex flex-col gap-2 w-fit">
-          <button onClick={() => setSelectedNFPA('ALL')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'ALL' ? 'bg-red-600 text-white shadow-xl' : 'text-slate-500 hover:bg-white/5'}`}><LayoutGrid size={22}/></button>
+          <button onClick={() => setSelectedNFPA('ALL')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'ALL' ? 'bg-red-600 text-white' : 'text-slate-500 hover:bg-white/5'}`}><LayoutGrid size={22}/></button>
           <div className="h-[1px] w-8 bg-white/10 mx-auto"></div>
-          <button onClick={() => setSelectedNFPA('NFPA 25')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 25' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-500 hover:text-white'}`}><Droplets size={22}/></button>
-          <button onClick={() => setSelectedNFPA('NFPA 72')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 72' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-500 hover:text-white'}`}><Bell size={22}/></button>
+          <button onClick={() => setSelectedNFPA('NFPA 25')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 25' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white'}`}><Droplets size={22}/></button>
+          <button onClick={() => setSelectedNFPA('NFPA 72')} className={`p-4 rounded-2xl transition-all ${selectedNFPA === 'NFPA 72' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white'}`}><Bell size={22}/></button>
         </div>
       </div>
 
       <div className="absolute bottom-36 right-6 z-[1000]">
-        <button onClick={() => userPos && map?.panTo(userPos)} className="bg-red-600 p-5 rounded-3xl border-4 border-red-400/30 text-white active:scale-90 shadow-2xl transition-all hover:bg-red-500">
+        <button onClick={() => userPos && map?.panTo(userPos)} className="bg-red-600 p-5 rounded-3xl border-4 border-red-400/30 text-white active:scale-90 shadow-2xl hover:bg-red-500">
           <LocateFixed size={28} />
         </button>
       </div>
 
       <div className="absolute bottom-8 left-5 right-5 z-[1000]">
-        <div className="bg-[#111827]/95 backdrop-blur-2xl border border-white/10 p-5 rounded-[2.5rem] shadow-2xl max-w-2xl mx-auto flex items-center justify-around overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-50"></div>
-          <div className="text-center group">
+        <div className="bg-[#111827]/95 backdrop-blur-2xl border border-white/10 p-5 rounded-[2.5rem] shadow-2xl max-w-2xl mx-auto flex items-center justify-around">
+          <div className="text-center">
             <span className="block text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Empresas en Radar</span>
             <div className="flex items-center gap-2 justify-center">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -288,7 +244,7 @@ export default function SitesView({ navigateTo }) {
             </div>
           </div>
           <div className="h-12 w-[1px] bg-white/10"></div>
-          <div className="text-center group">
+          <div className="text-center">
             <span className="block text-[8px] font-black text-red-500/50 uppercase tracking-[0.2em] mb-1">Zonas de Riesgo</span>
             <div className="flex items-center gap-2 justify-center">
               <ShieldCheck className="text-red-500" size={18}/>
