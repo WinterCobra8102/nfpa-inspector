@@ -249,26 +249,59 @@ export default function StaffManagement({ currentUser }) {
               <UserPlus size={16} className="text-red-600"/> Nuevo Registro
             </h3>
             
-            <form onSubmit={handleCreateUser} className="space-y-4 text-slate-700">
+            {/* Se agregó autoComplete="off" al form general */}
+            <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-4 text-slate-700">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nombre Completo</label>
-                <input type="text" placeholder="Ej: CARLOS MENDOZA" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newName} onChange={e => setNewName(e.target.value)} />
+                <input 
+                  type="text" 
+                  name="fake_name_create"
+                  autoComplete="off"
+                  placeholder="Ej: CARLOS MENDOZA" 
+                  className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                  value={newName} 
+                  onChange={e => setNewName(e.target.value)} 
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Correo Electrónico</label>
-                <input type="email" placeholder="ejemplo@tletl.com" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                <input 
+                  type="email" 
+                  name="fake_email_create"
+                  autoComplete="off"
+                  placeholder="ejemplo@tletl.com" 
+                  className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                  value={newEmail} 
+                  onChange={e => setNewEmail(e.target.value)} 
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Teléfono Celular</label>
                 <div className="relative flex items-center">
                   <Smartphone size={14} className="absolute left-3 text-slate-400" />
-                  <input type="tel" placeholder="9999002211" className="w-full p-3 pl-9 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+                  <input 
+                    type="tel" 
+                    name="fake_phone_create"
+                    autoComplete="off"
+                    placeholder="9999002211" 
+                    className="w-full p-3 pl-9 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                    value={newPhone} 
+                    onChange={e => setNewPhone(e.target.value)} 
+                  />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Password Inicial</label>
                 <div className="relative flex items-center">
-                  <input type={showPassword ? "text" : "password"} placeholder="••••••••" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    name="fake_password_create"
+                    autoComplete="new-password"
+                    placeholder="••••••••" 
+                    className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)} 
+                  />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -361,23 +394,49 @@ export default function StaffManagement({ currentUser }) {
               </button>
             </div>
 
+            {/* Se aseguró autoComplete="off" al form de edición */}
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar" autoComplete="off">
               <input type="text" style={{ display: 'none' }} />
               <input type="password" style={{ display: 'none' }} />
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre Completo</label>
-                <input type="text" disabled={!canModifyFields(editingUser)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" value={editName} onChange={e => setEditName(e.target.value)} />
+                <input 
+                  type="text" 
+                  name="fake_name_edit"
+                  autoComplete="off"
+                  disabled={!canModifyFields(editingUser)} 
+                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" 
+                  value={editName} 
+                  onChange={e => setEditName(e.target.value)} 
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Correo Electrónico</label>
-                <input type="text" disabled={!isAdmin} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                <input 
+                  type="text" 
+                  name="fake_email_edit"
+                  autoComplete="off"
+                  disabled={!isAdmin} 
+                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" 
+                  value={editEmail} 
+                  onChange={e => setEditEmail(e.target.value)} 
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Móvil</label>
-                <input type="tel" disabled={!canModifyFields(editingUser)} placeholder="Capturar número..." className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                <input 
+                  type="tel" 
+                  name="fake_phone_edit"
+                  autoComplete="off"
+                  disabled={!canModifyFields(editingUser)} 
+                  placeholder="Capturar número..." 
+                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" 
+                  value={editPhone} 
+                  onChange={e => setEditPhone(e.target.value)} 
+                />
               </div>
 
               <div className="space-y-1">
@@ -405,7 +464,15 @@ export default function StaffManagement({ currentUser }) {
                     <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña Personal" : "Restablecer Contraseña"}
                   </label>
                   <div className="relative flex items-center">
-                    <input type={showEditPassword ? "text" : "password"} placeholder="Escribe la nueva contraseña..." className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
+                    <input 
+                      type={showEditPassword ? "text" : "password"} 
+                      name="fake_password_edit"
+                      autoComplete="new-password"
+                      placeholder="Escribe la nueva contraseña..." 
+                      className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" 
+                      value={editPassword} 
+                      onChange={e => setEditPassword(e.target.value)} 
+                    />
                     <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
                       {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
