@@ -77,7 +77,7 @@ export default function StaffManagement({ currentUser }) {
     return [];
   }, [staff, currentUser]);
 
-  // ==================== CREAR USUARIO (MEJORADO - SIN RPC) ====================
+  // ==================== CREAR USUARIO (MEJORADO - SIN RPC) ====================//
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return; 
