@@ -77,7 +77,7 @@ export default function StaffManagement({ currentUser }) {
     return [];
   }, [staff, currentUser]);
 
-  // ==================== CREAR USUARIO ====================
+  // ==================== CREAR USUARIO (MEJORADO - SIN RPC) ====================
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return; 
@@ -99,15 +99,46 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
-        p_email: newEmail,
-        p_password: newPassword,
-        p_full_name: newName.toUpperCase(),
-        p_role: newRole,
-        p_client_id: newRole !== 'ADMIN' ? newClientId : null
+      // ✅ PASO 1: Crear usuario en Supabase Auth
+      console.log('📝 Creando usuario en Auth...');
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: newEmail.trim().toLowerCase(),
+        password: newPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: newName.toUpperCase(),
+          role: newRole
+        }
       });
-      
-      if (rpcError) throw rpcError;
+
+      if (authError) {
+        console.error('❌ Error en Auth:', authError);
+        throw new Error(`Error en autenticación: ${authError.message}`);
+      }
+
+      const newUserId = authData.user.id;
+      console.log('✅ Usuario creado en Auth:', newUserId);
+
+      // ✅ PASO 2: Crear perfil en tabla public.profiles
+      console.log('📝 Creando perfil...');
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: newUserId,
+          full_name: newName.toUpperCase(),
+          role: newRole,
+          client_id: newRole === 'ADMIN' ? null : newClientId,
+          phone: newPhone || null
+        });
+
+      if (profileError) {
+        console.error('❌ Error al crear perfil:', profileError);
+        // Intentar limpiar el usuario de auth si el perfil falla
+        await supabase.auth.admin.deleteUser(newUserId).catch(() => {});
+        throw new Error(`Error al crear perfil: ${profileError.message}`);
+      }
+
+      console.log('✅ Perfil creado exitosamente');
 
       toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
       
@@ -117,16 +148,12 @@ export default function StaffManagement({ currentUser }) {
       setNewPassword(''); 
       setNewClientId(''); 
       setNewPhone('');
+      setShowPassword(false);
       fetchStaff();
       
     } catch (err) {
-      toast.error("Error al registrar: " + err.message, { id: loadingToast });
-      // Limpiar también en caso de error para que no queden datos pegados
-      setNewEmail(''); 
-      setNewName(''); 
-      setNewPassword(''); 
-      setNewClientId(''); 
-      setNewPhone('');
+      console.error('🔴 Error al crear usuario:', err);
+      toast.error("Error: " + (err.message || 'Error desconocido'), { id: loadingToast });
     } finally {
       setIsSubmitting(false);
     }

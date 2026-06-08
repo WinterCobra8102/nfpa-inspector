@@ -15,7 +15,6 @@ export default function StaffServiceRequests({ currentUser }) {
     if (currentUser?.id) {
       fetchMyTasks();
 
-      // Suscripción en tiempo real: Si el admin le asigna una tarea ahorita, aparecerá sola.
       const channel = supabase
         .channel('realtime-staff-requests')
         .on('postgres_changes', { 
