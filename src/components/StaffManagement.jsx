@@ -77,7 +77,7 @@ export default function StaffManagement({ currentUser }) {
     return [];
   }, [staff, currentUser]);
 
-  // ==================== CREAR USUARIO (MEJORADO - SIN RPC) ====================//
+  // ==================== CREAR USUARIO ====================
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return; 
@@ -99,46 +99,16 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // ✅ PASO 1: Crear usuario en Supabase Auth
-      console.log('📝 Creando usuario en Auth...');
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newEmail.trim().toLowerCase(),
-        password: newPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: newName.toUpperCase(),
-          role: newRole
-        }
+      // AQUÍ ESTÁ LA MAGIA: Llamamos a la función SQL segura, NO al frontend admin
+      const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
+        p_email: newEmail.trim().toLowerCase(),
+        p_password: newPassword,
+        p_full_name: newName.toUpperCase(),
+        p_role: newRole,
+        p_client_id: newRole !== 'ADMIN' ? newClientId : null
       });
-
-      if (authError) {
-        console.error('❌ Error en Auth:', authError);
-        throw new Error(`Error en autenticación: ${authError.message}`);
-      }
-
-      const newUserId = authData.user.id;
-      console.log('✅ Usuario creado en Auth:', newUserId);
-
-      // ✅ PASO 2: Crear perfil en tabla public.profiles
-      console.log('📝 Creando perfil...');
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: newUserId,
-          full_name: newName.toUpperCase(),
-          role: newRole,
-          client_id: newRole === 'ADMIN' ? null : newClientId,
-          phone: newPhone || null
-        });
-
-      if (profileError) {
-        console.error('❌ Error al crear perfil:', profileError);
-        // Intentar limpiar el usuario de auth si el perfil falla
-        await supabase.auth.admin.deleteUser(newUserId).catch(() => {});
-        throw new Error(`Error al crear perfil: ${profileError.message}`);
-      }
-
-      console.log('✅ Perfil creado exitosamente');
+      
+      if (rpcError) throw rpcError;
 
       toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
       
@@ -149,11 +119,11 @@ export default function StaffManagement({ currentUser }) {
       setNewClientId(''); 
       setNewPhone('');
       setShowPassword(false);
-      fetchStaff();
+      fetchStaff(); 
       
     } catch (err) {
       console.error('🔴 Error al crear usuario:', err);
-      toast.error("Error: " + (err.message || 'Error desconocido'), { id: loadingToast });
+      toast.error("Error al registrar: " + err.message, { id: loadingToast });
     } finally {
       setIsSubmitting(false);
     }
@@ -276,7 +246,6 @@ export default function StaffManagement({ currentUser }) {
               <UserPlus size={16} className="text-red-600"/> Nuevo Registro
             </h3>
             
-            {/* Se agregó autoComplete="off" al form general */}
             <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-4 text-slate-700">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nombre Completo</label>
@@ -421,7 +390,6 @@ export default function StaffManagement({ currentUser }) {
               </button>
             </div>
 
-            {/* Se aseguró autoComplete="off" al form de edición */}
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar" autoComplete="off">
               <input type="text" style={{ display: 'none' }} />
               <input type="password" style={{ display: 'none' }} />
