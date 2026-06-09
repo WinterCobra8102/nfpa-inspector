@@ -1,136 +1,129 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
-import { showConfirmDelete } from '../alerts'; // <-- Importamos tu alerta de confirmación
+import { showConfirmDelete } from '../alerts'; 
 import { 
-  Wrench, MapPin, Phone, Clock, PlayCircle, 
-  CheckCircle2, AlertCircle, Building2, FileText, CheckCircle, Trash2
+  ClipboardList, UserCheck, Clock, CheckCircle2, 
+  AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2 
 } from 'lucide-react';
 
-export default function StaffServiceRequests({ currentUser }) {
-  const [tasks, setTasks] = useState([]);
+// Agregamos currentUser como propiedad para leer el rol
+export default function AdminServiceRequests({ currentUser }) {
+  const [requests, setRequests] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTechs, setSelectedTechs] = useState({}); 
 
   useEffect(() => {
-    if (currentUser?.id) {
-      fetchMyTasks();
+    fetchRequests();
+    fetchTechnicians();
 
-      // ==========================================
-      // SUSCRIPCIÓN WEB-SOCKETS (REALTIME) TÉCNICO
-      // ==========================================
-      const channel = supabase
-        .channel('realtime-staff-requests')
-        .on(
-          'postgres_changes', 
-          { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'service_requests',
-            filter: `tecnico_id=eq.${currentUser.id}` // Magia pura: la DB solo le avisa si la orden es para él
-          }, 
-          (payload) => {
-            // Solo lanzamos la notificación fuerte si el Admin se lo acaba de asignar
-            if (payload.new.status === 'ASIGNADO' && payload.old.status !== 'ASIGNADO') {
-              toast.success("🚨 ¡NUEVA ORDEN ASIGNADA!", {
-                icon: '🔧',
-                duration: 6000,
-                position: 'top-right',
-                style: {
-                  background: '#2563eb', // Azul técnico
-                  color: '#fff',
-                  fontWeight: '900',
-                  letterSpacing: '0.05em',
-                  borderRadius: '12px'
-                }
-              });
-            }
-            // Siempre refrescamos la lista en silencio para mantenerla al día
-            fetchMyTasks();
-          }
-        )
-        // Por si alguna vez un ticket se crea (INSERT) ya asignado directamente a este técnico
-        .on(
-          'postgres_changes', 
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'service_requests',
-            filter: `tecnico_id=eq.${currentUser.id}`
-          }, 
-          () => fetchMyTasks()
-        )
-        .subscribe((status) => {
-          if(status === 'SUBSCRIBED') {
-             console.log('📡 Conexión en Tiempo Real Activa (Técnico).');
-          }
-        });
+    const channel = supabase
+      .channel('nuevas-solicitudes-admin')
+      .on(
+        'postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'service_requests' }, 
+        (payload) => {
+          toast.success("🚨 ¡NUEVA SOLICITUD DE SERVICIO!", {
+            duration: 6000,
+            position: 'top-right',
+            style: { 
+              background: '#ef4444', 
+              color: '#fff', 
+              fontWeight: '900', 
+              letterSpacing: '0.05em',
+              borderRadius: '1rem'
+            },
+            iconTheme: { primary: '#fff', secondary: '#ef4444' }
+          });
+          fetchRequests();
+        }
+      )
+      .on(
+        'postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'service_requests' }, 
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [currentUser]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  // Obtener SOLO las solicitudes asignadas a este técnico
-  async function fetchMyTasks() {
+  async function fetchRequests() {
     const { data, error } = await supabase
       .from('service_requests')
       .select(`
         *,
         clientes (
-          nombre,
-          direccion,
-          telefono
+          nombre
         )
       `)
-      .eq('tecnico_id', currentUser.id)
       .order('created_at', { ascending: false });
 
     if (!error) {
-      setTasks(data);
+      setRequests(data);
     } else {
-      toast.error("Error al cargar tus asignaciones.");
+      toast.error("Error al cargar las solicitudes de servicio");
     }
     setLoading(false);
   }
 
-  // Función para avanzar el estado del ticket
-  const handleUpdateStatus = async (taskId, currentStatus) => {
-    setIsUpdating(true);
-    let newStatus = '';
-    let toastMsg = '';
+  async function fetchTechnicians() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'STAFF')
+      .order('full_name', { ascending: true });
 
-    if (currentStatus === 'ASIGNADO') {
-      newStatus = 'EN_PROCESO';
-      toastMsg = 'Has iniciado el trabajo. El cliente ha sido notificado.';
-    } else if (currentStatus === 'EN_PROCESO') {
-      newStatus = 'COMPLETADO';
-      toastMsg = '¡Trabajo finalizado con éxito!';
+    if (!error) {
+      setTechnicians(data);
+    }
+  }
+
+  const handleTechChange = (requestId, techId) => {
+    setSelectedTechs(prev => ({
+      ...prev,
+      [requestId]: techId
+    }));
+  };
+
+  const handleAssignTechnician = async (requestId) => {
+    const tecnicoId = selectedTechs[requestId];
+    
+    if (!tecnicoId) {
+      toast.error("Por favor, selecciona un técnico antes de confirmar.");
+      return;
     }
 
-    const actionToast = toast.loading("Actualizando estatus...");
+    setIsSubmitting(true);
+    const actionToast = toast.loading("Confirmando solicitud y asignando técnico...");
 
     try {
       const { error } = await supabase
         .from('service_requests')
-        .update({ status: newStatus })
-        .eq('id', taskId);
+        .update({
+          tecnico_id: tecnicoId,
+          status: 'ASIGNADO',
+          fecha_asignacion: new Date().toISOString()
+        })
+        .eq('id', requestId);
 
       if (error) throw error;
 
-      toast.success(toastMsg, { id: actionToast });
-      fetchMyTasks();
+      toast.success("Solicitud confirmada. Al cliente le aparecerá el estatus actualizado.", { id: actionToast });
+      fetchRequests(); 
     } catch (err) {
       toast.error(`Error: ${err.message}`, { id: actionToast });
     } finally {
-      setIsUpdating(false);
+      setIsSubmitting(false);
     }
   };
 
-  // ==========================================
-  // NUEVA FUNCIÓN: ELIMINAR REPORTE (TÉCNICO)
-  // ==========================================
   const handleDeleteRequest = (ticketId, ticketTitle) => {
     showConfirmDelete(`el reporte "${ticketTitle}"`, async () => {
       const deleteToast = toast.loading("Eliminando reporte del sistema...");
@@ -143,16 +136,17 @@ export default function StaffServiceRequests({ currentUser }) {
         if (error) throw error;
 
         toast.success("Reporte eliminado permanentemente.", { id: deleteToast });
-        fetchMyTasks(); // Recarga la lista para que desaparezca visualmente
+        fetchRequests(); 
       } catch (err) {
         toast.error(`Error al eliminar: ${err.message}`, { id: deleteToast });
       }
     });
   };
 
-  // Función auxiliar para pintar los colores del estatus
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'PENDIENTE':
+        return 'bg-amber-50 text-amber-600 border border-amber-200';
       case 'ASIGNADO':
         return 'bg-blue-50 text-blue-600 border border-blue-200';
       case 'EN_PROCESO':
@@ -167,114 +161,101 @@ export default function StaffServiceRequests({ currentUser }) {
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500">
       
-      {/* ENCABEZADO */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border-2 border-slate-50">
         <div className="flex items-center gap-4">
-          <div className="bg-red-600 p-4 rounded-2xl text-white">
-            <Wrench size={32} />
+          <div className="bg-slate-900 p-4 rounded-2xl text-white">
+            <ClipboardList size={32} />
           </div>
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Mis Órdenes de Servicio</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Trabajos Asignados por Administración</p>
+            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Panel de Solicitudes</h2>
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Bandeja de Entrada y Asignación de Soporte</p>
           </div>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
       <div className="space-y-4">
         {loading ? (
           <div className="p-10 text-center animate-pulse text-slate-400 font-black uppercase text-[10px] tracking-wider">
-            Sincronizando tareas...
+            Cargando solicitudes entrantes...
           </div>
-        ) : tasks.length === 0 ? (
+        ) : requests.length === 0 ? (
           <div className="bg-white p-12 rounded-[2rem] border-2 border-slate-50 text-center shadow-sm space-y-3">
-            <CheckCircle size={40} className="text-green-400 mx-auto" />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider">No tienes órdenes de servicio pendientes.</p>
+            <AlertCircle size={40} className="text-slate-300 mx-auto" />
+            <p className="text-xs font-black text-slate-400 uppercase tracking-wider">No hay solicitudes de servicio registradas en el sistema.</p>
           </div>
         ) : (
-          tasks.map((ticket) => (
-            // Agregamos 'relative' y 'group' para el botón oculto de borrar
-            <div key={ticket.id} className="relative group bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-red-100 transition-all">
+          requests.map((ticket) => (
+            <div key={ticket.id} className="relative bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-red-100 transition-all">
               
-              {/* BOTÓN DE ELIMINAR (Oculto por defecto, aparece al pasar el cursor) */}
-              <button 
-                onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
-                className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all active:scale-90"
-                title="Eliminar este reporte"
-              >
-                <Trash2 size={18} />
-              </button>
+              {/* MAGIA DE SEGURIDAD: El botón solo existe si el usuario actual es ADMIN y ahora SIEMPRE es visible */}
+              {currentUser?.role === 'ADMIN' && (
+                <button 
+                  onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
+                  className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                  title="Eliminar este reporte"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
 
-              {/* DETALLES DEL TICKET */}
-              <div className="space-y-4 flex-1 pr-10">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-wider ${getStatusBadge(ticket.status)}`}>
-                    {ticket.status === 'ASIGNADO' ? '🔵 Nueva Orden' : ticket.status === 'EN_PROCESO' ? '🟣 En Progreso' : '🟢 Finalizado'}
+              <div className="space-y-3 flex-1 pr-10">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${getStatusBadge(ticket.status)}`}>
+                    {ticket.status === 'PENDIENTE' ? '⚠️ Por Confirmar' : ticket.status}
                   </span>
                   <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                    <Clock size={12} /> Asignado: {new Date(ticket.fecha_asignacion || ticket.created_at).toLocaleDateString()}
+                    <Calendar size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight leading-snug flex items-center gap-2">
-                    <FileText size={18} className="text-slate-400 shrink-0" />
+                  <h3 className="font-black text-base text-slate-800 uppercase tracking-tight leading-snug flex items-center gap-2">
+                    <FileText size={16} className="text-slate-400 shrink-0" />
                     {ticket.titulo}
                   </h3>
-                  <p className="text-xs font-medium text-slate-600 leading-relaxed bg-slate-50/70 p-4 rounded-xl border border-slate-100">
+                  <p className="text-xs font-medium text-slate-500 leading-relaxed bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                     {ticket.descripcion}
                   </p>
                 </div>
 
-                {/* INFO DEL CLIENTE (DONDE TIENE QUE IR EL TÉCNICO) */}
-                <div className="grid md:grid-cols-2 gap-2 mt-2">
-                  <div className="flex items-start gap-2 text-[10px] font-bold text-slate-600 bg-white p-2 rounded-lg border border-slate-100 uppercase">
-                    <Building2 size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                    <span><span className="text-slate-400 block text-[8px]">Sucursal</span> {ticket.clientes?.nombre || 'No especificada'}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-[10px] font-bold text-slate-600 bg-white p-2 rounded-lg border border-slate-100 uppercase">
-                    <MapPin size={14} className="text-red-500 shrink-0 mt-0.5" />
-                    <span><span className="text-slate-400 block text-[8px]">Dirección</span> {ticket.clientes?.direccion || 'No especificada'}</span>
-                  </div>
-                  {ticket.clientes?.telefono && (
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 bg-white p-2 rounded-lg border border-slate-100 uppercase md:col-span-2">
-                      <Phone size={14} className="text-green-500 shrink-0" />
-                      <span><span className="text-slate-400 mr-1">Contacto:</span> {ticket.clientes.telefono}</span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2 text-xs font-black text-slate-700 bg-blue-50/60 w-fit px-3 py-1.5 rounded-xl border border-blue-100 uppercase tracking-tight">
+                  <Building2 size={14} className="text-blue-600" />
+                  Sucursal: <span className="text-blue-700 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
                 </div>
               </div>
 
-              {/* BOTONES DE ACCIÓN */}
-              <div className="shrink-0 w-full md:w-56 p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-center space-y-3">
-                {ticket.status === 'ASIGNADO' && (
-                  <button
-                    type="button"
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus(ticket.id, ticket.status)}
-                    className="w-full py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    <PlayCircle size={16}/> Iniciar Trabajo
-                  </button>
-                )}
+              <div className="shrink-0 w-full md:w-64 p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-center space-y-3">
+                {ticket.status === 'PENDIENTE' ? (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Asignar Técnico</label>
+                      <select 
+                        className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none uppercase text-slate-800 focus:border-red-400"
+                        value={selectedTechs[ticket.id] || ''}
+                        onChange={(e) => handleTechChange(ticket.id, e.target.value)}
+                      >
+                        <option value="">Seleccionar...</option>
+                        {technicians.map(tech => (
+                          <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                {ticket.status === 'EN_PROCESO' && (
-                  <button
-                    type="button"
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus(ticket.id, ticket.status)}
-                    className="w-full py-4 bg-purple-600 hover:bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 animate-pulse"
-                  >
-                    <CheckCircle2 size={16}/> Finalizar Tarea
-                  </button>
-                )}
-
-                {ticket.status === 'COMPLETADO' && (
-                  <div className="text-center py-2 space-y-1.5">
-                    <CheckCircle2 size={28} className="text-green-500 mx-auto" />
-                    <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Trabajo Terminado</p>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => handleAssignTechnician(ticket.id)}
+                      className="w-full py-3 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isSubmitting ? <RefreshCw className="animate-spin" size={12}/> : <><UserCheck size={14}/> Confirmar Orden</>}
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-2 space-y-1.5 animate-in fade-in">
+                    <CheckCircle2 size={24} className="text-green-500 mx-auto" />
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Orden Procesada</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase leading-none">
-                      Administración notificada.
+                      Técnico asignado correctamente.
                     </p>
                   </div>
                 )}
