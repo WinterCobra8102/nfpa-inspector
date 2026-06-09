@@ -15,17 +15,55 @@ export default function StaffServiceRequests({ currentUser }) {
     if (currentUser?.id) {
       fetchMyTasks();
 
+      // ==========================================
+      // SUSCRIPCIÓN WEB-SOCKETS (REALTIME) TÉCNICO
+      // ==========================================
       const channel = supabase
         .channel('realtime-staff-requests')
-        .on('postgres_changes', { 
-            event: '*', 
+        .on(
+          'postgres_changes', 
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'service_requests',
+            filter: `tecnico_id=eq.${currentUser.id}` // Magia pura: la DB solo le avisa si la orden es para él
+          }, 
+          (payload) => {
+            // Solo lanzamos la notificación fuerte si el Admin se lo acaba de asignar
+            if (payload.new.status === 'ASIGNADO' && payload.old.status !== 'ASIGNADO') {
+              toast.success("🚨 ¡NUEVA ORDEN ASIGNADA!", {
+                icon: '🔧',
+                duration: 6000,
+                position: 'top-right',
+                style: {
+                  background: '#2563eb', // Azul técnico
+                  color: '#fff',
+                  fontWeight: '900',
+                  letterSpacing: '0.05em',
+                  borderRadius: '12px'
+                }
+              });
+            }
+            // Siempre refrescamos la lista en silencio para mantenerla al día
+            fetchMyTasks();
+          }
+        )
+        // Por si alguna vez un ticket se crea (INSERT) ya asignado directamente a este técnico
+        .on(
+          'postgres_changes', 
+          { 
+            event: 'INSERT', 
             schema: 'public', 
             table: 'service_requests',
             filter: `tecnico_id=eq.${currentUser.id}`
-        }, () => {
-          fetchMyTasks();
-        })
-        .subscribe();
+          }, 
+          () => fetchMyTasks()
+        )
+        .subscribe((status) => {
+          if(status === 'SUBSCRIBED') {
+             console.log('📡 Conexión en Tiempo Real Activa (Técnico).');
+          }
+        });
 
       return () => {
         supabase.removeChannel(channel);

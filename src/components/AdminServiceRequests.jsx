@@ -17,24 +17,47 @@ export default function AdminServiceRequests() {
     fetchRequests();
     fetchTechnicians();
 
-    // Suscripción en tiempo real: Separamos INSERT de UPDATE
+    // ==========================================
+    // SUSCRIPCIÓN WEB-SOCKETS (REALTIME) MEJORADA
+    // ==========================================
     const channel = supabase
-      .channel('realtime-requests')
-      // 1. Escuchar solo NUEVAS solicitudes (INSERT) para lanzar la alerta
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'service_requests' }, (payload) => {
-        toast.success("🚨 ¡NUEVA SOLICITUD DE SERVICIO!", {
-          duration: 6000,
-          position: 'top-right',
-          style: { background: '#ef4444', color: '#fff', fontWeight: '900', letterSpacing: '0.05em' },
-          iconTheme: { primary: '#fff', secondary: '#ef4444' }
-        });
-        fetchRequests();
-      })
-      // 2. Escuchar ACTUALIZACIONES (UPDATE) solo para refrescar la pantalla en silencio
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_requests' }, () => {
-        fetchRequests();
-      })
-      .subscribe();
+      .channel('nuevas-solicitudes-admin')
+      .on(
+        'postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'service_requests' }, 
+        (payload) => {
+          console.log('¡Alerta de WebSocket! Nueva Solicitud:', payload);
+          
+          toast.success("🚨 ¡NUEVA SOLICITUD DE SERVICIO!", {
+            duration: 6000,
+            position: 'top-right',
+            style: { 
+              background: '#ef4444', 
+              color: '#fff', 
+              fontWeight: '900', 
+              letterSpacing: '0.05em',
+              borderRadius: '1rem'
+            },
+            iconTheme: { primary: '#fff', secondary: '#ef4444' }
+          });
+          
+          // Recargamos la lista silenciosamente para mostrar la nueva solicitud
+          fetchRequests();
+        }
+      )
+      .on(
+        'postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'service_requests' }, 
+        () => {
+          // Si el estatus cambia (por otro admin, por ejemplo), solo refresca la lista sin notificar
+          fetchRequests();
+        }
+      )
+      .subscribe((status) => {
+        if(status === 'SUBSCRIBED') {
+           console.log('📡 Conexión en Tiempo Real Activa.');
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

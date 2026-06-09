@@ -20,17 +20,45 @@ export default function ClientServiceRequests({ currentUser }) {
     if (currentUser?.id) {
       initializeClientData();
 
-      // Suscripción en tiempo real para ver cuando el Admin o Técnico actualizan el ticket
+      // ==========================================
+      // SUSCRIPCIÓN WEB-SOCKETS (REALTIME) CLIENTE
+      // ==========================================
       const channel = supabase
         .channel('realtime-client-requests')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'service_requests' 
-        }, () => {
-          fetchMyRequests();
-        })
-        .subscribe();
+        .on(
+          'postgres_changes', 
+          { event: 'UPDATE', schema: 'public', table: 'service_requests' }, 
+          (payload) => {
+            // Solo notificamos si el estatus cambió (para no saturar si editan otra cosa)
+            if (payload.new.status !== payload.old.status) {
+              const statusName = getStatusDisplay(payload.new.status).text;
+              toast.success(`Tu solicitud ha cambiado de estado a: ${statusName}`, {
+                icon: '🔔',
+                duration: 5000,
+                position: 'top-right',
+                style: {
+                  background: '#1e293b',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  borderRadius: '12px'
+                }
+              });
+            }
+            // Recargamos el historial para que vea el cambio de color e ícono
+            fetchMyRequests();
+          }
+        )
+        // Escuchamos silenciosamente si hay un INSERT (ej. si otro jefe de la misma empresa crea un ticket)
+        .on(
+          'postgres_changes', 
+          { event: 'INSERT', schema: 'public', table: 'service_requests' }, 
+          () => fetchMyRequests()
+        )
+        .subscribe((status) => {
+          if(status === 'SUBSCRIBED') {
+             console.log('📡 Conexión en Tiempo Real Activa (Cliente).');
+          }
+        });
 
       return () => {
         supabase.removeChannel(channel);
@@ -60,9 +88,11 @@ export default function ClientServiceRequests({ currentUser }) {
     const { data, error } = await supabase
       .from('service_requests')
       .select('*')
+      // Lógica extra: Nos aseguramos de traer solo los de su empresa desde el frontend también
+      .eq('client_id', myClientId) 
       .order('created_at', { ascending: false });
 
-    if (!error) {
+    if (!error && data) {
       setRequests(data);
     }
     setLoading(false);
