@@ -45,16 +45,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_create_user"("email" "text", "password" "text", "full_name" "text", "role" "text") RETURNS "uuid"
+CREATE OR REPLACE FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 DECLARE
-  new_user_id uuid;
+  v_user_id uuid;
 BEGIN
-  -- Generar ID para el nuevo usuario
-  new_user_id := gen_random_uuid();
+  v_user_id := gen_random_uuid();
 
-  -- 1. Insertar en auth.users (agregando los tokens vacíos para evitar crashes internos)
   INSERT INTO auth.users (
     id, instance_id, email, encrypted_password, 
     email_confirmed_at, raw_app_meta_data, raw_user_meta_data, 
@@ -62,81 +60,96 @@ BEGIN
     confirmation_token, recovery_token, email_change_token_new, email_change_token_current, phone_change_token
   )
   VALUES (
-    new_user_id, '00000000-0000-0000-0000-000000000000', email, 
-    extensions.crypt(password, extensions.gen_salt('bf')), 
+    v_user_id, '00000000-0000-0000-0000-000000000000', p_email, 
+    auth.crypt(p_password, auth.gen_salt('bf')), 
     now(), 
-    jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', role),
-    jsonb_build_object('full_name', full_name), 
+    jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', p_role),
+    jsonb_build_object('full_name', p_full_name), 
     'authenticated', 'authenticated', now(), now(), false,
     '', '', '', '', ''
   );
 
-  -- 2. Insertar en auth.identities (ESTO ES LO QUE SOLUCIONA EL ERROR 500)
   INSERT INTO auth.identities (
     id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
   )
   VALUES (
     gen_random_uuid(), 
-    new_user_id, 
-    new_user_id::text, -- Supabase exige que el provider_id sea el UUID en formato texto
-    jsonb_build_object('sub', new_user_id::text, 'email', email), 
+    v_user_id, 
+    p_email, 
+    jsonb_build_object('sub', v_user_id::text, 'email', p_email), 
     'email', now(), now(), now()
   );
 
-  -- 3. Insertar en tu tabla pública PROFILES
   INSERT INTO public.profiles (id, full_name, role)
-  VALUES (new_user_id, full_name, role);
+  VALUES (v_user_id, p_full_name, p_role);
 
-  RETURN new_user_id;
+  RETURN v_user_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."admin_create_user"("email" "text", "password" "text", "full_name" "text", "role" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") RETURNS "void"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-  -- 1. Borrar de la tabla pública de perfiles
-  DELETE FROM public.profiles WHERE id = target_user_id;
-
-  -- 2. Borrar de la tabla maestra de autenticación
-  DELETE FROM auth.users WHERE id = target_user_id;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."admin_set_role"("target_email" "text", "new_role" "text", "full_name_val" "text") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid" DEFAULT NULL::"uuid") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 DECLARE
-  target_user_id uuid;
+    new_user_id uuid;
+    meta_data jsonb;
 BEGIN
-  -- Buscamos el ID del usuario que la App acaba de crear
-  SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+    -- 1. Preparamos los metadatos
+    meta_data := jsonb_build_object(
+        'full_name', p_full_name,
+        'role', p_role,
+        'client_id', p_client_id
+    );
 
-  -- Actualizamos sus metadatos y lo auto-confirmamos
-  UPDATE auth.users 
-  SET raw_app_meta_data = jsonb_build_object('role', new_role),
-      raw_user_meta_data = jsonb_build_object('full_name', full_name_val),
-      email_confirmed_at = now()
-  WHERE id = target_user_id;
+    new_user_id := gen_random_uuid();
 
-  -- Lo guardamos en tu lista de perfiles
-  INSERT INTO public.profiles (id, full_name, role)
-  VALUES (target_user_id, full_name_val, new_role)
-  ON CONFLICT (id) DO UPDATE 
-  SET role = EXCLUDED.role, full_name = EXCLUDED.full_name;
+    -- 2. Insertamos al usuario en auth.users (AHORA CON LOS TOKENS VACÍOS)
+    INSERT INTO auth.users (
+        instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+        raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+        confirmation_token, recovery_token, email_change_token_new, email_change_token_current
+    ) VALUES (
+        '00000000-0000-0000-0000-000000000000',
+        new_user_id,
+        'authenticated',
+        'authenticated',
+        p_email,
+        crypt(p_password, gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}'::jsonb,
+        meta_data,
+        now(),
+        now(),
+        '', '', '', '' -- <--- EL PARCHE DE ORO: Evita el colapso del servidor
+    );
+
+    -- 3. Insertamos la identidad
+    INSERT INTO auth.identities (
+        id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+    ) VALUES (
+        gen_random_uuid(), new_user_id, new_user_id::text, 
+        jsonb_build_object('sub', new_user_id, 'email', p_email),
+        'email', now(), now(), now()
+    );
+
+    -- 4. Insertar en la tabla de perfiles para que React lo vea
+    INSERT INTO public.profiles (id, full_name, role, client_id)
+    VALUES (new_user_id, p_full_name, p_role, p_client_id)
+    ON CONFLICT (id) DO UPDATE 
+    SET full_name = EXCLUDED.full_name,
+        role = EXCLUDED.role,
+        client_id = EXCLUDED.client_id;
+
+    RETURN new_user_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."admin_set_role"("target_email" "text", "new_role" "text", "full_name_val" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") RETURNS "void"
@@ -173,28 +186,25 @@ CREATE OR REPLACE FUNCTION "public"."admin_update_user"("target_user_id" "uuid",
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 BEGIN
-  -- 1. Actualizar correo si no está vacío
   IF new_email <> '' THEN
     UPDATE auth.users SET email = new_email WHERE id = target_user_id;
     UPDATE auth.identities 
-    SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(new_email)) 
+    SET provider_id = new_email, 
+        identity_data = jsonb_set(identity_data, '{email}', to_jsonb(new_email)) 
     WHERE user_id = target_user_id;
   END IF;
 
-  -- 2. 🔥 NUEVO: Actualizar contraseña si se escribió una nueva 🔥
   IF new_password <> '' THEN
     UPDATE auth.users
-    SET encrypted_password = extensions.crypt(new_password, extensions.gen_salt('bf'))
+    SET encrypted_password = auth.crypt(new_password, auth.gen_salt('bf')) 
     WHERE id = target_user_id;
   END IF;
 
-  -- 3. Actualizar metadatos de seguridad
   UPDATE auth.users
   SET raw_app_meta_data = jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', new_role),
       raw_user_meta_data = jsonb_build_object('full_name', new_name)
   WHERE id = target_user_id;
 
-  -- 4. Actualizar tabla pública
   UPDATE public.profiles
   SET full_name = new_name, role = new_role
   WHERE id = target_user_id;
@@ -209,18 +219,40 @@ CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, role)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), 'STAFF')
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
-  -- Si algo falla, ignora el error y permite entrar al usuario
-  RETURN NEW;
+  INSERT INTO public.profiles (id, full_name, role, client_id, phone)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'full_name', 'Nuevo Usuario'),
+    COALESCE(new.raw_user_meta_data->>'role', 'MANAGER'),
+    NULLIF(new.raw_user_meta_data->>'client_id', '')::uuid,
+    new.raw_user_meta_data->>'phone'
+  )
+  ON CONFLICT (id) DO NOTHING; -- <--- ESTA LÍNEA ABSORBE EL GOLPE Y SALVA EL LOGIN
+
+  RETURN new;
 END;
 $$;
 
 
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_admin"() RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  _es_admin BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'ADMIN'
+  ) INTO _es_admin;
+  RETURN COALESCE(_es_admin, false);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."is_admin"() OWNER TO "postgres";
 
 SET default_tablespace = '';
 
@@ -459,12 +491,6 @@ ALTER TABLE ONLY "public"."service_requests"
 
 
 
-CREATE POLICY "Acceso a Clientes por Rol" ON "public"."clientes" FOR SELECT TO "authenticated" USING ((((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text") OR ("id" IN ( SELECT "profiles"."client_id"
-   FROM "public"."profiles"
-  WHERE ("profiles"."id" = "auth"."uid"())))));
-
-
-
 CREATE POLICY "Acceso a Reportes por Jerarquía" ON "public"."inspections" TO "authenticated" USING ((((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text") OR (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'MANAGER'::"text") AND ("client_id" IN ( SELECT "profiles"."client_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"())))) OR (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'STAFF'::"text") AND ("assigned_to" = "auth"."uid"()))));
@@ -483,39 +509,19 @@ CREATE POLICY "Actualizacion de tareas IPM" ON "public"."ipm_tasks" FOR UPDATE U
 
 
 
-CREATE POLICY "Admin full access" ON "public"."profiles" TO "authenticated" USING (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text"));
-
-
-
 CREATE POLICY "Admins actualizan solicitudes" ON "public"."service_requests" FOR UPDATE USING (("auth"."uid"() IN ( SELECT "profiles"."id"
    FROM "public"."profiles"
   WHERE ("profiles"."role" = 'ADMIN'::"text"))));
 
 
 
-CREATE POLICY "Admins full access" ON "public"."profiles" TO "authenticated" USING (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text"));
+CREATE POLICY "Admins control total de perfiles" ON "public"."profiles" TO "authenticated" USING (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text"));
 
 
 
 CREATE POLICY "Admins ven todo" ON "public"."service_requests" FOR SELECT USING (("auth"."uid"() IN ( SELECT "profiles"."id"
    FROM "public"."profiles"
   WHERE ("profiles"."role" = 'ADMIN'::"text"))));
-
-
-
-CREATE POLICY "Allow authenticated users to read own profile" ON "public"."profiles" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "id"));
-
-
-
-CREATE POLICY "Allow users to insert own profile" ON "public"."profiles" FOR INSERT TO "authenticated" WITH CHECK (("auth"."uid"() = "id"));
-
-
-
-CREATE POLICY "Allow users to insert their own profile" ON "public"."profiles" FOR INSERT TO "authenticated" WITH CHECK (("auth"."uid"() = "id"));
-
-
-
-CREATE POLICY "Allow users to read their own profile" ON "public"."profiles" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "id"));
 
 
 
@@ -535,15 +541,7 @@ CREATE POLICY "Clientes ven sus solicitudes" ON "public"."service_requests" FOR 
 
 
 
-CREATE POLICY "Enable read access for all authenticated users" ON "public"."profiles" FOR SELECT TO "authenticated" USING (true);
-
-
-
 CREATE POLICY "Inserción solo para administradores" ON "public"."clientes" FOR INSERT TO "authenticated" WITH CHECK (((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text"));
-
-
-
-CREATE POLICY "Lectura para todos los autenticados" ON "public"."profiles" FOR SELECT TO "authenticated" USING (true);
 
 
 
@@ -551,11 +549,11 @@ CREATE POLICY "Lectura para todos los inspectores" ON "public"."clientes" FOR SE
 
 
 
-CREATE POLICY "Permitir lectura a todos los autenticados" ON "public"."profiles" FOR SELECT TO "authenticated" USING (true);
-
-
-
 CREATE POLICY "Permitir todo a usuarios autenticados" ON "public"."pump_tests" USING (("auth"."role"() = 'authenticated'::"text"));
+
+
+
+CREATE POLICY "Permitir usuarios leer su propio perfil" ON "public"."profiles" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "id"));
 
 
 
@@ -567,10 +565,6 @@ CREATE POLICY "Técnicos ven lo asignado" ON "public"."service_requests" FOR SEL
 
 
 
-CREATE POLICY "Usuarios ven su propio perfil" ON "public"."profiles" FOR SELECT USING (("auth"."uid"() = "id"));
-
-
-
 CREATE POLICY "Visibilidad de tareas IPM por Rol" ON "public"."ipm_tasks" FOR SELECT USING ((("auth"."uid"() IN ( SELECT "profiles"."id"
    FROM "public"."profiles"
   WHERE ("profiles"."role" = 'ADMIN'::"text"))) OR (("auth"."uid"() IN ( SELECT "profiles"."id"
@@ -579,21 +573,6 @@ CREATE POLICY "Visibilidad de tareas IPM por Rol" ON "public"."ipm_tasks" FOR SE
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"())))) OR ("tecnico_id" = "auth"."uid"())));
 
-
-
-ALTER TABLE "public"."clientes" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."ipm_tasks" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."pump_tests" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."service_requests" ENABLE ROW LEVEL SECURITY;
 
 
 
@@ -764,21 +743,15 @@ GRANT USAGE ON SCHEMA "public" TO "authenticator";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_create_user"("email" "text", "password" "text", "full_name" "text", "role" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("email" "text", "password" "text", "full_name" "text", "role" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("email" "text", "password" "text", "full_name" "text", "role" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."admin_set_role"("target_email" "text", "new_role" "text", "full_name_val" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_set_role"("target_email" "text", "new_role" "text", "full_name_val" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_set_role"("target_email" "text", "new_role" "text", "full_name_val" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "service_role";
 
 
 
@@ -797,6 +770,12 @@ GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_admin"() TO "anon";
+GRANT ALL ON FUNCTION "public"."is_admin"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_admin"() TO "service_role";
 
 
 
@@ -824,7 +803,6 @@ GRANT ALL ON TABLE "public"."clientes" TO "service_role";
 GRANT ALL ON TABLE "public"."inspections" TO "anon";
 GRANT ALL ON TABLE "public"."inspections" TO "authenticated";
 GRANT ALL ON TABLE "public"."inspections" TO "service_role";
-GRANT ALL ON TABLE "public"."inspections" TO "authenticator";
 
 
 
@@ -837,7 +815,6 @@ GRANT ALL ON TABLE "public"."ipm_tasks" TO "service_role";
 GRANT ALL ON TABLE "public"."profiles" TO "anon";
 GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles" TO "service_role";
-GRANT ALL ON TABLE "public"."profiles" TO "authenticator";
 
 
 
