@@ -7,8 +7,7 @@ import {
   AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2 
 } from 'lucide-react';
 
-// Agregamos currentUser como propiedad para leer el rol
-export default function AdminServiceRequests({ currentUser }) {
+export default function AdminServiceRequests() {
   const [requests, setRequests] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,16 +186,14 @@ export default function AdminServiceRequests({ currentUser }) {
           requests.map((ticket) => (
             <div key={ticket.id} className="relative bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-red-100 transition-all">
               
-              {/* MAGIA DE SEGURIDAD: El botón solo existe si el usuario actual es ADMIN y ahora SIEMPRE es visible */}
-              {currentUser?.role === 'ADMIN' && (
-                <button 
-                  onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
-                  className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
-                  title="Eliminar este reporte"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
+              {/* BOTÓN SIEMPRE VISIBLE */}
+              <button 
+                onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
+                className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                title="Eliminar este reporte"
+              >
+                <Trash2 size={18} />
+              </button>
 
               <div className="space-y-3 flex-1 pr-10">
                 <div className="flex flex-wrap items-center gap-2">
