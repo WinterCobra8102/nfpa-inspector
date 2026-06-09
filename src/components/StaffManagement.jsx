@@ -86,8 +86,9 @@ export default function StaffManagement({ currentUser }) {
       toast.error("Todos los campos obligatorios deben llenarse.");
       return;
     }
-    if (newRole !== 'ADMIN' && !newClientId) {
-      toast.error("Debes asignar una empresa a este usuario.");
+    // LÓGICA MODIFICADA: Solo exige empresa si el rol es JEFE DE SUCURSAL
+    if (newRole === 'MANAGER' && !newClientId) {
+      toast.error("Debes asignar una empresa a este Jefe de Sucursal.");
       return;
     }
     if (newPassword.length < 6) {
@@ -99,13 +100,13 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // AQUÍ ESTÁ LA MAGIA: Llamamos a la función SQL segura, NO al frontend admin
       const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
         p_email: newEmail.trim().toLowerCase(),
         p_password: newPassword,
         p_full_name: newName.toUpperCase(),
         p_role: newRole,
-        p_client_id: newRole !== 'ADMIN' ? newClientId : null
+        // LÓGICA MODIFICADA: Asigna NULL si el usuario no es MANAGER
+        p_client_id: newRole === 'MANAGER' ? newClientId : null
       });
       
       if (rpcError) throw rpcError;
@@ -170,7 +171,8 @@ export default function StaffManagement({ currentUser }) {
         if (error) throw error;
 
         await supabase.from('profiles').update({ 
-          client_id: editRole !== 'ADMIN' ? editClientId : null,
+          // LÓGICA MODIFICADA: Limpia la sucursal en la DB si el rol cambia a STAFF
+          client_id: editRole === 'MANAGER' ? editClientId : null,
           phone: editPhone || null,
           full_name: editName.toUpperCase()
         }).eq('id', editingUser.id);
@@ -312,8 +314,9 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
               
-              {newRole !== 'ADMIN' && (
-                <div className="space-y-1">
+              {/* LÓGICA VISUAL: La caja de asignar empresa AHORA SOLO SALE PARA MANAGER */}
+              {newRole === 'MANAGER' && (
+                <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2 flex items-center gap-1"><Building2 size={10}/> Asignar Sucursal</label>
                   <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={newClientId} onChange={e => setNewClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
@@ -443,8 +446,9 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
 
-              {editRole !== 'ADMIN' && isAdmin && (
-                <div className="space-y-1">
+              {/* LÓGICA VISUAL DE EDICIÓN: La caja de asignar empresa AHORA SOLO SALE PARA MANAGER */}
+              {editRole === 'MANAGER' && isAdmin && (
+                <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
                   <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
