@@ -4,10 +4,11 @@ import toast from 'react-hot-toast';
 import { showConfirmDelete } from '../alerts'; 
 import { 
   ClipboardList, UserCheck, Clock, CheckCircle2, 
-  AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2 
+  AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2, AlertTriangle 
 } from 'lucide-react';
 
-export default function AdminServiceRequests() {
+// 1. Agregamos { currentUser } aquí para poder leer tu rol
+export default function AdminServiceRequests({ currentUser }) {
   const [requests, setRequests] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +143,28 @@ export default function AdminServiceRequests() {
     });
   };
 
+  // ==========================================
+  // NUEVA FUNCIÓN: VACIAR TODA LA BANDEJA 
+  // ==========================================
+  const handlePurgeAllRequests = () => {
+    showConfirmDelete("TODOS los reportes del sistema (esta acción es irreversible)", async () => {
+      const deleteToast = toast.loading("Vaciando bandeja de solicitudes...");
+      try {
+        const { error } = await supabase
+          .from('service_requests')
+          .delete()
+          .not('id', 'is', null); 
+
+        if (error) throw error;
+
+        toast.success("Bandeja vaciada correctamente.", { id: deleteToast });
+        fetchRequests(); 
+      } catch (err) {
+        toast.error(`Error al vaciar: ${err.message}`, { id: deleteToast });
+      }
+    });
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'PENDIENTE':
@@ -170,6 +193,16 @@ export default function AdminServiceRequests() {
             <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Bandeja de Entrada y Asignación de Soporte</p>
           </div>
         </div>
+
+        {/* 2. BOTÓN VACIAR BANDEJA: Solo se renderiza si es ADMIN y hay reportes */}
+        {currentUser?.role === 'ADMIN' && requests.length > 0 && (
+          <button 
+            onClick={handlePurgeAllRequests}
+            className="flex items-center gap-2 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 border border-red-100 hover:border-red-600"
+          >
+            <AlertTriangle size={16} /> Vaciar Bandeja
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -186,14 +219,16 @@ export default function AdminServiceRequests() {
           requests.map((ticket) => (
             <div key={ticket.id} className="relative bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-red-100 transition-all">
               
-              {/* BOTÓN SIEMPRE VISIBLE */}
-              <button 
-                onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
-                className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
-                title="Eliminar este reporte"
-              >
-                <Trash2 size={18} />
-              </button>
+              {/* 3. BOTÓN ELIMINAR INDIVIDUAL: Protegido solo para ADMIN */}
+              {currentUser?.role === 'ADMIN' && (
+                <button 
+                  onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
+                  className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                  title="Eliminar este reporte"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
 
               <div className="space-y-3 flex-1 pr-10">
                 <div className="flex flex-wrap items-center gap-2">
