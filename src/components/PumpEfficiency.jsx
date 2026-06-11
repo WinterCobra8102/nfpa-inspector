@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Activity, Droplets, TrendingUp, Calculator, 
-  ShieldCheck, Gauge, CheckCircle2, Save, FileText, X, History, Info
-} from 'lucide-react';
+  ShieldCheck, Gauge, CheckCircle2, Save, FileText, X, History, Info, Clock 
+} from 'lucide-react'; // <-- ¡AQUÍ ESTABA EL DETALLE! Faltaba importar Clock
 import toast from 'react-hot-toast';
 
 export default function PumpEfficiency() {
