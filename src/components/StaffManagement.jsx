@@ -86,7 +86,6 @@ export default function StaffManagement({ currentUser }) {
       toast.error("Todos los campos obligatorios deben llenarse.");
       return;
     }
-    // LÓGICA MODIFICADA: Solo exige empresa si el rol es JEFE DE SUCURSAL
     if (newRole === 'MANAGER' && !newClientId) {
       toast.error("Debes asignar una empresa a este Jefe de Sucursal.");
       return;
@@ -105,15 +104,19 @@ export default function StaffManagement({ currentUser }) {
         p_password: newPassword,
         p_full_name: newName.toUpperCase(),
         p_role: newRole,
-        // LÓGICA MODIFICADA: Asigna NULL si el usuario no es MANAGER
         p_client_id: newRole === 'MANAGER' ? newClientId : null
       });
       
       if (rpcError) throw rpcError;
 
+      // MAGIA: Guardamos explícitamente el teléfono y el correo en el perfil visible
+      await supabase.from('profiles').update({
+        phone: newPhone || null,
+        email: newEmail.trim().toLowerCase()
+      }).eq('id', newUserId);
+
       toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
       
-      // Limpiar formulario completamente
       setNewEmail(''); 
       setNewName(''); 
       setNewPassword(''); 
@@ -133,9 +136,9 @@ export default function StaffManagement({ currentUser }) {
   const openEditModal = (person) => {
     setEditingUser(person);
     setEditName(person.full_name || '');
-    setEditEmail(person.email || ''); 
+    setEditEmail(person.email || ''); // Ahora ya detectará el correo
     setEditRole(person.role);
-    setEditPhone(person.phone || ''); 
+    setEditPhone(person.phone || ''); // Ahora ya detectará el teléfono
     setEditClientId(person.client_id || ''); 
     setEditPassword(''); 
     setShowEditPassword(false);
@@ -170,10 +173,11 @@ export default function StaffManagement({ currentUser }) {
         });
         if (error) throw error;
 
+        // MAGIA: Actualizamos el perfil visible con el nuevo correo y teléfono
         await supabase.from('profiles').update({ 
-          // LÓGICA MODIFICADA: Limpia la sucursal en la DB si el rol cambia a STAFF
           client_id: editRole === 'MANAGER' ? editClientId : null,
           phone: editPhone || null,
+          email: editEmail.trim().toLowerCase(), 
           full_name: editName.toUpperCase()
         }).eq('id', editingUser.id);
 
@@ -314,7 +318,6 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
               
-              {/* LÓGICA VISUAL: La caja de asignar empresa AHORA SOLO SALE PARA MANAGER */}
               {newRole === 'MANAGER' && (
                 <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2 flex items-center gap-1"><Building2 size={10}/> Asignar Sucursal</label>
@@ -446,7 +449,6 @@ export default function StaffManagement({ currentUser }) {
                 </select>
               </div>
 
-              {/* LÓGICA VISUAL DE EDICIÓN: La caja de asignar empresa AHORA SOLO SALE PARA MANAGER */}
               {editRole === 'MANAGER' && isAdmin && (
                 <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
                   <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>

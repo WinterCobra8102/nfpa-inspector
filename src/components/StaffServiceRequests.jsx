@@ -287,7 +287,7 @@ export default function AdminServiceRequests({ currentUser }) {
                     <CheckCircle2 size={24} className="text-green-500 mx-auto" />
                     <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Orden Procesada</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase leading-none">
-                      Técnico asignado correctamente.
+                      Técnico asignado correctamente. El cliente podrá ver el estatus actualizado en su aplicación móvil.
                     </p>
                   </div>
                 )}
