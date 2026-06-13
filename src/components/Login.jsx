@@ -14,7 +14,6 @@ export default function Login({ onLoginSuccess }) {
     setError(null);
 
     try {
-      // 1️⃣ Login
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
           email,
@@ -23,14 +22,12 @@ export default function Login({ onLoginSuccess }) {
 
       if (authError) throw authError;
 
-      // 2️⃣ Confirmar que la sesión exista realmente
       const { data: sessionData } = await supabase.auth.getSession();
 
       if (!sessionData.session) {
         throw new Error('No se pudo crear la sesión.');
       }
 
-      // 3️⃣ Obtener usuario autenticado correctamente
       const {
         data: { user },
         error: userError,
@@ -39,7 +36,6 @@ export default function Login({ onLoginSuccess }) {
       if (userError) throw userError;
       if (!user) throw new Error('Usuario no autenticado.');
 
-      // 4️⃣ Obtener perfil (requiere RLS correctamente configurado)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -56,7 +52,6 @@ export default function Login({ onLoginSuccess }) {
         return;
       }
 
-      // 5️⃣ Login exitoso
       onLoginSuccess({ ...user, ...profile });
 
     } catch (err) {
@@ -71,65 +66,66 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600/20 rounded-full blur-[120px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+      {/* Elementos decorativos sutiles */}
+      <div className="absolute top-0 left-0 w-full h-1 bg-red-600"></div>
+      <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-red-50 dark:bg-red-900/10 rounded-full blur-[100px]"></div>
 
-      <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden relative z-10 animate-in fade-in zoom-in duration-500">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden relative z-10 animate-in fade-in zoom-in duration-500">
         <div className="p-10">
           <div className="flex flex-col items-center mb-10">
-            <div className="bg-red-600 p-4 rounded-[1.5rem] shadow-xl shadow-red-600/30 mb-4 animate-pulse">
-              <Flame size={40} className="text-white" />
+            <div className="bg-red-600 p-3.5 rounded-xl shadow-sm mb-4">
+              <Flame size={32} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">
               TLETL
             </h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
               Monitoring System v2.0
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-600 rounded-xl flex items-center gap-3 animate-in slide-in-from-top duration-300">
-              <ShieldAlert className="text-red-600" size={20} />
-              <p className="text-[9px] font-black text-red-700 uppercase leading-tight">
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-600 rounded-lg flex items-center gap-3 animate-in slide-in-from-top duration-300">
+              <ShieldAlert className="text-red-600 dark:text-red-500 shrink-0" size={18} />
+              <p className="text-sm text-red-700 dark:text-red-300 leading-tight">
                 {error}
               </p>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">
                 Correo Electrónico
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-sm outline-none focus:border-red-600 transition-all text-slate-700"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg py-3.5 pl-12 pr-4 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   placeholder="ejemplo@tletl.com"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-sm outline-none focus:border-red-600 transition-all text-slate-700"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg py-3.5 pl-12 pr-4 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   placeholder="••••••••"
                 />
               </div>
@@ -138,22 +134,22 @@ export default function Login({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 text-white rounded-2xl py-5 font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-3 group disabled:opacity-50"
+              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-3.5 font-medium text-sm shadow-sm transition-all flex items-center justify-center gap-3 group disabled:opacity-50"
             >
               {loading ? (
-                <RefreshCw size={20} className="animate-spin" />
+                <RefreshCw size={18} className="animate-spin" />
               ) : (
                 <>
                   Ingresar al Sistema
-                  <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
         </div>
 
-        <div className="bg-slate-50 p-6 text-center border-t border-slate-100">
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+        <div className="bg-slate-50 dark:bg-slate-800 p-5 text-center border-t border-slate-100 dark:border-slate-700">
+          <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
             Ingeniería en Protección Contra Incendio<br />
             Mérida, Yucatán
           </p>

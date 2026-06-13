@@ -109,7 +109,6 @@ export default function StaffManagement({ currentUser }) {
       
       if (rpcError) throw rpcError;
 
-      // MAGIA: Guardamos explícitamente el teléfono y el correo en el perfil visible
       await supabase.from('profiles').update({
         phone: newPhone || null,
         email: newEmail.trim().toLowerCase()
@@ -126,7 +125,7 @@ export default function StaffManagement({ currentUser }) {
       fetchStaff(); 
       
     } catch (err) {
-      console.error('🔴 Error al crear usuario:', err);
+      console.error('Error al crear usuario:', err);
       toast.error("Error al registrar: " + err.message, { id: loadingToast });
     } finally {
       setIsSubmitting(false);
@@ -136,9 +135,9 @@ export default function StaffManagement({ currentUser }) {
   const openEditModal = (person) => {
     setEditingUser(person);
     setEditName(person.full_name || '');
-    setEditEmail(person.email || ''); // Ahora ya detectará el correo
+    setEditEmail(person.email || '');
     setEditRole(person.role);
-    setEditPhone(person.phone || ''); // Ahora ya detectará el teléfono
+    setEditPhone(person.phone || '');
     setEditClientId(person.client_id || ''); 
     setEditPassword(''); 
     setShowEditPassword(false);
@@ -173,7 +172,6 @@ export default function StaffManagement({ currentUser }) {
         });
         if (error) throw error;
 
-        // MAGIA: Actualizamos el perfil visible con el nuevo correo y teléfono
         await supabase.from('profiles').update({ 
           client_id: editRole === 'MANAGER' ? editClientId : null,
           phone: editPhone || null,
@@ -219,8 +217,8 @@ export default function StaffManagement({ currentUser }) {
   if (!isAdmin && !isManager) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-20 text-center space-y-4">
-        <Shield size={64} className="text-red-600 opacity-20" />
-        <h2 className="font-black text-slate-800 uppercase tracking-tighter text-xl">Acceso Restringido</h2>
+        <Shield size={48} className="text-red-600 opacity-20" />
+        <h2 className="font-semibold text-slate-800 dark:text-slate-200 text-xl">Acceso Restringido</h2>
       </div>
     );
   }
@@ -232,86 +230,86 @@ export default function StaffManagement({ currentUser }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 relative">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border-2 border-slate-50">
+    <div className="max-w-4xl mx-auto p-4 space-y-6 relative">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="bg-slate-900 p-4 rounded-2xl text-white">
-            <Users size={32} />
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+            <Users size={24} className="text-red-600 dark:text-red-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Gestión de Equipo</h2>
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Directorio Central de Usuarios</p>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">Gestión de Equipo</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Directorio Central de Usuarios</p>
           </div>
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         {isAdmin ? (
-          <div className="md:col-span-1 bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-lg h-fit">
-            <h3 className="font-black uppercase text-xs mb-6 flex items-center gap-2 border-b pb-4">
-              <UserPlus size={16} className="text-red-600"/> Nuevo Registro
+          <div className="md:col-span-1 bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm h-fit">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-5 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-4">
+              <UserPlus size={16} className="text-red-600 dark:text-red-500"/> Nuevo Registro
             </h3>
             
-            <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-4 text-slate-700">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Nombre Completo</label>
+            <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-4 text-slate-700 dark:text-slate-300">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Nombre Completo</label>
                 <input 
                   type="text" 
                   name="fake_name_create"
                   autoComplete="off"
-                  placeholder="Ej: CARLOS MENDOZA" 
-                  className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none uppercase focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                  placeholder="Ej: Carlos Mendoza" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none uppercase focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" 
                   value={newName} 
                   onChange={e => setNewName(e.target.value)} 
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Correo Electrónico</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Correo Electrónico</label>
                 <input 
                   type="email" 
                   name="fake_email_create"
                   autoComplete="off"
                   placeholder="ejemplo@tletl.com" 
-                  className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" 
                   value={newEmail} 
                   onChange={e => setNewEmail(e.target.value)} 
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Teléfono Celular</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Teléfono Celular</label>
                 <div className="relative flex items-center">
-                  <Smartphone size={14} className="absolute left-3 text-slate-400" />
+                  <Smartphone size={14} className="absolute left-3 text-slate-400 dark:text-slate-500" />
                   <input 
                     type="tel" 
                     name="fake_phone_create"
                     autoComplete="off"
                     placeholder="9999002211" 
-                    className="w-full p-3 pl-9 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                    className="w-full p-3 pl-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" 
                     value={newPhone} 
                     onChange={e => setNewPhone(e.target.value)} 
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Password Inicial</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Password Inicial</label>
                 <div className="relative flex items-center">
                   <input 
                     type={showPassword ? "text" : "password"} 
                     name="fake_password_create"
                     autoComplete="new-password"
-                    placeholder="••••••••" 
-                    className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none pr-10 focus:border-red-400 focus:bg-white border border-transparent transition-colors" 
+                    placeholder="Min. 6 caracteres" 
+                    className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none pr-10 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" 
                     value={newPassword} 
                     onChange={e => setNewPassword(e.target.value)} 
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-2">Rango / Rol</label>
-                <select className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none focus:border-red-400 focus:bg-white border border-transparent transition-colors" value={newRole} onChange={e => setNewRole(e.target.value)}>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Rango / Rol</label>
+                <select className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" value={newRole} onChange={e => setNewRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
                   <option value="ADMIN">Administrador Gral.</option>
@@ -319,56 +317,56 @@ export default function StaffManagement({ currentUser }) {
               </div>
               
               {newRole === 'MANAGER' && (
-                <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                  <label className="text-[9px] font-black text-blue-600 uppercase ml-2 flex items-center gap-1"><Building2 size={10}/> Asignar Sucursal</label>
-                  <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100" value={newClientId} onChange={e => setNewClientId(e.target.value)}>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-blue-600 dark:text-blue-400 ml-1 flex items-center gap-1"><Building2 size={12}/> Asignar Sucursal</label>
+                  <select className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200" value={newClientId} onChange={e => setNewClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
                     {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
                   </select>
                 </div>
               )}
 
-              <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-colors active:scale-95">
+              <button type="submit" disabled={isSubmitting} className="w-full py-3.5 mt-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98]">
                 {isSubmitting ? <RefreshCw className="animate-spin" size={16}/> : "Registrar en Sistema"}
               </button>
             </form>
           </div>
         ) : (
-          <div className="md:col-span-1 bg-slate-900 p-6 rounded-[2rem] text-white space-y-3 h-fit border-t-4 border-blue-500 shadow-xl">
-            <Shield size={24} className="text-blue-400"/>
-            <h4 className="font-black text-xs uppercase tracking-wider">Acceso de Monitoreo</h4>
-            <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase">Estás operando bajo el rango de Jefe de Sucursal.</p>
+          <div className="md:col-span-1 bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 h-fit">
+            <Shield size={20} className="text-blue-500 dark:text-blue-400"/>
+            <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300">Acceso de Monitoreo</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Como Jefe de Sucursal puedes ver el equipo asignado y editar tu propio perfil.</p>
           </div>
         )}
 
         {/* LISTADO DE PERSONAL */}
         <div className="md:col-span-2 space-y-3">
           {loading ? (
-            <div className="p-10 text-center animate-pulse text-slate-400 font-black uppercase text-[10px]">Cargando Directorio...</div>
+            <div className="p-10 text-center text-slate-400 dark:text-slate-500 text-sm">Cargando directorio...</div>
           ) : (
             visibleStaff.map(person => (
-              <div key={person.id} className="bg-white p-5 rounded-[1.5rem] border-2 border-slate-50 shadow-sm flex items-center justify-between group hover:border-red-100 transition-all">
+              <div key={person.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md transition-all">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black ${person.role === 'ADMIN' ? 'bg-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm ${person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600'}`}>
                     {person.full_name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-black text-sm uppercase text-slate-800 leading-none">
-                        {person.full_name || 'Sin Nombre'} {person.id === currentUser?.id && <span className="text-blue-500 font-normal lowercase">(tú)</span>}
+                      <h4 className="font-medium text-sm text-slate-800 dark:text-slate-200">
+                        {person.full_name || 'Sin Nombre'} {person.id === currentUser?.id && <span className="text-blue-500 dark:text-blue-400 font-normal text-xs">(tú)</span>}
                       </h4>
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${person.role === 'ADMIN' ? 'bg-slate-900 text-white' : person.role === 'MANAGER' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
-                        {person.role === 'MANAGER' ? 'JEFE SUCURSAL' : person.role === 'STAFF' ? 'TÉCNICO' : person.role}
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
+                        {person.role === 'MANAGER' ? 'Jefe Sucursal' : person.role === 'STAFF' ? 'Técnico' : person.role}
                       </span>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 mt-2 lowercase">{person.email} {person.phone && <span className="text-slate-500 font-black uppercase"> • 📱 {person.phone}</span>}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{person.email} {person.phone && <span className="text-slate-500 dark:text-slate-400"> · {person.phone}</span>}</p>
                   </div>
                 </div>
                 
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEditModal(person)} className="p-3 text-slate-300 hover:text-blue-500 transition-colors"><Edit size={20} /></button>
+                  <button onClick={() => openEditModal(person)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Edit size={18} /></button>
                   {isAdmin && currentUser?.id !== person.id && (
-                    <button onClick={() => handleDelete(person.id, person.full_name)} className="p-3 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={20} /></button>
+                    <button onClick={() => handleDelete(person.id, person.full_name)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={18} /></button>
                   )}
                 </div>
               </div>
@@ -379,70 +377,70 @@ export default function StaffManagement({ currentUser }) {
 
       {/* MODAL DE EDICIÓN */}
       {editingUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setEditingUser(null)} />
           
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] text-slate-700 border-t-8 border-slate-900 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-xl relative overflow-hidden flex flex-col max-h-[85vh] text-slate-700 dark:text-slate-300 border-t-4 border-red-600">
             
-            <div className="p-6 bg-slate-50 border-b flex justify-between items-center shrink-0">
+            <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
               <div>
-                <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">Ficha Técnica</span>
-                <h3 className="font-black text-xl uppercase tracking-tighter mt-1">
+                <span className="bg-red-600 text-white px-2 py-0.5 rounded text-xs font-medium">Ficha Técnica</span>
+                <h3 className="font-semibold text-lg text-slate-900 dark:text-white mt-1">
                   {editingUser.id === currentUser?.id ? "Mi Cuenta de Acceso" : "Modificar Perfil"}
                 </h3>
               </div>
-              <button type="button" onClick={() => setEditingUser(null)} className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-xl transition-all active:scale-90">
-                <X size={22}/>
+              <button type="button" onClick={() => setEditingUser(null)} className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all active:scale-95">
+                <X size={20}/>
               </button>
             </div>
 
-            <form onSubmit={handleUpdateUser} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar" autoComplete="off">
+            <form onSubmit={handleUpdateUser} className="p-5 space-y-4 overflow-y-auto flex-1" autoComplete="off">
               <input type="text" style={{ display: 'none' }} />
               <input type="password" style={{ display: 'none' }} />
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre Completo</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Nombre Completo</label>
                 <input 
                   type="text" 
                   name="fake_name_edit"
                   autoComplete="off"
                   disabled={!canModifyFields(editingUser)} 
-                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase disabled:opacity-50 text-slate-800" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none uppercase disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" 
                   value={editName} 
                   onChange={e => setEditName(e.target.value)} 
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Correo Electrónico</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Correo Electrónico</label>
                 <input 
                   type="text" 
                   name="fake_email_edit"
                   autoComplete="off"
                   disabled={!isAdmin} 
-                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" 
                   value={editEmail} 
                   onChange={e => setEditEmail(e.target.value)} 
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Teléfono Móvil</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Teléfono Móvil</label>
                 <input 
                   type="tel" 
                   name="fake_phone_edit"
                   autoComplete="off"
                   disabled={!canModifyFields(editingUser)} 
                   placeholder="Capturar número..." 
-                  className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none disabled:opacity-50 text-slate-800" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" 
                   value={editPhone} 
                   onChange={e => setEditPhone(e.target.value)} 
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Rango / Privilegios</label>
-                <select disabled={!isAdmin} className="w-full p-3 bg-slate-50 rounded-xl text-xs font-black uppercase outline-none disabled:opacity-50 text-slate-800" value={editRole} onChange={e => setEditRole(e.target.value)}>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Rango / Privilegios</label>
+                <select disabled={!isAdmin} className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" value={editRole} onChange={e => setEditRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
                   <option value="ADMIN">Administrador General</option>
@@ -450,9 +448,9 @@ export default function StaffManagement({ currentUser }) {
               </div>
 
               {editRole === 'MANAGER' && isAdmin && (
-                <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                  <label className="text-[9px] font-black text-blue-600 uppercase ml-2">Sucursal Asignada</label>
-                  <select className="w-full p-3 bg-blue-50 rounded-xl text-xs font-bold outline-none border border-blue-100 text-slate-800" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-blue-600 dark:text-blue-400 ml-1">Sucursal Asignada</label>
+                  <select className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
                     {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
                   </select>
@@ -460,9 +458,9 @@ export default function StaffManagement({ currentUser }) {
               )}
 
               {canModifyFields(editingUser) && (
-                <div className="p-4 bg-red-50/60 border border-red-100 rounded-2xl space-y-2 mt-2">
-                  <label className="text-[9px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
-                    <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña Personal" : "Restablecer Contraseña"}
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg space-y-2 mt-2">
+                  <label className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <Lock size={12}/> {editingUser.id === currentUser?.id ? "Cambiar mi Contraseña" : "Restablecer Contraseña"}
                   </label>
                   <div className="relative flex items-center">
                     <input 
@@ -470,24 +468,24 @@ export default function StaffManagement({ currentUser }) {
                       name="fake_password_edit"
                       autoComplete="new-password"
                       placeholder="Escribe la nueva contraseña..." 
-                      className="w-full p-2.5 pr-10 bg-white border border-red-200 rounded-xl font-bold text-xs outline-none focus:border-red-500 text-slate-800" 
+                      className="w-full p-2.5 pr-10 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800 rounded-lg font-medium text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" 
                       value={editPassword} 
                       onChange={e => setEditPassword(e.target.value)} 
                     />
-                    <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 text-slate-400 hover:text-slate-600">
+                    <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
                       {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <p className="text-[7.5px] font-bold text-red-500 leading-none px-1">Si dejas esta celda en blanco, la contraseña actual no se modificará.</p>
+                  <p className="text-xs text-red-500/70 dark:text-red-400/70 leading-tight px-1">Si dejas este campo vacío, la contraseña actual no se modificará.</p>
                 </div>
               )}
             </form>
 
-            <div className="p-4 bg-slate-50 border-t flex gap-3 shrink-0">
-              <button type="button" onClick={() => setEditingUser(null)} className="flex-1 bg-white border border-slate-200 text-slate-500 font-black text-[10px] py-4 rounded-xl uppercase tracking-wider hover:bg-slate-100 transition-colors">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex gap-3 shrink-0">
+              <button type="button" onClick={() => setEditingUser(null)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium text-sm py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                 Cancelar
               </button>
-              <button type="button" disabled={isSubmitting} onClick={handleUpdateUser} className="flex-[2] bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
+              <button type="button" disabled={isSubmitting} onClick={handleUpdateUser} className="flex-[2] bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
                 {isSubmitting ? <RefreshCw className="animate-spin" size={14}/> : "Guardar Parámetros"}
               </button>
             </div>

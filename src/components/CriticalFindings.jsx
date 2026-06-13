@@ -7,7 +7,7 @@ import {
   MapPin, 
   ShieldAlert,
   Clock,
-  ChevronLeft, // Importado para el botón de regreso
+  ChevronLeft,
   Activity
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
@@ -23,85 +23,79 @@ export default function CriticalFindings({ navigateTo }) {
   );
 
   if (!criticalReports) return (
-    <div className="flex flex-col items-center justify-center p-20 text-red-600 animate-pulse">
-      <Activity size={48} className="mb-4" />
-      <p className="font-black uppercase text-xs tracking-[0.3em]">Escaneando Riesgos...</p>
+    <div className="flex flex-col items-center justify-center p-20 text-slate-400 dark:text-slate-500 animate-pulse">
+      <Activity size={32} className="mb-4" strokeWidth={1.5} />
+      <p className="font-medium text-sm">Escaneando riesgos...</p>
     </div>
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500">
+    <div className="max-w-5xl mx-auto p-6 space-y-6 pb-20 animate-in fade-in duration-500">
       
-      {/* BOTÓN DE REGRESO FUERA DEL HEADER PARA MÁS CLARIDAD */}
-      <div className="px-4 pt-4">
+      {/* BOTÓN DE REGRESO */}
+      <div>
         <button 
           onClick={() => navigateTo('home')}
-          className="flex items-center gap-2 text-slate-400 hover:text-red-600 transition-all group"
+          className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group"
         >
-          <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 group-hover:border-red-100">
-            <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Volver al Panel</span>
+          <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" strokeWidth={1.5} />
+          <span className="text-sm font-medium">Volver al Panel</span>
         </button>
       </div>
 
-      {/* HEADER DE EMERGENCIA */}
-      <div className="bg-red-600 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 scale-150">
-          <AlertOctagon size={120} />
+      {/* HEADER */}
+      <div className="flex items-center gap-4">
+        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl text-red-600 dark:text-red-500 border border-red-100 dark:border-red-900/30">
+          <ShieldAlert size={28} strokeWidth={1.5} />
         </div>
-        <div className="relative z-10 flex items-center gap-5">
-          <div className="bg-white/20 p-4 rounded-3xl backdrop-blur-xl border border-white/30 shadow-inner">
-            <ShieldAlert size={36} />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">Panel de Riesgos</h2>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-2 flex items-center gap-2">
-              <span className="w-2 h-2 bg-white rounded-full animate-ping"></span>
-              Atención Inmediata Requerida
-            </p>
-          </div>
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">Panel de Riesgos</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            Atención inmediata requerida
+          </p>
         </div>
       </div>
 
-      {/* ... (Resto del código igual) ... */}
-      <div className="px-4 flex items-center justify-between">
-        <span className="text-[10px] font-black text-red-600 uppercase bg-red-50 px-4 py-2 rounded-full border border-red-100 shadow-sm">
+      {/* CONTADOR */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-md border border-red-200 dark:border-red-800">
           {criticalReports.length} Hallazgos Críticos Detectados
         </span>
       </div>
 
-      <div className="grid gap-4 px-4">
+      {/* LISTADO DE HALLAZGOS */}
+      <div className="grid gap-4">
         {criticalReports.length === 0 ? (
-          <div className="bg-white p-20 rounded-[3rem] border-4 border-dotted border-slate-100 text-center">
-            <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <ShieldAlert size={48} />
+          <div className="bg-white dark:bg-slate-900 p-16 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-sm flex flex-col items-center justify-center space-y-4">
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-full border border-green-100 dark:border-green-800">
+              <ShieldAlert size={32} className="text-green-500 dark:text-green-400" strokeWidth={1.5} />
             </div>
-            <p className="font-black uppercase text-sm text-slate-400 tracking-widest italic">Sistema libre de riesgos críticos</p>
+            <p className="font-medium text-sm text-slate-500 dark:text-slate-400">Sistema libre de riesgos críticos</p>
           </div>
         ) : (
           criticalReports.map((report) => (
-            <div key={report.id} className="bg-white border-2 border-red-50 rounded-[2.5rem] p-8 shadow-2xl shadow-red-900/5 hover:border-red-500 transition-all group relative overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-3 bg-red-600"></div>
-              <div className="flex flex-col md:flex-row justify-between gap-6">
-                <div className="space-y-4 flex-1">
+            <div key={report.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 relative overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+              <div className="flex flex-col md:flex-row justify-between gap-6 pl-4">
+                <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-3">
-                    <span className="bg-red-600 text-white text-[9px] font-black px-3 py-1 rounded-lg uppercase shadow-lg shadow-red-600/20">Crítico</span>
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.1em]">{report.serviceCode}</span>
+                    <span className="bg-red-600 text-white text-xs font-medium px-2.5 py-1 rounded-md">Crítico</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{report.serviceCode}</span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-800 uppercase leading-none tracking-tight group-hover:text-red-600 transition-colors">
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white leading-tight group-hover:text-red-600 transition-colors">
                     {report.equipmentName}
                   </h3>
                   <div className="flex flex-wrap gap-5 pt-1">
-                    <div className="flex items-center gap-2 text-slate-500">
-                      <MapPin size={16} className="text-red-500" />
-                      <span className="text-[10px] font-bold uppercase tracking-tighter">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                      <MapPin size={14} className="text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
+                      <span className="text-sm">
                         {report.location?.address?.split(',')[0] || 'Sin ubicación registrada'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-slate-500">
-                      <Clock size={16} />
-                      <span className="text-[10px] font-bold uppercase tracking-tighter">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                      <Clock size={14} strokeWidth={1.5} />
+                      <span className="text-sm">
                         Detectado el {new Date(report.date).toLocaleDateString()}
                       </span>
                     </div>
@@ -110,17 +104,19 @@ export default function CriticalFindings({ navigateTo }) {
                 <div className="flex items-center">
                   <button 
                     onClick={() => generatePDF(report)}
-                    className="w-full md:w-auto bg-slate-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-[11px] uppercase shadow-xl hover:bg-red-600 transition-all flex items-center justify-center gap-3 active:scale-95"
+                    className="w-full md:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-lg font-medium text-sm hover:bg-red-600 dark:hover:bg-red-600 dark:hover:text-white transition-colors flex items-center justify-center gap-2 shadow-sm"
                   >
-                    <FileDown size={18} /> Descargar Orden
+                    <FileDown size={16}/> Descargar Orden
                   </button>
                 </div>
               </div>
-              <div className="mt-6 p-6 bg-red-50/50 rounded-[1.5rem] border border-red-100 flex gap-4">
-                <div className="shrink-0 text-red-600"><AlertOctagon size={20}/></div>
+              
+              {/* DIAGNÓSTICO */}
+              <div className="mt-5 ml-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-900/30 flex gap-3">
+                <div className="shrink-0 text-red-500 dark:text-red-400"><AlertOctagon size={18} strokeWidth={1.5}/></div>
                 <div>
-                  <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Diagnóstico Técnico</p>
-                  <p className="text-sm font-bold text-red-800 italic leading-relaxed">
+                  <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Diagnóstico Técnico</p>
+                  <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
                     "{report.observations || 'No se detalló el riesgo en el reporte.'}"
                   </p>
                 </div>

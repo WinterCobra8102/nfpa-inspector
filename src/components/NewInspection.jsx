@@ -204,7 +204,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     if(!clientX || !clientY) return;
 
-    ctx.strokeStyle = '#0f172a'; // Azul oscuro casi negro para firma
+    ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 2.5; 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -239,9 +239,9 @@ export default function NewInspection({ navigateTo, prefillData }) {
   };
 
   const handleSave = async () => {
-    if (!selectedClient || !ownerName) return toast.error("⚠️ Falta seleccionar cliente o responsable.");
-    if (!clientSigData) return toast.error("⚠️ La firma de conformidad del cliente es obligatoria.");
-    if (!techSigData) return toast.error("⚠️ La firma de autorización del técnico es obligatoria.");
+    if (!selectedClient || !ownerName) return toast.error("Falta seleccionar cliente o responsable.");
+    if (!clientSigData) return toast.error("La firma de conformidad del cliente es obligatoria.");
+    if (!techSigData) return toast.error("La firma de autorización del técnico es obligatoria.");
 
     setIsSaving(true);
     try {
@@ -274,7 +274,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
         date: new Date().toISOString()
       });
 
-      toast.success("REPORTE OFICIAL GUARDADO LOCALMENTE");
+      toast.success("Reporte oficial guardado localmente");
       navigateTo('home'); 
     } catch (e) {
       console.error(e);
@@ -308,65 +308,73 @@ export default function NewInspection({ navigateTo, prefillData }) {
   };
 
   // =========================================================================
-  // PASO 1 Y 2: NAVEGACIÓN Y SELECCIÓN (ESTILO CORPORATIVO LIMPIO)
+  // PASO 1: SELECCIÓN DE SUCURSAL
   // =========================================================================
 
   if (step === 1) return (
       <div className="max-w-2xl mx-auto p-4 md:p-8 space-y-6">
-        <button onClick={() => navigateTo('home')} className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 hover:text-red-600 transition-colors"><ArrowLeft size={16} /> VOLVER AL PANEL</button>
-        <div className="bg-white p-8 border border-slate-200 shadow-sm rounded-lg">
-          <div className="border-b border-slate-200 pb-4 mb-6">
-             <h2 className="text-lg font-black text-slate-800 uppercase tracking-wide">Inicio de Inspección</h2>
-             <p className="text-sm text-slate-500">Seleccione la sucursal o planta para vincular el documento.</p>
+        <button onClick={() => navigateTo('home')} className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-red-600 dark:hover:text-red-500 transition-colors">
+          <ArrowLeft size={16} /> Volver al Panel
+        </button>
+        <div className="bg-white dark:bg-slate-900 p-8 border border-slate-200 dark:border-slate-700 shadow-sm rounded-xl">
+          <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-6">
+             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Inicio de Inspección</h2>
+             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Seleccione la sucursal o planta para vincular el documento.</p>
           </div>
-          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2 mb-2"><User size={14} /> EMPRESA / SUCURSAL</label>
-          <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-300 rounded-md font-bold outline-none focus:border-blue-500 text-slate-700 transition-colors">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-2"><User size={14} /> Empresa / Sucursal</label>
+          <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-700 dark:text-slate-200 transition-colors">
             <option value="">-- Seleccionar de la base de datos --</option>
             {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
         
         <div className={`${!selectedClient ? 'opacity-50 pointer-events-none' : ''} space-y-3`}>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest pl-2">Seleccione Marco Normativo</h3>
+          <h3 className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide pl-1">Seleccione Marco Normativo</h3>
           {['NFPA 25', 'NFPA 72'].map(std => (
-            <button key={std} onClick={() => { setSelectedStandard(std); setStep(2); }} className="w-full flex justify-between items-center p-6 bg-white border border-slate-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all group">
+            <button key={std} onClick={() => { setSelectedStandard(std); setStep(2); }} className="w-full flex justify-between items-center p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-red-500 dark:hover:border-red-500 hover:shadow-md transition-all group">
               <div className="flex items-center gap-4">
-                <div className="bg-slate-100 p-3 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                  {std === 'NFPA 25' ? <Droplets size={24} /> : <Bell size={24} />}
+                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700 group-hover:bg-red-50 dark:group-hover:bg-red-900/20 group-hover:text-red-600 dark:group-hover:text-red-500 group-hover:border-red-100 dark:group-hover:border-red-900/30 transition-colors text-slate-500 dark:text-slate-400">
+                  {std === 'NFPA 25' ? <Droplets size={22} /> : <Bell size={22} />}
                 </div>
-                <h3 className="font-black text-xl text-slate-700">{std}</h3>
+                <h3 className="font-semibold text-lg text-slate-800 dark:text-white">{std}</h3>
               </div>
-              <ChevronRight className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+              <ChevronRight className="text-slate-300 dark:text-slate-600 group-hover:text-red-500 transition-colors" />
             </button>
           ))}
         </div>
       </div>
   );
 
+  // =========================================================================
+  // PASO 2: CATÁLOGO DE FORMULARIOS
+  // =========================================================================
+
   if (step === 2) {
     const services = IPM_CATALOG.filter(item => item.standard.includes(selectedStandard) || item.id === 'IPM-07');
     const categories = [...new Set(services.map(s => s.category))];
     return (
       <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-8">
-        <button onClick={() => setStep(1)} className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 hover:text-red-600 transition-colors"><ArrowLeft size={16} /> CAMBIAR SUCURSAL</button>
-        <div className="border-b border-slate-200 pb-4">
-            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Catálogo {selectedStandard}</h2>
-            <p className="text-sm text-slate-500">Seleccione el formulario de inspección a ejecutar.</p>
+        <button onClick={() => setStep(1)} className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-red-600 dark:hover:text-red-500 transition-colors">
+          <ArrowLeft size={16} /> Cambiar Sucursal
+        </button>
+        <div className="border-b border-slate-200 dark:border-slate-700 pb-4">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">Catálogo {selectedStandard}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Seleccione el formulario de inspección a ejecutar.</p>
         </div>
         {categories.map(cat => (
           <div key={cat} className="space-y-3">
-            <span className="text-xs font-black tracking-widest text-slate-400 uppercase border-b border-slate-200 pb-1 block w-full">{cat}</span>
+            <span className="text-xs font-medium tracking-wide text-slate-400 dark:text-slate-500 uppercase border-b border-slate-100 dark:border-slate-700 pb-1 block w-full">{cat}</span>
             <div className="grid gap-2">
               {services.filter(s => s.category === cat).map(item => (
-                <button key={item.id} onClick={() => { setSelectedIPM(item); setStep(3); }} className="bg-white p-4 border border-slate-200 rounded-md shadow-sm flex items-center justify-between hover:border-blue-500 hover:bg-slate-50 transition-all text-left group">
+                <button key={item.id} onClick={() => { setSelectedIPM(item); setStep(3); }} className="bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm flex items-center justify-between hover:border-red-500 dark:hover:border-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left group">
                   <div className="flex items-center gap-4">
-                    <Icon name={item.icon} size={20} className="text-slate-400 group-hover:text-blue-600" />
+                    <Icon name={item.icon} size={20} className="text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors" />
                     <div>
-                      <h3 className="font-bold text-slate-800 uppercase text-sm leading-tight">{item.name}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{item.id} | {item.formCode}</p>
+                      <h3 className="font-medium text-slate-800 dark:text-slate-200 text-sm leading-tight">{item.name}</h3>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{item.id} | {item.formCode}</p>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-500" />
+                  <ChevronRight size={18} className="text-slate-300 dark:text-slate-600 group-hover:text-red-500" />
                 </button>
               ))}
             </div>
@@ -381,60 +389,60 @@ export default function NewInspection({ navigateTo, prefillData }) {
   // =========================================================================
 
   return (
-    <div className="bg-slate-50 min-h-screen pb-24 pt-4 md:pt-8 px-2 md:px-4">
+    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-24 pt-4 md:pt-8 px-2 md:px-4">
       
       {/* Botón de regreso fuera del documento */}
       <div className="max-w-5xl mx-auto mb-4 flex justify-between items-center">
-        <button onClick={() => setStep(2)} className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 hover:text-red-600 transition-colors">
-          <ArrowLeft size={16} /> CANCELAR Y VOLVER AL CATÁLOGO
+        <button onClick={() => setStep(2)} className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-red-600 dark:hover:text-red-500 transition-colors">
+          <ArrowLeft size={16} /> Cancelar y volver al catálogo
         </button>
       </div>
 
       {/* --- INICIO DEL DOCUMENTO (HOJA) --- */}
-      <div className="max-w-5xl mx-auto bg-white border border-slate-300 shadow-2xl rounded-sm overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl rounded-sm overflow-hidden">
         
         {/* MEMBRETE (HEADER DOCUMENTO) */}
-        <div className="border-b-[3px] border-slate-800 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="border-b-[3px] border-slate-800 dark:border-slate-600 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 bg-slate-900 text-white flex items-center justify-center rounded-sm shrink-0">
+            <div className="w-16 h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center rounded-sm shrink-0">
                <Icon name={selectedIPM.icon} size={32} />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight leading-tight">{selectedIPM.name}</h1>
-              <p className="text-xs md:text-sm font-bold text-slate-500 uppercase mt-1 tracking-widest">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">{selectedIPM.name}</h1>
+              <p className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mt-1 tracking-widest">
                 REPORTE OFICIAL DE INSPECCIÓN TÉCNICA
               </p>
             </div>
           </div>
           <div className="text-left md:text-right shrink-0 border-l-4 border-red-600 pl-4">
-             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">NORMATIVA</p>
-             <p className="text-lg font-black text-slate-800">{selectedIPM.standard}</p>
-             <p className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded inline-block mt-1">{selectedIPM.formCode}</p>
+             <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">NORMATIVA</p>
+             <p className="text-lg font-black text-slate-800 dark:text-slate-200">{selectedIPM.standard}</p>
+             <p className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded inline-block mt-1">{selectedIPM.formCode}</p>
           </div>
         </div>
 
         {/* INFO GENERAL (GRID) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-slate-300 bg-slate-50 text-xs">
-           <div className="p-4 border-b md:border-b-0 md:border-r border-slate-200">
-             <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Empresa / Sitio</span>
-             <p className="font-bold text-slate-800 uppercase leading-tight">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
+           <div className="p-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700">
+             <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Empresa / Sitio</span>
+             <p className="font-bold text-slate-800 dark:text-slate-200 uppercase leading-tight">
                {clientsDb.find(c => c.id === selectedClient)?.nombre || 'NO ESPECIFICADO'}
              </p>
            </div>
-           <div className="p-4 border-b md:border-b-0 lg:border-r border-slate-200">
-             <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Técnico Asignado</span>
-             <p className="font-bold text-slate-800 uppercase">{technicianName}</p>
+           <div className="p-4 border-b md:border-b-0 lg:border-r border-slate-200 dark:border-slate-700">
+             <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Técnico Asignado</span>
+             <p className="font-bold text-slate-800 dark:text-slate-200 uppercase">{technicianName}</p>
            </div>
-           <div className="p-4 border-b md:border-b-0 md:border-r border-slate-200 flex justify-between items-center">
+           <div className="p-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 flex justify-between items-center">
              <div>
-               <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Ubicación GPS</span>
-               <p className="font-bold text-slate-800 uppercase text-[10px]">{location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Pendiente'}</p>
+               <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Ubicación GPS</span>
+               <p className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px]">{location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Pendiente'}</p>
              </div>
-             <button onClick={updateGPS} className="text-blue-600 p-2 hover:bg-blue-50 rounded" title="Actualizar GPS"><RefreshCcw size={14}/></button>
+             <button onClick={updateGPS} className="text-blue-600 dark:text-blue-400 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Actualizar GPS"><RefreshCcw size={14}/></button>
            </div>
            <div className="p-4">
-             <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha de Ejecución</span>
-             <p className="font-bold text-slate-800 uppercase">{new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+             <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Fecha de Ejecución</span>
+             <p className="font-bold text-slate-800 dark:text-slate-200 uppercase">{new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
            </div>
         </div>
 
@@ -442,18 +450,18 @@ export default function NewInspection({ navigateTo, prefillData }) {
         <div className="p-6 md:p-10 space-y-12">
           
           {dynamicSections && dynamicSections.map((sec, sIdx) => (
-            <div key={sIdx} className="border border-slate-300 rounded-sm overflow-hidden">
+            <div key={sIdx} className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden">
               
               {/* Encabezado de Sección */}
-              <div className="bg-slate-100 px-5 py-3 border-b border-slate-300 flex justify-between items-center">
-                 <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">{sec.title}</h3>
-                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-0.5 border border-slate-200 rounded">
+              <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600 flex justify-between items-center">
+                 <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">{sec.title}</h3>
+                 <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 border border-slate-200 dark:border-slate-700 rounded">
                    {sec.points.length} Puntos
                  </span>
               </div>
 
               {/* Lista de Puntos */}
-              <div className="divide-y divide-slate-200">
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
                 {sec.points && sec.points.map((p, pIdx) => {
                   const currentStatus = details[p]?.status;
                   const hasNote = details[p]?.note && details[p].note.trim() !== '';
@@ -464,13 +472,13 @@ export default function NewInspection({ navigateTo, prefillData }) {
                   const itemLocation = isInventory ? p.split('|')[1]?.trim() : null;
 
                   return (
-                    <div key={pIdx} className="flex flex-col hover:bg-slate-50/50 transition-colors relative group">
+                    <div key={pIdx} className="flex flex-col hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors relative group">
                       
                       {/* Botón borrar (Aparece en hover) */}
                       <button 
                         type="button" 
                         onClick={() => triggerRemovePoint(sIdx, pIdx, p)} 
-                        className="absolute top-2 left-1 md:left-2 text-slate-300 hover:text-red-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        className="absolute top-2 left-1 md:left-2 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                         title="Remover Fila"
                       >
                         <X size={14} />
@@ -479,84 +487,57 @@ export default function NewInspection({ navigateTo, prefillData }) {
                       <div className="flex flex-col lg:flex-row min-h-[60px] pl-6 md:pl-10">
                         
                         {/* Celda de Descripción */}
-                        <div className="flex-1 py-4 pr-4 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col justify-center">
+                        <div className="flex-1 py-4 pr-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-700 flex flex-col justify-center">
                           {isInventory ? (
                             <div className="flex items-start gap-2">
-                               <span className="text-[9px] font-black text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded">{itemName}</span>
-                               <span className="text-sm font-bold text-slate-800 leading-snug">{itemLocation}</span>
+                               <span className="text-[9px] font-black text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{itemName}</span>
+                               <span className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-snug">{itemLocation}</span>
                             </div>
                           ) : (
-                            <span className="text-sm font-bold text-slate-800 leading-snug">{itemName}</span>
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-snug">{itemName}</span>
                           )}
                         </div>
 
-                        {/* Celda de Controles (Checkboxes y Anexos) */}
-                        <div className="shrink-0 flex items-center justify-between lg:justify-start gap-6 p-4 lg:w-[350px]">
+                        {/* Celda de Acciones */}
+                        <div className="flex items-center gap-2 p-3 shrink-0">
+                          {/* Botones de Estado */}
+                          <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'optimo'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'optimo' ? 'bg-green-500 text-white border-green-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-green-400 hover:text-green-500'}`}><CheckCircle2 size={16}/></button>
+                          <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'advertencia'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'advertencia' ? 'bg-amber-500 text-white border-amber-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-amber-400 hover:text-amber-500'}`}><AlertTriangle size={16}/></button>
+                          <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'critico'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'critico' ? 'bg-red-500 text-white border-red-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-red-400 hover:text-red-500'}`}><AlertOctagon size={16}/></button>
                           
-                          {/* CHECKBOXES FORMALES */}
-                          <div className="flex bg-slate-100 rounded border border-slate-200 overflow-hidden">
-                            <button type="button" onClick={() => setDetails(prev => ({ ...prev, [p]: { ...prev[p], status: 'bien' } }))} 
-                              className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase transition-colors border-r border-slate-200 last:border-0
-                                ${currentStatus === 'bien' ? 'bg-green-600 text-white' : 'text-slate-500 hover:bg-slate-200'}`}>
-                              {currentStatus === 'bien' && <CheckCircle2 size={12}/>} ÓPTIMO
-                            </button>
-                            
-                            <button type="button" onClick={() => setDetails(prev => ({ ...prev, [p]: { ...prev[p], status: 'advertencia' } }))} 
-                              className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase transition-colors border-r border-slate-200 last:border-0
-                                ${currentStatus === 'advertencia' ? 'bg-yellow-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}>
-                              {currentStatus === 'advertencia' && <AlertTriangle size={12}/>} REVISAR
-                            </button>
-
-                            <button type="button" onClick={() => setDetails(prev => ({ ...prev, [p]: { ...prev[p], status: 'critico' } }))} 
-                              className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase transition-colors border-r border-slate-200 last:border-0
-                                ${currentStatus === 'critico' ? 'bg-red-600 text-white' : 'text-slate-500 hover:bg-slate-200'}`}>
-                              {currentStatus === 'critico' && <AlertOctagon size={12}/>} CRÍTICO
-                            </button>
-                          </div>
-
-                          {/* ICONOS DE EVIDENCIA */}
-                          <div className="flex gap-2">
-                            <button type="button" onClick={() => setActiveComments(prev => ({ ...prev, [p]: !prev[p] }))} 
-                              className={`p-1.5 rounded transition-colors
-                                ${hasNote || activeComments[p] ? 'text-blue-600 bg-blue-50 border border-blue-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
-                              <MessageSquare size={16} />
-                            </button>
-                            <label className={`p-1.5 rounded cursor-pointer transition-colors block
-                                ${hasPhoto ? 'text-green-600 bg-green-50 border border-green-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
-                              {hasPhoto ? <ImageIcon size={16} /> : <Camera size={16} />}
-                              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const r = new FileReader(); r.onload = () => { setImageToCrop(r.result); setActivePoint(p); }; r.readAsDataURL(e.target.files[0]); }} />
-                            </label>
-                          </div>
+                          <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                          
+                          {/* Botón Nota */}
+                          <button type="button" onClick={() => setActiveComments(prev => ({...prev, [p]: !prev[p]}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${hasNote ? 'bg-blue-500 text-white border-blue-500' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-blue-400 hover:text-blue-500'}`}><MessageSquare size={14}/></button>
+                          
+                          {/* Botón Foto */}
+                          <label className={`w-9 h-9 rounded flex items-center justify-center border transition-all cursor-pointer ${hasPhoto ? 'bg-purple-500 text-white border-purple-500' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-400 hover:text-purple-500'}`}>
+                            <Camera size={14}/>
+                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const file = e.target.files[0]; if(file){ setActivePoint(p); const reader = new FileReader(); reader.onload = (ev) => setImageToCrop(ev.target.result); reader.readAsDataURL(file); }}} />
+                          </label>
                         </div>
-
                       </div>
 
-                      {/* SUB-FILA DE EVIDENCIA (Si aplica) */}
-                      {(activeComments[p] || hasNote || hasPhoto) && (
-                        <div className="pl-6 md:pl-10 pr-4 pb-4 animate-in slide-in-from-top-2">
-                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-sm flex flex-col md:flex-row gap-4 border-l-2 border-l-blue-400">
-                            <div className="flex-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><MessageSquare size={10}/> Anotación Técnica</label>
-                              <textarea 
-                                rows="2"
-                                className="w-full bg-white border border-slate-200 rounded p-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-400 resize-y" 
-                                placeholder="Describa el hallazgo..." 
-                                value={details[p]?.note || ''} 
-                                onChange={e => setDetails(prev => ({ ...prev, [p]: { ...prev[p], note: e.target.value } }))} 
-                              />
-                            </div>
-                            {hasPhoto && (
-                              <div className="shrink-0">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><ImageIcon size={10}/> Evidencia</label>
-                                <div className="relative group w-32 h-20 rounded border border-slate-300 overflow-hidden bg-white">
-                                  <img src={details[p].photo} alt="Evidencia" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => setDetails(prev => { const n={...prev}; delete n[p].photo; return n;})} className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Trash2 size={16}/>
-                                  </button>
-                                </div>
+                      {/* Área expandible: Nota + Foto */}
+                      {activeComments[p] && (
+                        <div className="px-6 md:px-10 pb-4 pt-2 space-y-3 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700">
+                          <textarea 
+                            rows="2" 
+                            placeholder="Escribir observación técnica..." 
+                            className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded text-sm outline-none focus:border-blue-500 text-slate-700 dark:text-slate-200 resize-none"
+                            value={details[p]?.note || ''} 
+                            onChange={(e) => setDetails(prev => ({...prev, [p]: {...prev[p], note: e.target.value}}))} 
+                          />
+                          {hasPhoto && (
+                            <div className="flex items-center gap-3">
+                              <div className="relative group w-32 h-20 rounded border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-800">
+                                <img src={details[p].photo} alt="Evidencia" className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => setDetails(prev => { const n={...prev}; delete n[p].photo; return n;})} className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 size={16}/>
+                                </button>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -565,11 +546,11 @@ export default function NewInspection({ navigateTo, prefillData }) {
                 })}
               </div>
 
-              {/* Fila inferior para añadir elementos (Como en Excel) */}
+              {/* Fila inferior para añadir elementos */}
               <button
                 type="button"
                 onClick={() => triggerAddPoint(sIdx, sec.isInventoryTable)}
-                className="w-full py-3 bg-white border-t border-slate-200 text-xs font-black text-blue-600 hover:bg-blue-50 uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
               >
                 <Plus size={14} /> Añadir Fila
               </button>
@@ -578,30 +559,28 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
           {/* --- TABLA DE VOLTAJES FORMAL --- */}
           {selectedIPM.hasVoltages && (
-              <div className="border border-slate-300 rounded-sm overflow-hidden mb-10">
-                  <div className="bg-slate-100 px-5 py-3 border-b border-slate-300 flex items-center justify-between">
-                    <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">LECTURAS: 6 ARRANQUES MANUALES (VCD)</h3>
+              <div className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden mb-10">
+                  <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600 flex items-center justify-between">
+                    <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">LECTURAS: 6 ARRANQUES MANUALES (VCD)</h3>
                   </div>
                   
-                  {/* Table Header */}
-                  <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest divide-x divide-slate-200">
+                  <div className="grid grid-cols-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest divide-x divide-slate-200 dark:divide-slate-700">
                      <div className="py-2 px-4 text-center">Nº Intento</div>
                      <div className="py-2 px-4 text-center">Voltaje Mínimo</div>
                      <div className="py-2 px-4 text-center">Voltaje Máximo</div>
                   </div>
 
-                  {/* Table Body */}
-                  <div className="divide-y divide-slate-200">
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
                     {voltages.map((v, i) => (
-                        <div key={i} className="grid grid-cols-3 divide-x divide-slate-200 bg-white hover:bg-slate-50 transition-colors">
-                            <div className="py-3 flex items-center justify-center font-bold text-xs text-slate-700">
+                        <div key={i} className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <div className="py-3 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
                               Prueba #{i+1}
                             </div>
                             <div className="py-2 px-2 flex items-center justify-center">
-                              <input type="number" placeholder="0.0" className="w-24 text-center bg-transparent border-b border-slate-300 focus:border-blue-500 text-sm font-bold outline-none text-slate-800 pb-1" value={v.min} onChange={e => { const n=[...voltages]; n[i].min=e.target.value; setVoltages(n); }} />
+                              <input type="number" placeholder="0.0" className="w-24 text-center bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 text-sm font-bold outline-none text-slate-800 dark:text-slate-200 pb-1" value={v.min} onChange={e => { const n=[...voltages]; n[i].min=e.target.value; setVoltages(n); }} />
                             </div>
                             <div className="py-2 px-2 flex items-center justify-center">
-                              <input type="number" placeholder="0.0" className="w-24 text-center bg-transparent border-b border-slate-300 focus:border-blue-500 text-sm font-bold outline-none text-slate-800 pb-1" value={v.max} onChange={e => { const n=[...voltages]; n[i].max=e.target.value; setVoltages(n); }} />
+                              <input type="number" placeholder="0.0" className="w-24 text-center bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 text-sm font-bold outline-none text-slate-800 dark:text-slate-200 pb-1" value={v.max} onChange={e => { const n=[...voltages]; n[i].max=e.target.value; setVoltages(n); }} />
                             </div>
                         </div>
                     ))}
@@ -609,13 +588,13 @@ export default function NewInspection({ navigateTo, prefillData }) {
               </div>
           )}
 
-          {/* DICTAMEN GENERAL (BOX FORMAL) */}
-          <div className="border border-slate-300 rounded-sm overflow-hidden mb-8">
-            <div className="bg-slate-100 px-5 py-3 border-b border-slate-300">
-               <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">DICTAMEN TÉCNICO Y OBSERVACIONES GENERALES</h3>
+          {/* DICTAMEN GENERAL */}
+          <div className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden mb-8">
+            <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600">
+               <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">DICTAMEN TÉCNICO Y OBSERVACIONES GENERALES</h3>
             </div>
             <textarea 
-              className="w-full h-32 p-5 bg-white font-bold text-sm outline-none text-slate-800 placeholder-slate-400 resize-y" 
+              className="w-full h-32 p-5 bg-white dark:bg-slate-900 font-bold text-sm outline-none text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 resize-y" 
               placeholder="Describa el resumen de la visita, recomendaciones o notas finales para el cliente..." 
               value={generalObs} 
               onChange={e => setGeneralObs(e.target.value)} 
@@ -625,58 +604,57 @@ export default function NewInspection({ navigateTo, prefillData }) {
         </div>
 
         {/* --- SECCIÓN DE FIRMAS Y LEGALIZACIÓN (ESTILO DOCUMENTO) --- */}
-        <div className="border-t-[3px] border-slate-800 bg-slate-50 p-6 md:p-10">
-          <h3 className="text-center font-black text-slate-800 uppercase tracking-widest mb-12 text-sm">Validación y Firmas de Conformidad</h3>
+        <div className="border-t-[3px] border-slate-800 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 md:p-10">
+          <h3 className="text-center font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-12 text-sm">Validación y Firmas de Conformidad</h3>
 
-          {/* Aumentamos el gap vertical en celulares (gap-16) para que no se encimen los bloques */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 max-w-3xl mx-auto">
             
             {/* Firma Cliente */}
             <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
-                 className="w-full bg-transparent border-b border-transparent focus:border-blue-400 text-center font-bold text-sm outline-none text-slate-800 mb-6 placeholder-slate-400 transition-colors" 
+                 className="w-full bg-transparent border-b border-transparent focus:border-blue-400 text-center font-bold text-sm outline-none text-slate-800 dark:text-slate-200 mb-6 placeholder-slate-400 dark:placeholder-slate-500 transition-colors" 
                  placeholder="NOMBRE DEL RESPONSABLE" 
                  value={ownerName} 
                  onChange={(e) => setOwnerName(e.target.value)} 
               />
               <div 
                  onClick={() => setShowClientSigModal(true)} 
-                 className="w-full h-28 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
+                 className="w-full h-28 border-b-2 border-slate-800 dark:border-slate-500 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
               >
                  {clientSigData ? (
                      <img src={clientSigData} alt="Firma Cliente" className="max-h-24 w-auto object-contain mb-2" />
                  ) : (
-                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-600 transition-colors mb-2">Tocar para firmar</span>
+                     <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">Tocar para firmar</span>
                  )}
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-3 text-center">Firma de Recibido y Conformidad</p>
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-3 text-center">Firma de Recibido y Conformidad</p>
             </div>
 
             {/* Firma Técnico */}
             <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
-                 className="w-full bg-transparent border-b border-transparent text-center font-bold text-sm outline-none text-slate-800 mb-6" 
+                 className="w-full bg-transparent border-b border-transparent text-center font-bold text-sm outline-none text-slate-800 dark:text-slate-200 mb-6" 
                  disabled 
                  value={technicianName} 
               />
               <div 
                  onClick={() => setShowTechSigModal(true)} 
-                 className="w-full h-28 border-b-2 border-slate-800 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
+                 className="w-full h-28 border-b-2 border-slate-800 dark:border-slate-500 flex flex-col items-center justify-end cursor-pointer group pb-2 relative"
               >
                  {techSigData ? (
                      <img src={techSigData} alt="Firma Técnico" className="max-h-24 w-auto object-contain mb-2" />
                  ) : (
-                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-600 transition-colors mb-2">Tocar para firmar</span>
+                     <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">Tocar para firmar</span>
                  )}
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-3 text-center">Técnico Autorizado TLETL</p>
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-3 text-center">Técnico Autorizado TLETL</p>
             </div>
 
           </div>
           
-          {/* Botón Guardar con más separación superior (mt-16) */}
+          {/* Botón Guardar */}
           <div className="mt-16 flex justify-center">
-            <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 hover:bg-blue-600 text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
+            <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 dark:bg-white hover:bg-red-600 dark:hover:bg-red-600 text-white dark:text-slate-900 dark:hover:text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
               {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />} 
               Cerrar y Guardar Documento
             </button>
@@ -686,45 +664,45 @@ export default function NewInspection({ navigateTo, prefillData }) {
       </div>
 
       {/* ========================================================================= */}
-      {/* 🧩 MODALES NATIVOS DE INTERFAZ */}
+      {/* MODALES DE INTERFAZ */}
       {/* ========================================================================= */}
 
       {/* MODAL: AÑADIR PUNTO/DISPOSITIVO */}
       {customAddModal.isOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded shadow-2xl overflow-hidden animate-in zoom-in-95 border border-slate-200">
-            <div className="bg-slate-100 p-4 flex justify-between items-center border-b border-slate-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-lg shadow-xl overflow-hidden animate-in zoom-in-95 border border-slate-200 dark:border-slate-700">
+            <div className="bg-slate-50 dark:bg-slate-800 p-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2">
-                <Plus size={18} className="text-blue-600" />
-                <h3 className="font-black uppercase tracking-widest text-sm text-slate-800">Añadir Fila</h3>
+                <Plus size={18} className="text-blue-600 dark:text-blue-400" />
+                <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Añadir Fila</h3>
               </div>
-              <button onClick={() => setCustomAddModal({ ...customAddModal, isOpen: false })} className="text-slate-400 hover:text-slate-800 transition-colors"><X size={20}/></button>
+              <button onClick={() => setCustomAddModal({ ...customAddModal, isOpen: false })} className="text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"><X size={18}/></button>
             </div>
             <div className="p-6 space-y-4">
               {customAddModal.isInventory && (
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">Siglas (Ej: SMK, EXT)</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Siglas (Ej: SMK, EXT)</label>
                   <input 
                     type="text" autoFocus
-                    className="w-full p-3 bg-white border border-slate-300 rounded font-bold text-sm outline-none focus:border-blue-500 uppercase text-slate-800" 
+                    className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 uppercase text-slate-800 dark:text-slate-200" 
                     value={customAddModal.tag} onChange={(e) => setCustomAddModal({ ...customAddModal, tag: e.target.value })} 
                   />
                 </div>
               )}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">
                   {customAddModal.isInventory ? 'Ubicación' : 'Descripción'}
                 </label>
                 <input 
                   type="text" autoFocus={!customAddModal.isInventory}
-                  className="w-full p-3 bg-white border border-slate-300 rounded font-bold text-sm outline-none focus:border-blue-500 uppercase text-slate-800" 
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 uppercase text-slate-800 dark:text-slate-200" 
                   value={customAddModal.desc} onChange={(e) => setCustomAddModal({ ...customAddModal, desc: e.target.value })} 
                 />
               </div>
             </div>
-            <div className="p-4 bg-slate-50 flex gap-3 border-t border-slate-200">
-              <button onClick={() => setCustomAddModal({ ...customAddModal, isOpen: false })} className="flex-1 py-3 bg-white border border-slate-300 text-slate-600 rounded font-black uppercase tracking-widest text-[10px] transition-colors hover:bg-slate-100">Cancelar</button>
-              <button onClick={confirmAddPoint} className="flex-[2] py-3 bg-blue-600 text-white rounded font-black uppercase tracking-widest text-[10px] transition-colors hover:bg-blue-700">Insertar</button>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 flex gap-3 border-t border-slate-200 dark:border-slate-700">
+              <button onClick={() => setCustomAddModal({ ...customAddModal, isOpen: false })} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">Cancelar</button>
+              <button onClick={confirmAddPoint} className="flex-[2] py-3 bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors hover:bg-blue-700">Insertar</button>
             </div>
           </div>
         </div>
@@ -733,69 +711,69 @@ export default function NewInspection({ navigateTo, prefillData }) {
       {/* MODAL: CONFIRMAR ELIMINACIÓN */}
       {customDeleteModal.isOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded shadow-2xl overflow-hidden animate-in zoom-in-95 text-center border border-slate-200">
-            <div className="bg-red-50 p-6 flex justify-center border-b border-red-200">
-              <AlertTriangle size={32} className="text-red-600" />
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-lg shadow-xl overflow-hidden animate-in zoom-in-95 text-center border border-slate-200 dark:border-slate-700">
+            <div className="bg-red-50 dark:bg-red-900/20 p-6 flex justify-center border-b border-red-100 dark:border-red-900/30">
+              <AlertTriangle size={32} className="text-red-600 dark:text-red-500" />
             </div>
             <div className="p-6">
-              <h3 className="font-black text-slate-800 text-base uppercase tracking-tight mb-2">¿Eliminar Fila?</h3>
-              <div className="mt-3 p-3 bg-slate-100 rounded border border-slate-200 text-left">
-                <p className="font-bold text-slate-700 text-xs leading-snug">{customDeleteModal.displayName}</p>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-base mb-2">¿Eliminar Fila?</h3>
+              <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-left">
+                <p className="font-medium text-slate-700 dark:text-slate-300 text-sm leading-snug">{customDeleteModal.displayName}</p>
               </div>
             </div>
-            <div className="p-4 bg-slate-50 flex gap-3 border-t border-slate-200">
-              <button onClick={() => setCustomDeleteModal({ ...customDeleteModal, isOpen: false })} className="flex-1 py-3 bg-white border border-slate-300 text-slate-600 rounded font-black uppercase tracking-widest text-[10px] transition-colors hover:bg-slate-100">Cancelar</button>
-              <button onClick={confirmRemovePoint} className="flex-1 py-3 bg-red-600 text-white rounded font-black uppercase tracking-widest text-[10px] transition-colors hover:bg-red-700">Eliminar</button>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 flex gap-3 border-t border-slate-200 dark:border-slate-700">
+              <button onClick={() => setCustomDeleteModal({ ...customDeleteModal, isOpen: false })} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">Cancelar</button>
+              <button onClick={confirmRemovePoint} className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium text-sm transition-colors hover:bg-red-700">Eliminar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL FIRMA CLIENTE FULLSCREEN */}
+      {/* MODAL FIRMA CLIENTE FULLSCREEN — Se mantiene oscuro (inmersivo) */}
       {showClientSigModal && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4 animate-in fade-in duration-200">
           <div className="flex justify-between items-center mb-4 mt-2">
              <div>
-               <h3 className="text-white font-black uppercase tracking-widest text-base">Firma de Conformidad del Encargado</h3>
-               <p className="text-slate-400 text-xs font-bold uppercase">{ownerName || 'Sin responsable capturado'}</p>
+               <h3 className="text-white font-semibold text-base">Firma de Conformidad del Encargado</h3>
+               <p className="text-slate-400 text-xs mt-0.5">{ownerName || 'Sin responsable capturado'}</p>
              </div>
-             <button onClick={() => setShowClientSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={28} /></button>
+             <button onClick={() => setShowClientSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24} /></button>
           </div>
           <div className="flex-1 w-full bg-white rounded overflow-hidden relative shadow-inner">
              <div className="absolute top-1/2 left-10 right-10 border-b-2 border-slate-200 pointer-events-none"></div>
              <canvas ref={clientCanvasRef} className="absolute inset-0 w-full h-full touch-none cursor-crosshair" onMouseDown={(e) => startDrawing(e, clientCanvasRef)} onMouseMove={(e) => draw(e, clientCanvasRef)} onMouseUp={() => setIsDrawing(false)} onMouseLeave={() => setIsDrawing(false)} onTouchStart={(e) => startDrawing(e, clientCanvasRef)} onTouchMove={(e) => draw(e, clientCanvasRef)} onTouchEnd={() => setIsDrawing(false)} />
           </div>
           <div className="flex gap-4 mt-4 mb-2">
-             <button onClick={() => clearSignature(clientCanvasRef)} className="flex-1 py-4 bg-slate-800 border border-slate-700 text-white rounded font-black uppercase tracking-widest text-xs transition-colors hover:bg-slate-700">Limpiar</button>
-             <button onClick={() => saveSignature(clientCanvasRef, setClientSigData, setShowClientSigModal)} className="flex-[2] py-4 bg-blue-600 text-white rounded font-black uppercase tracking-widest text-xs transition-colors hover:bg-blue-500">Guardar Firma</button>
+             <button onClick={() => clearSignature(clientCanvasRef)} className="flex-1 py-4 bg-slate-800 border border-slate-700 text-white rounded-lg font-medium text-sm transition-colors hover:bg-slate-700">Limpiar</button>
+             <button onClick={() => saveSignature(clientCanvasRef, setClientSigData, setShowClientSigModal)} className="flex-[2] py-4 bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors hover:bg-blue-500">Guardar Firma</button>
           </div>
         </div>
       )}
 
-      {/* MODAL FIRMA TÉCNICO FULLSCREEN */}
+      {/* MODAL FIRMA TÉCNICO FULLSCREEN — Se mantiene oscuro (inmersivo) */}
       {showTechSigModal && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4 animate-in fade-in duration-200">
           <div className="flex justify-between items-center mb-4 mt-2">
              <div>
-               <h3 className="text-white font-black uppercase tracking-widest text-base">Firma del Técnico</h3>
-               <p className="text-slate-400 text-xs font-bold uppercase">{technicianName}</p>
+               <h3 className="text-white font-semibold text-base">Firma del Técnico</h3>
+               <p className="text-slate-400 text-xs mt-0.5">{technicianName}</p>
              </div>
-             <button onClick={() => setShowTechSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={28} /></button>
+             <button onClick={() => setShowTechSigModal(false)} className="text-slate-400 hover:text-white transition-colors"><X size={24} /></button>
           </div>
           <div className="flex-1 w-full bg-white rounded overflow-hidden relative shadow-inner">
              <div className="absolute top-1/2 left-10 right-10 border-b-2 border-slate-200 pointer-events-none"></div>
              <canvas ref={techCanvasRef} className="absolute inset-0 w-full h-full touch-none cursor-crosshair" onMouseDown={(e) => startDrawing(e, techCanvasRef)} onMouseMove={(e) => draw(e, techCanvasRef)} onMouseUp={() => setIsDrawing(false)} onMouseLeave={() => setIsDrawing(false)} onTouchStart={(e) => startDrawing(e, techCanvasRef)} onTouchMove={(e) => draw(e, techCanvasRef)} onTouchEnd={() => setIsDrawing(false)} />
           </div>
           <div className="flex gap-4 mt-4 mb-2">
-             <button onClick={() => clearSignature(techCanvasRef)} className="flex-1 py-4 bg-slate-800 border border-slate-700 text-white rounded font-black uppercase tracking-widest text-xs transition-colors hover:bg-slate-700">Limpiar</button>
-             <button onClick={() => saveSignature(techCanvasRef, setTechSigData, setShowTechSigModal)} className="flex-[2] py-4 bg-blue-600 text-white rounded font-black uppercase tracking-widest text-xs transition-colors hover:bg-blue-500">Guardar Firma</button>
+             <button onClick={() => clearSignature(techCanvasRef)} className="flex-1 py-4 bg-slate-800 border border-slate-700 text-white rounded-lg font-medium text-sm transition-colors hover:bg-slate-700">Limpiar</button>
+             <button onClick={() => saveSignature(techCanvasRef, setTechSigData, setShowTechSigModal)} className="flex-[2] py-4 bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors hover:bg-blue-500">Guardar Firma</button>
           </div>
         </div>
       )}
       {imageToCrop && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4">
           <div className="relative flex-1 rounded overflow-hidden border border-slate-700"><Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={5/4} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} /></div>
-          <button onClick={getCroppedImg} className="mt-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-black flex items-center justify-center gap-2 transition-colors text-xs uppercase tracking-widest"><Scissors size={18} /> Recortar y Anexar Imagen</button>
+          <button onClick={getCroppedImg} className="mt-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm"><Scissors size={18} /> Recortar y Anexar Imagen</button>
         </div>
       )}
     </div>

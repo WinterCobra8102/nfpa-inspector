@@ -181,7 +181,7 @@
     right: 0;
     border-right-color: var(--border);
   }
-  /* --- ANIMACIÓN PARA EL SISTEMA TLETL --- */
+/* --- ANIMACIÓN PARA EL SISTEMA TLETL --- */
 
 @keyframes loading-bar {
   0% {
@@ -196,8 +196,8 @@
   animation: loading-bar 1.5s infinite linear;
 }
 
-/* Opcional: Para que la llama tenga un efecto de respiración más suave */
 .animate-pulse-slow {
   animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
 }

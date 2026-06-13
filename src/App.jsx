@@ -22,7 +22,10 @@ import {
   Calendar,
   Building2,
   Activity,
-  MessageSquare // <--- Ícono para el Centro de Soporte / Tickets
+  MessageSquare,
+  ChevronDown,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 import Login from './components/Login'; 
@@ -38,7 +41,6 @@ import CompaniesView from './components/CompaniesView';
 import NFPALibrary from './components/NFPALibrary'; 
 import PumpEfficiency from './components/PumpEfficiency';
 
-// --- IMPORTAMOS LOS 3 NUEVOS COMPONENTES DEL SISTEMA DE TICKETS ---
 import AdminServiceRequests from './components/AdminServiceRequests';
 import StaffServiceRequests from './components/StaffServiceRequests';
 import ClientServiceRequests from './components/ClientServiceRequests';
@@ -53,6 +55,23 @@ function App() {
   const [isCompanyActive, setIsCompanyActive] = useState(true);
   const [inspectionData, setInspectionData] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null); 
+
+  // --- ESTADO PARA DARK MODE ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme === 'dark';
+  });
+
+  // --- EFECTO PARA APLICAR CLASE DARK AL HTML ---
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const fetchProfile = async (userId) => {
@@ -168,17 +187,16 @@ function App() {
       position="bottom-right"
       toastOptions={{
         style: {
-          background: '#0f172a', 
-          color: '#f8fafc', 
-          border: '2px solid #1e293b', 
-          borderRadius: '1.5rem',
-          fontWeight: '900',
-          fontSize: '12px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em'
+          background: isDarkMode ? '#1e293b' : '#ffffff', 
+          color: isDarkMode ? '#f8fafc' : '#1e293b', 
+          border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, 
+          borderRadius: '0.75rem',
+          fontWeight: '500',
+          fontSize: '13px',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.07)'
         },
-        success: { iconTheme: { primary: '#10b981', secondary: '#0f172a' } },
-        error: { iconTheme: { primary: '#ef4444', secondary: '#0f172a' } },
+        success: { iconTheme: { primary: '#10b981', secondary: isDarkMode ? '#1e293b' : '#ffffff' } },
+        error: { iconTheme: { primary: '#ef4444', secondary: isDarkMode ? '#1e293b' : '#ffffff' } },
       }}
     />
   );
@@ -187,13 +205,14 @@ function App() {
     return (
       <>
         {GlobalToaster}
-        <div className="h-screen w-screen bg-[#1a1a1a] flex flex-col items-center justify-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-red-600 blur-[120px] opacity-10 animate-pulse"></div>
+        <div className="h-screen w-screen bg-white dark:bg-slate-900 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-300">
           <div className="relative z-10 flex flex-col items-center">
-            <Flame size={80} className="text-white animate-bounce mb-4" />
-            <h2 className="text-white font-black text-3xl tracking-[0.4em] uppercase leading-none">TLETL</h2>
-            <p className="text-red-600 text-[8px] font-black uppercase tracking-[0.5em] mt-3 opacity-80">Sincronizando Sistemas</p>
-            <div className="w-24 h-1 bg-white/5 mt-6 rounded-full overflow-hidden border border-white/10">
+            <div className="w-16 h-16 bg-red-600 rounded-xl flex items-center justify-center shadow-sm mb-6">
+              <Flame size={32} className="text-white" />
+            </div>
+            <h2 className="text-slate-900 dark:text-white font-semibold text-xl tracking-tight">TLETL</h2>
+            <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Sincronizando sistemas...</p>
+            <div className="w-20 h-1 bg-slate-100 dark:bg-slate-800 mt-6 rounded-full overflow-hidden">
               <div className="w-full h-full bg-red-600 animate-infinite-scroll"></div>
             </div>
           </div>
@@ -215,14 +234,14 @@ function App() {
     return (
       <>
         {GlobalToaster}
-        <div className="flex h-screen flex-col items-center justify-center bg-white p-6 text-center border-t-4 border-red-600 animate-in fade-in duration-500">
-          <div className="w-20 h-20 bg-red-50 text-red-600 flex items-center justify-center rounded-sm mb-6 border border-red-200 shadow-sm">
-            <ShieldAlert size={40} />
+        <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-900 p-6 text-center transition-colors duration-300">
+          <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 flex items-center justify-center rounded-xl mb-6 border border-red-100 dark:border-red-900/30">
+            <ShieldAlert size={32} />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Acceso Suspendido</h1>
-          <p className="text-sm text-slate-500 max-w-sm mt-3 font-medium">El acceso a la plataforma para esta cuenta corporativa ha sido restringido temporalmente por el departamento de administración.</p>
-          <p className="text-[10px] text-slate-400 mt-8 uppercase font-black tracking-widest border border-slate-200 px-4 py-2 bg-slate-50 rounded">Código de Estatus: SUSP_SYS_2.0</p>
-          <button onClick={handleLogout} className="mt-10 text-[10px] font-black text-slate-400 hover:text-red-600 uppercase tracking-widest transition-colors flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Acceso Suspendido</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mt-3">El acceso a la plataforma para esta cuenta corporativa ha sido restringido temporalmente por el departamento de administración.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-8 border border-slate-200 dark:border-slate-800 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">Código de Estatus: SUSP_SYS_2.0</p>
+          <button onClick={handleLogout} className="mt-10 text-sm font-medium text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-colors flex items-center gap-2">
             <LogOut size={14} /> Cerrar Sesión
           </button>
         </div>
@@ -233,37 +252,42 @@ function App() {
   return (
     <>
       {GlobalToaster}
-      <div className="flex h-screen bg-[#f8fafc] font-sans overflow-hidden animate-in fade-in duration-700">
+      <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden transition-colors duration-300">
         
         {isMobileMenuOpen && (
           <div 
-            className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[5999] md:hidden transition-opacity"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[5999] md:hidden transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           />
         )}
 
+        {/* SIDEBAR */}
         <aside className={`
-          fixed inset-y-0 left-0 z-[6000] bg-[#1a1a1a] text-white transition-all duration-300 transform
-          ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} 
-          md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
-          flex flex-col shadow-2xl h-full border-r border-white/5
+          fixed inset-y-0 left-0 z-[6000] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 transform
+          ${isMobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'} 
+          md:relative md:translate-x-0 ${isSidebarOpen ? 'md:w-60' : 'md:w-[72px]'}
+          flex flex-col h-full
         `}>
-          <div className="p-4 bg-red-600 flex items-center justify-between shadow-lg shrink-0 overflow-hidden">
+          {/* Logo */}
+          <div className="p-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <Flame size={28} className="shrink-0 text-white animate-pulse" />
+              <div className="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center shrink-0">
+                <Flame size={18} className="text-white" />
+              </div>
               {(isSidebarOpen || isMobileMenuOpen) && (
                 <div className="flex flex-col">
-                  <span className="font-black text-lg tracking-tighter uppercase leading-none">TLETL</span>
-                  <span className="text-[8px] font-bold tracking-[0.2em] opacity-80 uppercase">Fire Systems</span>
+                  <span className="font-semibold text-sm text-slate-900 dark:text-white tracking-tight leading-none">TLETL</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Fire Systems</span>
                 </div>
               )}
             </div>
-            <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1 hover:bg-black/20 rounded-lg">
-              <X size={24} />
+            <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500">
+              <X size={20} />
             </button>
           </div>
 
-          <nav className="flex-1 mt-6 overflow-y-auto custom-scrollbar flex flex-col">
+          {/* Navigation */}
+          <nav className="flex-1 mt-2 overflow-y-auto flex flex-col px-2">
             <NavItem icon={<LayoutGrid size={20} />} label="Panel Principal" active={activeTab === 'home'} onClick={() => navigateTo('home')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
             {['ADMIN', 'STAFF'].includes(currentUser.role) && (
@@ -272,7 +296,6 @@ function App() {
 
             <NavItem icon={<LayoutDashboard size={20} />} label={currentUser.role === 'CLIENTE' ? "Mis Reportes" : "Historial Técnico"} active={activeTab === 'list'} onClick={() => navigateTo('list')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            {/* --- NUEVO BOTÓN: SISTEMA DE TICKETS / SOLICITUDES --- */}
             <NavItem 
               icon={<MessageSquare size={20} />} 
               label={currentUser.role === 'CLIENTE' ? "Soporte Técnico" : "Órdenes de Servicio"} 
@@ -284,7 +307,7 @@ function App() {
             <NavItem icon={<MapPin size={20} />} label="Ubicación de Sites" active={activeTab === 'sites'} onClick={() => navigateTo('sites')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             <NavItem icon={<Building2 size={20} />} label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} active={activeTab === 'companies' || activeTab === 'calendar'} onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            <div className="my-6 border-t border-white/10 mx-6" />
+            <div className="my-3 border-t border-slate-100 dark:border-slate-800 mx-3" />
             
             {currentUser.role === 'ADMIN' && (
               <>
@@ -303,48 +326,77 @@ function App() {
               />
             )}
 
-            <div className="mt-auto mb-4">
-               <NavItem icon={<LogOut size={20} className="text-red-400" />} label="Cerrar Sesión" onClick={handleLogout} isOpen={isSidebarOpen || isMobileMenuOpen} />
+            <div className="mt-auto mb-2">
+               <NavItem icon={<LogOut size={20} className="text-red-400 dark:text-red-500" />} label="Cerrar Sesión" onClick={handleLogout} isOpen={isSidebarOpen || isMobileMenuOpen} />
             </div>
           </nav>
 
-          <div className={`p-6 bg-black/40 flex items-center gap-3 text-[9px] font-black border-t border-white/5 ${isOnline ? 'text-green-400' : 'text-orange-400'}`}>
+          {/* Status bar */}
+          <div className={`p-4 flex items-center gap-2.5 text-xs border-t border-slate-100 dark:border-slate-800 ${isOnline ? 'text-green-600 dark:text-green-500' : 'text-orange-500 dark:text-orange-400'}`}>
             {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-            {(isSidebarOpen || isMobileMenuOpen) && <span className="tracking-[0.2em]">{isOnline ? 'SISTEMA ONLINE' : 'SISTEMA OFFLINE'}</span>}
+            {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium">{isOnline ? 'Sistema Online' : 'Sistema Offline'}</span>}
+            {(isSidebarOpen || isMobileMenuOpen) && isOnline && <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>}
           </div>
         </aside>
 
+        {/* MAIN CONTENT */}
         <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden">
           
-          <header className="bg-white h-16 border-b flex items-center justify-between px-4 md:px-6 shadow-sm z-[2000] shrink-0">
-            <div className="flex items-center gap-4">
-              <button onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen(true); else setSidebarOpen(!isSidebarOpen); }} className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-600 transition-all active:scale-90">
-                <Menu size={24}/>
+          {/* Top Header */}
+          <header className="bg-white dark:bg-slate-900 h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 z-[2000] shrink-0 transition-colors duration-300">
+            <div className="flex items-center gap-3">
+              <button onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen(true); else setSidebarOpen(!isSidebarOpen); }} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 transition-all active:scale-95">
+                <Menu size={20}/>
               </button>
               <div className="flex items-center gap-2">
-                <ShieldAlert size={18} className="text-red-600 hidden sm:block" />
-                <h2 className="hidden sm:block text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{currentUser.role} ACCESS <span className="text-red-600">v2.0</span></h2>
+                <ShieldAlert size={15} className="text-red-600 hidden sm:block" />
+                <span className="hidden sm:block text-xs font-medium text-slate-400 dark:text-slate-500">{currentUser.role} Access <span className="text-red-600 font-semibold">v2.0</span></span>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <div onClick={() => navigateTo('profile')} className="flex items-center gap-3 border-l border-slate-100 pl-4 group cursor-pointer">
-                <div className="text-right hidden xs:block">
-                  <p className="text-xs font-black text-slate-800 leading-none tracking-tight uppercase group-hover:text-red-600 transition-colors">{currentUser.full_name || currentUser.email}</p>
-                  <p className="text-[9px] text-red-600 font-black uppercase mt-1">{currentUser.role === 'MANAGER' ? 'JEFE DE SUCURSAL' : currentUser.role}</p>
+              {/* TOGGLE DARK MODE */}
+              <button 
+                onClick={() => setIsDarkMode(!isDarkMode)} 
+                className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
+              <div onClick={() => navigateTo('profile')} className="flex items-center gap-3 border-l border-slate-100 dark:border-slate-800 pl-4 group cursor-pointer">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-none group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{currentUser.role === 'MANAGER' ? 'Jefe de Sucursal' : currentUser.role}</p>
                 </div>
-                <div className="w-10 h-10 bg-[#1a1a1a] rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-red-600 transition-all group-active:scale-90">
-                  <UserIcon size={18} />
+                <div className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-red-50 dark:group-hover:bg-red-900/20 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">
+                  <UserIcon size={16} />
                 </div>
+                <ChevronDown size={14} className="text-slate-300 dark:text-slate-600 hidden sm:block" />
               </div>
             </div>
           </header>
 
+          {/* Content Area */}
           <section className="flex-1 relative overflow-hidden">
             <div className="absolute inset-0">
-              {activeTab === 'home' && <div className="h-full overflow-y-auto"><Dashboard navigateTo={navigateTo} stats={stats} /></div>}
-              {activeTab === 'form' && ['ADMIN', 'STAFF'].includes(currentUser.role) && <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300"><NewInspection navigateTo={navigateTo} prefillData={inspectionData} /></div>}
-              {activeTab === 'list' && <div className="h-full overflow-y-auto p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-300"><InspectionHistory navigateTo={navigateTo} currentUser={currentUser} /></div>}
+              
+              {/* --- NUEVA CABECERA INTEGRADA EN LA VISTA 'HOME' (PANEL PRINCIPAL) --- */}
+              {activeTab === 'home' && (
+                <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
+                  <div className="p-4 md:p-6 pb-0">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6 mb-2">
+                      <h1 className="text-slate-900 dark:text-white text-xl font-semibold">Panel de Control</h1>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">Resumen general y métricas del sistema</p>
+                    </div>
+                  </div>
+                  <Dashboard navigateTo={navigateTo} stats={stats} />
+                </div>
+              )}
+              {/* ---------------------------------------------------------------------- */}
+
+              {activeTab === 'form' && ['ADMIN', 'STAFF'].includes(currentUser.role) && <div className="h-full overflow-y-auto p-4 md:p-8"><NewInspection navigateTo={navigateTo} prefillData={inspectionData} /></div>}
+              {activeTab === 'list' && <div className="h-full overflow-y-auto p-4 md:p-8"><InspectionHistory navigateTo={navigateTo} currentUser={currentUser} /></div>}
               {activeTab === 'critical' && <div className="h-full overflow-y-auto"><CriticalFindings navigateTo={navigateTo} currentUser={currentUser} /></div>}
               {activeTab === 'sites' && <div className="h-full w-full"><SitesView currentUser={currentUser} /></div>}
               {activeTab === 'companies' && <div className="h-full overflow-y-auto p-4 md:p-8"><CompaniesView currentUser={currentUser} onSelectCompany={(company) => { setSelectedCompany(company); setActiveTab('calendar'); }} /></div>}
@@ -353,14 +405,13 @@ function App() {
               {activeTab === 'staff' && currentUser.role === 'ADMIN' && <div className="h-full overflow-y-auto"><StaffManagement currentUser={currentUser} /></div>}
               {activeTab === 'nfpa' && currentUser.role === 'ADMIN' && <div className="h-full w-full overflow-y-auto"><NFPALibrary /></div>}
               {activeTab === 'pump-calc' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
-                <div className="h-full overflow-y-auto p-4 md:p-8 animate-in fade-in zoom-in-95 duration-300">
+                <div className="h-full overflow-y-auto p-4 md:p-8">
                   <PumpEfficiency />
                 </div>
               )}
 
-              {/* --- ENRUTAMIENTO DEL SISTEMA DE TICKETS --- */}
               {activeTab === 'tickets' && (
-                <div className="h-full overflow-y-auto w-full bg-[#f8fafc]">
+                <div className="h-full overflow-y-auto w-full bg-slate-50 dark:bg-slate-950">
                   {currentUser.role === 'ADMIN' && <AdminServiceRequests currentUser={currentUser} />}
                   {currentUser.role === 'STAFF' && <StaffServiceRequests currentUser={currentUser} />}
                   {['CLIENTE', 'MANAGER'].includes(currentUser.role) && <ClientServiceRequests currentUser={currentUser} />}
@@ -377,10 +428,14 @@ function App() {
 
 function NavItem({ icon, label, active, onClick, isOpen }) {
   return (
-    <div onClick={onClick} className={`flex items-center p-4 cursor-pointer transition-all duration-200 relative group mx-2 rounded-xl mb-1 ${active ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'hover:bg-white/5 text-slate-400 hover:text-white'}`}>
-      <div className={`shrink-0 ${active ? 'scale-110' : 'group-hover:text-red-500'} transition-transform`}>{icon}</div>
-      {(isOpen) && <span className="ml-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">{label}</span>}
-      {active && <div className="absolute left-0 w-1.5 h-5 bg-white rounded-full ml-1 animate-in fade-in duration-500" />}
+    <div onClick={onClick} className={`flex items-center px-3 py-2.5 cursor-pointer transition-all duration-200 relative group rounded-lg mb-0.5 
+      ${active 
+        ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500' 
+        : 'hover:bg-red-50 dark:hover:bg-red-900/10 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500'
+      }`}>
+      {active && <div className="absolute left-0 w-[3px] h-5 bg-red-600 dark:bg-red-500 rounded-r-full" />}
+      <div className={`shrink-0 transition-colors`}>{icon}</div>
+      {(isOpen) && <span className={`ml-3 text-sm whitespace-nowrap ${active ? 'font-medium' : 'font-normal'}`}>{label}</span>}
     </div>
   );
 }

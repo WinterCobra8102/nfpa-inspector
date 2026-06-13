@@ -102,36 +102,36 @@ export default function NFPALibrary() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
       
       {/* HEADER Y BUSCADOR */}
-      <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div className="flex items-center gap-4 shrink-0">
-          <div className="bg-slate-900 p-4 rounded-xl text-white shadow-md">
-            <BookOpen size={32} />
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+            <BookOpen size={28} className="text-red-600 dark:text-red-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none text-slate-800">Parámetros NFPA</h2>
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Biblioteca Digital de Normativas Oficiales</p>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">Parámetros NFPA</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Biblioteca Digital de Normativas Oficiales</p>
           </div>
         </div>
 
         {/* Buscador en Tiempo Real */}
         <div className="relative flex-1 max-w-xl w-full">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search size={20} className="text-slate-400" />
+            <Search size={18} className="text-slate-400 dark:text-slate-500" />
           </div>
           <input
             type="text"
             placeholder="Buscar por norma, tema o palabra clave (Ej: Rociadores, 72, Mangueras)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:border-red-400 focus:ring-4 focus:ring-red-100 transition-all shadow-inner placeholder:text-slate-400"
+            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           {searchTerm && (
             <button 
               onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             >
               <X size={16} />
             </button>
@@ -141,38 +141,38 @@ export default function NFPALibrary() {
 
       {/* RESULTADOS DEL FILTRO */}
       {filteredDocs.length === 0 ? (
-        <div className="bg-white rounded-[2rem] border border-slate-200 p-16 flex flex-col items-center justify-center text-center shadow-sm">
-          <Search size={48} className="text-slate-200 mb-4" />
-          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">No se encontraron resultados</h3>
-          <p className="text-xs font-bold text-slate-400 mt-2">Intenta con otros términos de búsqueda para "{searchTerm}".</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-16 flex flex-col items-center justify-center text-center shadow-sm">
+          <Search size={40} className="text-slate-200 dark:text-slate-700 mb-4" />
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">No se encontraron resultados</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Intenta con otros términos de búsqueda para "{searchTerm}".</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filteredDocs.map((doc) => {
             const IconComponent = doc.icon;
             return (
               <div 
                 key={doc.id} 
                 onClick={() => setSelectedDoc(doc)}
-                className="bg-white p-6 rounded-[1.5rem] border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-500 transition-all duration-300 cursor-pointer group flex flex-col h-full relative overflow-hidden"
+                className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 cursor-pointer group flex flex-col h-full relative overflow-hidden"
               >
                 {/* Decoración de fondo sutil */}
-                <div className={`absolute -right-6 -top-6 opacity-[0.03] group-hover:opacity-10 transition-opacity ${doc.color.replace('bg-', 'text-')}`}>
+                <div className={`absolute -right-6 -top-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity ${doc.color.replace('bg-', 'text-')}`}>
                   <IconComponent size={120} />
                 </div>
 
                 <div className="relative z-10 flex-1">
-                  <div className={`${doc.color} w-12 h-12 rounded-xl flex items-center justify-center text-white mb-5 shadow-md group-hover:scale-110 transition-transform`}>
-                    <IconComponent size={20} />
+                  <div className={`${doc.color} w-11 h-11 rounded-lg flex items-center justify-center text-white mb-4 shadow-sm group-hover:scale-105 transition-transform`}>
+                    <IconComponent size={18} />
                   </div>
                   
-                  <h3 className="font-black text-2xl text-slate-800 tracking-tight leading-none mb-1">{doc.title}</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{doc.subtitle}</p>
-                  <p className="text-xs font-bold text-slate-500 leading-snug line-clamp-3">{doc.desc}</p>
+                  <h3 className="font-semibold text-xl text-slate-900 dark:text-white tracking-tight leading-none mb-1">{doc.title}</h3>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-3">{doc.subtitle}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">{doc.desc}</p>
                 </div>
                 
-                <div className="relative z-10 mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-slate-400 group-hover:text-blue-600 transition-colors">
-                  <span className="text-[9px] font-black uppercase tracking-widest">Abrir Visor</span>
+                <div className="relative z-10 mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">
+                  <span className="text-xs font-medium">Abrir Visor</span>
                   <FileText size={16} />
                 </div>
               </div>
@@ -181,30 +181,30 @@ export default function NFPALibrary() {
         </div>
       )}
 
-      {/* MODAL VISOR DE PDF A PANTALLA COMPLETA */}
+      {/* MODAL VISOR DE PDF A PANTALLA COMPLETA — Se mantiene oscuro (inmersivo) */}
       {selectedDoc && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[9999] flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[9999] flex flex-col">
           
-          {/* Topbar del visor (Limpiado y simplificado) */}
-          <div className="bg-slate-900 p-4 border-b border-white/10 flex items-center justify-between shrink-0 shadow-2xl z-10">
-            <div className="flex items-center gap-4 text-white">
-              <div className={`${selectedDoc.color} p-2.5 rounded-lg shadow-inner`}>
-                <selectedDoc.icon size={20} />
+          {/* Topbar del visor */}
+          <div className="bg-slate-900 px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 shadow-lg z-10">
+            <div className="flex items-center gap-3 text-white">
+              <div className={`${selectedDoc.color} p-2 rounded-lg`}>
+                <selectedDoc.icon size={18} />
               </div>
               <div className="hidden sm:block">
-                <h3 className="font-black text-lg md:text-xl uppercase leading-none tracking-tight">{selectedDoc.title}</h3>
-                <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selectedDoc.subtitle}</span>
+                <h3 className="font-semibold text-base leading-none">{selectedDoc.title}</h3>
+                <span className="text-xs text-slate-400 mt-0.5">{selectedDoc.subtitle}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setSelectedDoc(null)} 
-                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors shadow-lg active:scale-95 flex items-center gap-2"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-2"
                 title="Cerrar Visor"
               >
-                <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Cerrar Visor</span>
-                <X size={20} />
+                <span className="text-sm font-medium hidden md:inline">Cerrar Visor</span>
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -213,8 +213,8 @@ export default function NFPALibrary() {
           <div className="flex-1 w-full bg-[#525659] relative overflow-hidden flex items-center justify-center">
             {/* Fallback visual por si tarda en cargar */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white/20 -z-10">
-              <FileText size={64} className="mb-4 animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-widest">Cargando Documento Seguro...</span>
+              <FileText size={48} className="mb-4 animate-pulse" />
+              <span className="text-sm text-white/30">Cargando Documento...</span>
             </div>
             
             <iframe 

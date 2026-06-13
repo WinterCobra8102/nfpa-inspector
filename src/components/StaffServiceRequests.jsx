@@ -7,7 +7,6 @@ import {
   AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2, AlertTriangle 
 } from 'lucide-react';
 
-// 1. Agregamos { currentUser } aquí para poder leer tu rol
 export default function AdminServiceRequests({ currentUser }) {
   const [requests, setRequests] = useState([]);
   const [technicians, setTechnicians] = useState([]);
@@ -25,15 +24,14 @@ export default function AdminServiceRequests({ currentUser }) {
         'postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'service_requests' }, 
         (payload) => {
-          toast.success("🚨 ¡NUEVA SOLICITUD DE SERVICIO!", {
+          toast.success("Nueva solicitud de servicio recibida", {
             duration: 6000,
             position: 'top-right',
             style: { 
               background: '#ef4444', 
               color: '#fff', 
-              fontWeight: '900', 
-              letterSpacing: '0.05em',
-              borderRadius: '1rem'
+              fontWeight: '500', 
+              borderRadius: '0.75rem'
             },
             iconTheme: { primary: '#fff', secondary: '#ef4444' }
           });
@@ -143,9 +141,6 @@ export default function AdminServiceRequests({ currentUser }) {
     });
   };
 
-  // ==========================================
-  // NUEVA FUNCIÓN: VACIAR TODA LA BANDEJA 
-  // ==========================================
   const handlePurgeAllRequests = () => {
     showConfirmDelete("TODOS los reportes del sistema (esta acción es irreversible)", async () => {
       const deleteToast = toast.loading("Vaciando bandeja de solicitudes...");
@@ -168,37 +163,36 @@ export default function AdminServiceRequests({ currentUser }) {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'PENDIENTE':
-        return 'bg-amber-50 text-amber-600 border border-amber-200';
+        return 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
       case 'ASIGNADO':
-        return 'bg-blue-50 text-blue-600 border border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800';
       case 'EN_PROCESO':
-        return 'bg-purple-50 text-purple-600 border border-purple-200';
+        return 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800';
       case 'COMPLETADO':
-        return 'bg-green-50 text-green-600 border border-green-200';
+        return 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800';
       default:
-        return 'bg-slate-50 text-slate-600';
+        return 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto p-4 space-y-6">
       
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border-2 border-slate-50">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="bg-slate-900 p-4 rounded-2xl text-white">
-            <ClipboardList size={32} />
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+            <ClipboardList size={24} className="text-red-600 dark:text-red-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Panel de Solicitudes</h2>
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1">Bandeja de Entrada y Asignación de Soporte</p>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">Panel de Solicitudes</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Bandeja de entrada y asignación de soporte</p>
           </div>
         </div>
 
-        {/* 2. BOTÓN VACIAR BANDEJA: Solo se renderiza si es ADMIN y hay reportes */}
         {currentUser?.role === 'ADMIN' && requests.length > 0 && (
           <button 
             onClick={handlePurgeAllRequests}
-            className="flex items-center gap-2 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 border border-red-100 hover:border-red-600"
+            className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-600 dark:hover:bg-red-600 text-red-600 dark:text-red-400 hover:text-white dark:hover:text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all active:scale-[0.98] border border-red-100 dark:border-red-800 hover:border-red-600 dark:hover:border-red-600"
           >
             <AlertTriangle size={16} /> Vaciar Bandeja
           </button>
@@ -207,62 +201,61 @@ export default function AdminServiceRequests({ currentUser }) {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="p-10 text-center animate-pulse text-slate-400 font-black uppercase text-[10px] tracking-wider">
+          <div className="p-10 text-center text-slate-400 dark:text-slate-500 text-sm">
             Cargando solicitudes entrantes...
           </div>
         ) : requests.length === 0 ? (
-          <div className="bg-white p-12 rounded-[2rem] border-2 border-slate-50 text-center shadow-sm space-y-3">
-            <AlertCircle size={40} className="text-slate-300 mx-auto" />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider">No hay solicitudes de servicio registradas en el sistema.</p>
+          <div className="bg-white dark:bg-slate-900 p-12 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-sm space-y-3">
+            <AlertCircle size={36} className="text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="text-sm text-slate-400 dark:text-slate-500">No hay solicitudes de servicio registradas en el sistema.</p>
           </div>
         ) : (
           requests.map((ticket) => (
-            <div key={ticket.id} className="relative bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-red-100 transition-all">
+            <div key={ticket.id} className="relative bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md transition-all">
               
-              {/* 3. BOTÓN ELIMINAR INDIVIDUAL: Protegido solo para ADMIN */}
               {currentUser?.role === 'ADMIN' && (
                 <button 
                   onClick={() => handleDeleteRequest(ticket.id, ticket.titulo)}
-                  className="absolute top-4 right-4 p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                  className="absolute top-4 right-4 p-2 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all active:scale-95"
                   title="Eliminar este reporte"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                 </button>
               )}
 
               <div className="space-y-3 flex-1 pr-10">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${getStatusBadge(ticket.status)}`}>
-                    {ticket.status === 'PENDIENTE' ? '⚠️ Por Confirmar' : ticket.status}
+                  <span className={`text-xs font-medium px-2.5 py-0.5 rounded-md ${getStatusBadge(ticket.status)}`}>
+                    {ticket.status === 'PENDIENTE' ? 'Por Confirmar' : ticket.status}
                   </span>
-                  <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                  <div className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                     <Calendar size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="font-black text-base text-slate-800 uppercase tracking-tight leading-snug flex items-center gap-2">
-                    <FileText size={16} className="text-slate-400 shrink-0" />
+                <div className="space-y-2">
+                  <h3 className="font-medium text-base text-slate-800 dark:text-slate-200 leading-snug flex items-center gap-2">
+                    <FileText size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
                     {ticket.titulo}
                   </h3>
-                  <p className="text-xs font-medium text-slate-500 leading-relaxed bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                     {ticket.descripcion}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-black text-slate-700 bg-blue-50/60 w-fit px-3 py-1.5 rounded-xl border border-blue-100 uppercase tracking-tight">
-                  <Building2 size={14} className="text-blue-600" />
-                  Sucursal: <span className="text-blue-700 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-blue-50 dark:bg-blue-900/20 w-fit px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <Building2 size={14} className="text-blue-600 dark:text-blue-400" />
+                  Sucursal: <span className="text-blue-700 dark:text-blue-400 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
                 </div>
               </div>
 
-              <div className="shrink-0 w-full md:w-64 p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-center space-y-3">
+              <div className="shrink-0 w-full md:w-60 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg flex flex-col justify-center space-y-3">
                 {ticket.status === 'PENDIENTE' ? (
                   <>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Asignar Técnico</label>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Asignar Técnico</label>
                       <select 
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none uppercase text-slate-800 focus:border-red-400"
+                        className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none text-slate-800 dark:text-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                         value={selectedTechs[ticket.id] || ''}
                         onChange={(e) => handleTechChange(ticket.id, e.target.value)}
                       >
@@ -277,17 +270,17 @@ export default function AdminServiceRequests({ currentUser }) {
                       type="button"
                       disabled={isSubmitting}
                       onClick={() => handleAssignTechnician(ticket.id)}
-                      className="w-full py-3 bg-slate-900 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                      className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isSubmitting ? <RefreshCw className="animate-spin" size={12}/> : <><UserCheck size={14}/> Confirmar Orden</>}
+                      {isSubmitting ? <RefreshCw className="animate-spin" size={14}/> : <><UserCheck size={14}/> Confirmar Orden</>}
                     </button>
                   </>
                 ) : (
-                  <div className="text-center py-2 space-y-1.5 animate-in fade-in">
-                    <CheckCircle2 size={24} className="text-green-500 mx-auto" />
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Orden Procesada</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase leading-none">
-                      Técnico asignado correctamente. El cliente podrá ver el estatus actualizado en su aplicación móvil.
+                  <div className="text-center py-2 space-y-1.5">
+                    <CheckCircle2 size={20} className="text-green-500 mx-auto" />
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Orden Procesada</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                      Técnico asignado. El cliente podrá ver el estatus actualizado.
                     </p>
                   </div>
                 )}
