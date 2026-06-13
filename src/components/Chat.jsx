@@ -165,7 +165,6 @@ const Chat = ({ currentUser }) => {
     setIsCreatingRoom(true);
 
     try {
-      // 1. Crear sala
       const { data: newRoom, error: roomErr } = await supabase
         .from('chat_rooms')
         .insert({ type: 'PRIVATE' })
@@ -173,7 +172,6 @@ const Chat = ({ currentUser }) => {
         .single();
       if (roomErr) throw roomErr;
 
-      // 2. Añadir participantes
       const { error: partErr } = await supabase
         .from('chat_participants')
         .insert([
@@ -236,127 +234,155 @@ const Chat = ({ currentUser }) => {
   };
 
   return (
-    <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden font-sans">
-      {/* Sidebar */}
-      <div className={`w-full md:w-85 border-r border-slate-200 dark:border-slate-800 flex flex-col ${selectedRoom ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Mensajes</h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Centro de Soporte</p>
-          </div>
-          <button onClick={openNewChatModal} className="p-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95">
-            <Plus size={20} />
-          </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto">
-          {loadingRooms ? (
-            <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto text-red-600 mb-2" /></div>
-          ) : chatRooms.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 text-sm">No hay chats.</div>
-          ) : (
-            chatRooms.map(room => (
-              <div 
-                key={room.id} 
-                onClick={() => setSelectedRoom(room)}
-                className={`p-5 border-b border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all relative group ${selectedRoom?.id === room.id ? 'bg-red-50/50 dark:bg-red-900/10 border-l-4 border-l-red-600' : ''}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold ${room.type === 'GROUP' ? 'bg-blue-600' : 'bg-slate-800 dark:bg-slate-700'}`}>
-                    {room.type === 'GROUP' ? <Users size={20}/> : <User size={20}/>}
-                  </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 truncate leading-tight mb-1">{getRoomDisplayName(room)}</h3>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${room.type === 'GROUP' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                      {room.type === 'GROUP' ? 'Equipo' : 'Privado'}
-                    </span>
-                  </div>
-                  {isAdmin && (
-                    <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(room.id); }} className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all">
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Chat Area */}
-      <div className={`flex-1 flex flex-col ${selectedRoom ? 'flex' : 'hidden md:flex'}`}>
-        {selectedRoom ? (
-          <>
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white dark:bg-slate-900 shadow-sm z-10">
-              <button onClick={() => setSelectedRoom(null)} className="md:hidden p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><ChevronLeft /></button>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${selectedRoom.type === 'GROUP' ? 'bg-blue-600' : 'bg-slate-800'}`}>
-                {selectedRoom.type === 'GROUP' ? <Users size={18}/> : <User size={18}/>}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-slate-900 dark:text-white truncate">{getRoomDisplayName(selectedRoom)}</h3>
-                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div> Canal activo
-                </span>
-              </div>
-              {isAdmin && (
-                <button onClick={() => setShowDeleteConfirm(selectedRoom.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-all">
-                  <Trash2 size={20} />
-                </button>
-              )}
+    <div className="flex h-full w-full bg-white dark:bg-slate-900 overflow-hidden font-sans relative">
+      
+      {/* VISTA 1: LISTA DE CHATS */}
+      {!selectedRoom ? (
+        <div className="w-full h-full flex flex-col">
+          <div className="p-4 md:p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
+            <div className="min-w-0 pr-2">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">Mensajes</h2>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5 truncate">Centro de Soporte</p>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-950/50">
-              {messages.map(msg => {
-                const isMe = msg.sender_id === currentUser.id;
-                return (
-                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className="max-w-[75%]">
-                      {!isMe && <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">{msg.sender?.full_name}</p>}
-                      <div className={`p-4 rounded-2xl shadow-sm ${isMe ? 'bg-red-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
-                        <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                        <p className={`text-[9px] mt-2 opacity-50 ${isMe ? 'text-right' : 'text-left'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </p>
+            <button onClick={openNewChatModal} className="p-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95 shrink-0">
+              <Plus size={20} />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            {loadingRooms ? (
+              <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto text-red-600 mb-2" /></div>
+            ) : chatRooms.length === 0 ? (
+              <div className="p-8 h-full flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="text-slate-300 dark:text-slate-600" />
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">No hay conversaciones activas</p>
+                <button onClick={openNewChatModal} className="mt-4 text-xs font-bold text-red-600 hover:underline">Iniciar una ahora</button>
+              </div>
+            ) : (
+              chatRooms.map(room => (
+                <div 
+                  key={room.id} 
+                  onClick={() => setSelectedRoom(room)}
+                  className="p-4 border-b border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all relative group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center text-white font-bold shadow-sm ${room.type === 'GROUP' ? 'bg-blue-600' : 'bg-slate-800 dark:bg-slate-700'}`}>
+                      {room.type === 'GROUP' ? <Users size={20} /> : <User size={20} />}
+                    </div>
+                    <div className="flex-1 min-w-0 py-1">
+                      <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 truncate leading-tight mb-1">{getRoomDisplayName(room)}</h3>
+                      <div className="flex items-center gap-2">
+                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${room.type === 'GROUP' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                          {room.type === 'GROUP' ? 'Equipo' : 'Privado'}
+                         </span>
+                         <span className="text-[10px] text-slate-400 truncate">Pulsa para ver</span>
                       </div>
                     </div>
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(room.id); }}
+                        className="opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all shrink-0"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : (
 
-            <form onSubmit={sendMessage} className="p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-3">
+        /* VISTA 2: ÁREA DE CHAT ACTIVO */
+        <div className="w-full h-full flex flex-col bg-slate-50 dark:bg-slate-950/50">
+          {/* Header del Chat */}
+          <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 bg-white dark:bg-slate-900 shadow-sm z-10 shrink-0">
+            <button onClick={() => setSelectedRoom(null)} className="p-2 -ml-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0">
+              <ChevronLeft size={24} />
+            </button>
+            <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-white ${selectedRoom.type === 'GROUP' ? 'bg-blue-600' : 'bg-slate-800'}`}>
+              {selectedRoom.type === 'GROUP' ? <Users size={18}/> : <User size={18}/>}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">{getRoomDisplayName(selectedRoom)}</h3>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shrink-0"></div>
+                <span className="text-[9px] text-slate-400 font-medium uppercase tracking-tighter truncate">Canal en tiempo real</span>
+              </div>
+            </div>
+            {isAdmin && (
+              <button 
+                onClick={() => setShowDeleteConfirm(selectedRoom.id)}
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all shrink-0"
+                title="Eliminar Conversación"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+          </div>
+          
+          {/* Lista de Mensajes */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, idx) => {
+              const isMe = msg.sender_id === currentUser.id;
+              return (
+                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] group`}>
+                    {!isMe && (
+                      <div className="flex items-center gap-2 mb-1.5 ml-1">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate">{msg.sender?.full_name}</span>
+                      </div>
+                    )}
+                    <div className={`p-3 rounded-2xl shadow-sm relative ${isMe ? 'bg-red-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-none'}`}>
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                      <p className={`text-[9px] mt-1.5 font-medium opacity-60 ${isMe ? 'text-right' : 'text-left'}`}>
+                        {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Form (AQUÍ ESTÁ LA CORRECCIÓN DE LA "X" APLICANDO pr-20) */}
+          <form onSubmit={sendMessage} className="p-3 pr-20 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-2 items-center shrink-0">
+            <div className="flex-1 min-w-0 relative">
               <input 
                 type="text" 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Escribe un mensaje..."
-                className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl px-5 py-3.5 text-sm dark:text-white"
+                placeholder="Mensaje..."
+                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-600 dark:text-white transition-all outline-none"
               />
-              <button type="submit" disabled={!newMessage.trim()} className="p-3.5 bg-red-600 text-white rounded-2xl hover:bg-red-700 disabled:opacity-30 transition-all shadow-lg shadow-red-600/20 active:scale-90">
-                <Send size={22} />
-              </button>
-            </form>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-10 bg-slate-50 dark:bg-slate-950/30">
-            <MessageSquare size={48} className="text-red-600 opacity-10 mb-4" />
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Centro de Soporte</h3>
-            <p className="text-sm text-slate-500">Selecciona un chat para comenzar.</p>
-          </div>
-        )}
-      </div>
+            </div>
+            <button 
+              type="submit" 
+              disabled={!newMessage.trim()} 
+              className="p-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-30 disabled:grayscale transition-all shadow-md shadow-red-600/20 active:scale-90 shrink-0"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Modal Confirmar Borrado */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9000] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl p-8 text-center">
-            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6"><AlertCircle size={32} /></div>
-            <h3 className="text-xl font-bold dark:text-white mb-2">¿Eliminar Chat?</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">Esta acción borrará la conversación para todos los participantes.</p>
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl p-6 text-center border border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">¿Eliminar Chat?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Esta acción es irreversible y borrará todos los mensajes para todos los participantes.</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => handleDeleteRoom(showDeleteConfirm)} className="w-full py-3.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700">Eliminar</button>
-              <button onClick={() => setShowDeleteConfirm(null)} className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold">Cancelar</button>
+              <button onClick={() => handleDeleteRoom(showDeleteConfirm)} className="w-full py-3.5 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all">Eliminar</button>
+              <button onClick={() => setShowDeleteConfirm(null)} className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">Cancelar</button>
             </div>
           </div>
         </div>
@@ -365,37 +391,43 @@ const Chat = ({ currentUser }) => {
       {/* Modal Nuevo Chat */}
       {showNewChatModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[8000] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h3 className="font-bold text-lg dark:text-white">Nueva Conversación</h3>
               <button onClick={() => setShowNewChatModal(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"><X size={20} className="text-slate-400" /></button>
             </div>
-            <div className="p-8 space-y-8">
+            <div className="p-6 space-y-6">
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chat Privado</label>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <User size={14} />
+                  <label className="text-[10px] font-bold uppercase tracking-widest">Chat Privado Directo</label>
+                </div>
                 <select 
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm dark:text-white outline-none"
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm dark:text-white focus:ring-2 focus:ring-red-600 outline-none appearance-none transition-all"
                   onChange={(e) => setSelectedUserForNewChat(usersForNewChat.find(u => u.id === e.target.value))}
                 >
                   <option value="">Seleccionar destinatario...</option>
                   {usersForNewChat.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
                 </select>
-                <button onClick={handleCreatePrivateChat} disabled={!selectedUserForNewChat || isCreatingRoom} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-all disabled:opacity-30">
+                <button onClick={handleCreatePrivateChat} disabled={!selectedUserForNewChat || isCreatingRoom} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-all disabled:opacity-30 shadow-lg">
                   Iniciar Chat Privado
                 </button>
               </div>
 
               {isAdmin && (
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Chat de Sucursal</label>
+                  <div className="flex items-center gap-2 text-blue-500">
+                    <Building2 size={14} />
+                    <label className="text-[10px] font-bold uppercase tracking-widest">Canal de Sucursal (Equipo)</label>
+                  </div>
                   <select 
-                    className="w-full p-4 bg-blue-50/30 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl text-sm dark:text-white outline-none"
+                    className="w-full p-4 bg-blue-50/30 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl text-sm dark:text-white focus:ring-2 focus:ring-blue-600 outline-none appearance-none transition-all"
                     onChange={(e) => setSelectedClientForNewChat(clientsForNewChat.find(c => c.id === e.target.value))}
                   >
-                    <option value="">Seleccionar empresa...</option>
+                    <option value="">Seleccionar empresa/sucursal...</option>
                     {clientsForNewChat.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
-                  <button onClick={handleCreateGroupChat} disabled={!selectedClientForNewChat || isCreatingRoom} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-30">
+                  <button onClick={handleCreateGroupChat} disabled={!selectedClientForNewChat || isCreatingRoom} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-30 shadow-lg shadow-blue-600/20">
                     Crear Chat de Equipo
                   </button>
                 </div>
