@@ -45,6 +45,9 @@ import AdminServiceRequests from './components/AdminServiceRequests';
 import StaffServiceRequests from './components/StaffServiceRequests';
 import ClientServiceRequests from './components/ClientServiceRequests';
 
+// --- INTEGRACIÓN CHAT ---
+import Chat from './components/Chat';
+
 function App() {
   const [currentUser, setCurrentUser] = useState(null); 
   const [isInitializing, setIsInitializing] = useState(true); 
@@ -61,6 +64,9 @@ function App() {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme === 'dark';
   });
+
+  // --- ESTADO PARA CHAT ---
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // --- EFECTO PARA APLICAR CLASE DARK AL HTML ---
   useEffect(() => {
@@ -180,6 +186,7 @@ function App() {
     setActiveTab('home');
     setSelectedCompany(null);
     setIsCompanyActive(true);
+    setIsChatOpen(false); // Cerrar chat al salir
   };
 
   const GlobalToaster = (
@@ -345,98 +352,115 @@ function App() {
           {/* Top Header */}
           <header className="bg-white dark:bg-slate-900 h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 z-[2000] shrink-0 transition-colors duration-300">
             <div className="flex items-center gap-3">
-              <button onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen(true); else setSidebarOpen(!isSidebarOpen); }} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 transition-all active:scale-95">
-                <Menu size={20}/>
+              <button onClick={() => setMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <Menu size={20} />
               </button>
-              <div className="flex items-center gap-2">
-                <ShieldAlert size={15} className="text-red-600 hidden sm:block" />
-                <span className="hidden sm:block text-xs font-medium text-slate-400 dark:text-slate-500">{currentUser.role} Access <span className="text-red-600 font-semibold">v2.0</span></span>
-              </div>
+              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="hidden md:flex p-2 -ml-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <Menu size={20} />
+              </button>
+              <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-800 hidden md:block" />
+              <h1 className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight">
+                {activeTab === 'home' ? 'Panel de Control' : 
+                 activeTab === 'form' ? 'Nueva Inspección' : 
+                 activeTab === 'list' ? 'Historial de Reportes' : 
+                 activeTab === 'sites' ? 'Ubicación de Sites' :
+                 activeTab === 'profile' ? 'Mi Perfil' :
+                 activeTab === 'staff' ? 'Gestión de Equipo' :
+                 activeTab === 'calendar' ? 'Calendario IPM' :
+                 activeTab === 'companies' ? 'Empresas y Sucursales' :
+                 activeTab === 'nfpa' ? 'Parámetros NFPA' :
+                 activeTab === 'pump-calc' ? 'Eficiencia de Bomba' :
+                 activeTab === 'tickets' ? 'Órdenes de Servicio' :
+                 activeTab === 'criticals' ? 'Hallazgos Críticos' : ''}
+              </h1>
             </div>
-            
-            <div className="flex items-center gap-3">
-              {/* TOGGLE DARK MODE */}
+
+            <div className="flex items-center gap-2 md:gap-4">
+              {/* Toggle Dark Mode */}
               <button 
-                onClick={() => setIsDarkMode(!isDarkMode)} 
-                className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+                title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
               >
                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               </button>
 
-              <div onClick={() => navigateTo('profile')} className="flex items-center gap-3 border-l border-slate-100 dark:border-slate-800 pl-4 group cursor-pointer">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-none group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">{currentUser.full_name || currentUser.email}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{currentUser.role === 'MANAGER' ? 'Jefe de Sucursal' : currentUser.role}</p>
+              <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-800" />
+              
+              <div className="flex items-center gap-3 pl-1">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">{currentUser.full_name}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{currentUser.role}</span>
                 </div>
-                <div className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-red-50 dark:group-hover:bg-red-900/20 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors">
-                  <UserIcon size={16} />
-                </div>
-                <ChevronDown size={14} className="text-slate-300 dark:text-slate-600 hidden sm:block" />
+                <button onClick={() => navigateTo('profile')} className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 overflow-hidden group">
+                  <UserIcon size={18} className="group-hover:scale-110 transition-transform" />
+                </button>
               </div>
             </div>
           </header>
 
           {/* Content Area */}
-          <section className="flex-1 relative overflow-hidden">
-            <div className="absolute inset-0">
-              
-              {/* --- NUEVA CABECERA INTEGRADA EN LA VISTA 'HOME' (PANEL PRINCIPAL) --- */}
-              {activeTab === 'home' && (
-                <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
-                  <div className="p-4 md:p-6 pb-0">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6 mb-2">
-                      <h1 className="text-slate-900 dark:text-white text-xl font-semibold">Panel de Control</h1>
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">Resumen general y métricas del sistema</p>
-                    </div>
-                  </div>
-                  <Dashboard navigateTo={navigateTo} stats={stats} />
-                </div>
-              )}
-              {/* ---------------------------------------------------------------------- */}
-
-              {activeTab === 'form' && ['ADMIN', 'STAFF'].includes(currentUser.role) && <div className="h-full overflow-y-auto p-4 md:p-8"><NewInspection navigateTo={navigateTo} prefillData={inspectionData} /></div>}
-              {activeTab === 'list' && <div className="h-full overflow-y-auto p-4 md:p-8"><InspectionHistory navigateTo={navigateTo} currentUser={currentUser} /></div>}
-              {activeTab === 'critical' && <div className="h-full overflow-y-auto"><CriticalFindings navigateTo={navigateTo} currentUser={currentUser} /></div>}
-              {activeTab === 'sites' && <div className="h-full w-full"><SitesView currentUser={currentUser} /></div>}
-              {activeTab === 'companies' && <div className="h-full overflow-y-auto p-4 md:p-8"><CompaniesView currentUser={currentUser} onSelectCompany={(company) => { setSelectedCompany(company); setActiveTab('calendar'); }} /></div>}
-              {activeTab === 'calendar' && <div className="h-full overflow-y-auto"><IPMCalendar currentUser={currentUser} navigateTo={navigateTo} selectedCompany={selectedCompany} onBack={() => { setSelectedCompany(null); setActiveTab('companies'); }} /></div>}
-              {activeTab === 'profile' && <div className="h-full overflow-y-auto p-4 md:p-8"><UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} /></div>}
-              {activeTab === 'staff' && currentUser.role === 'ADMIN' && <div className="h-full overflow-y-auto"><StaffManagement currentUser={currentUser} /></div>}
-              {activeTab === 'nfpa' && currentUser.role === 'ADMIN' && <div className="h-full w-full overflow-y-auto"><NFPALibrary /></div>}
-              {activeTab === 'pump-calc' && ['ADMIN', 'STAFF'].includes(currentUser.role) && (
-                <div className="h-full overflow-y-auto p-4 md:p-8">
-                  <PumpEfficiency />
-                </div>
-              )}
-
-              {activeTab === 'tickets' && (
-                <div className="h-full overflow-y-auto w-full bg-slate-50 dark:bg-slate-950">
-                  {currentUser.role === 'ADMIN' && <AdminServiceRequests currentUser={currentUser} />}
-                  {currentUser.role === 'STAFF' && <StaffServiceRequests currentUser={currentUser} />}
-                  {['CLIENTE', 'MANAGER'].includes(currentUser.role) && <ClientServiceRequests currentUser={currentUser} />}
-                </div>
-              )}
-              
-            </div>
-          </section>
+          <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+            {activeTab === 'home' && <Dashboard currentUser={currentUser} navigateTo={navigateTo} stats={stats} />}
+            {activeTab === 'form' && <NewInspection currentUser={currentUser} onComplete={() => navigateTo('list')} />}
+            {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
+            {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
+            {activeTab === 'profile' && <UserProfile currentUser={currentUser} onLogout={handleLogout} />}
+            {activeTab === 'staff' && <StaffManagement currentUser={currentUser} />}
+            {activeTab === 'companies' && <CompaniesView currentUser={currentUser} onSelectCompany={(c) => { setSelectedCompany(c); navigateTo('calendar'); }} />}
+            {activeTab === 'calendar' && <IPMCalendar currentUser={currentUser} selectedCompany={selectedCompany} onBack={() => navigateTo('companies')} />}
+            {activeTab === 'nfpa' && <NFPALibrary currentUser={currentUser} />}
+            {activeTab === 'pump-calc' && <PumpEfficiency currentUser={currentUser} />}
+            {activeTab === 'criticals' && <CriticalFindings currentUser={currentUser} onBack={() => navigateTo('home')} />}
+            
+            {activeTab === 'tickets' && (
+              currentUser.role === 'ADMIN' ? <AdminServiceRequests currentUser={currentUser} /> :
+              currentUser.role === 'STAFF' ? <StaffServiceRequests currentUser={currentUser} /> :
+              <ClientServiceRequests currentUser={currentUser} />
+            )}
+          </div>
         </main>
       </div>
+
+      {/* --- INTEGRACIÓN BOTÓN FLOTANTE DE CHAT --- */}
+      {currentUser && (
+        <button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={`fixed bottom-6 right-6 z-[7000] p-4 rounded-full shadow-2xl transition-all duration-300 active:scale-90 ${isChatOpen ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 rotate-90' : 'bg-red-600 text-white hover:bg-red-700 hover:scale-110'}`}
+          title={isChatOpen ? "Cerrar Chat" : "Chat de Soporte"}
+        >
+          {isChatOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        </button>
+      )}
+
+      {/* --- INTEGRACIÓN VENTANA DE CHAT --- */}
+      {isChatOpen && currentUser && (
+        <div className="fixed inset-0 md:inset-auto md:bottom-24 md:right-6 z-[6999] w-full h-full md:w-[400px] md:h-[600px] bg-white dark:bg-slate-900 md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          <Chat currentUser={currentUser} />
+        </div>
+      )}
     </>
   );
 }
 
+// --- SUB-COMPONENTE NAVITEM ---
 function NavItem({ icon, label, active, onClick, isOpen }) {
   return (
-    <div onClick={onClick} className={`flex items-center px-3 py-2.5 cursor-pointer transition-all duration-200 relative group rounded-lg mb-0.5 
-      ${active 
-        ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500' 
-        : 'hover:bg-red-50 dark:hover:bg-red-900/10 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500'
-      }`}>
-      {active && <div className="absolute left-0 w-[3px] h-5 bg-red-600 dark:bg-red-500 rounded-r-full" />}
-      <div className={`shrink-0 transition-colors`}>{icon}</div>
-      {(isOpen) && <span className={`ml-3 text-sm whitespace-nowrap ${active ? 'font-medium' : 'font-normal'}`}>{label}</span>}
-    </div>
+    <button
+      onClick={onClick}
+      className={`
+        w-full flex items-center gap-3 px-3 py-2.5 my-0.5 rounded-xl transition-all duration-200 group
+        ${active 
+          ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 font-semibold shadow-sm border border-red-100 dark:border-red-900/30' 
+          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'}
+      `}
+    >
+      <span className={`${active ? 'text-red-600 dark:text-red-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'} transition-colors`}>
+        {icon}
+      </span>
+      {isOpen && <span className="text-sm tracking-tight">{label}</span>}
+      {active && isOpen && <div className="ml-auto w-1.5 h-1.5 bg-red-600 dark:bg-red-500 rounded-full shadow-[0_0_8px_rgba(220,38,38,0.5)]"></div>}
+    </button>
   );
 }
 
