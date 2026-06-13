@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks'; 
 import { db } from './db';
 import { supabase } from './supabaseClient'; 
-import { Toaster } from 'react-hot-toast'; 
+import { Toaster, toast } from 'react-hot-toast'; 
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -78,6 +78,87 @@ function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
+
+  // --- SISTEMA DE NOTIFICACIONES EN TIEMPO REAL ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Escuchar nuevos mensajes globalmente
+    const channel = supabase
+      .channel('global_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages'
+        },
+        async (payload) => {
+          // No notificar si el mensaje es mío
+          if (payload.new.sender_id === currentUser.id) return;
+
+          // Verificar si el usuario es participante de la sala
+          const { data: isParticipant } = await supabase
+            .from('chat_participants')
+            .select('room_id')
+            .eq('room_id', payload.new.room_id)
+            .eq('user_id', currentUser.id)
+            .single();
+
+          if (isParticipant) {
+            // Obtener nombre del remitente para el Toast
+            const { data: senderProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', payload.new.sender_id)
+              .single();
+
+            // Lanzar notificación visual (Toast)
+            toast.custom((t) => (
+              <div
+                className={`${
+                  t.visible ? 'animate-enter' : 'animate-leave'
+                } max-w-md w-full bg-white dark:bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-slate-200 dark:border-slate-800`}
+              >
+                <div className="flex-1 w-0 p-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 pt-0.5">
+                      <div className="h-10 w-10 rounded-full bg-red-600 flex items-center justify-center text-white">
+                        <MessageSquare size={20} />
+                      </div>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        Nuevo mensaje de {senderProfile?.full_name || 'Alguien'}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 truncate">
+                        {payload.new.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex border-l border-slate-200 dark:border-slate-800">
+                  <button
+                    onClick={() => {
+                      setIsChatOpen(true);
+                      toast.dismiss(t.id);
+                    }}
+                    className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-red-600 hover:text-red-500 focus:outline-none"
+                  >
+                    Ver
+                  </button>
+                </div>
+              </div>
+            ), { duration: 4000 });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchProfile = async (userId) => {
@@ -186,7 +267,7 @@ function App() {
     setActiveTab('home');
     setSelectedCompany(null);
     setIsCompanyActive(true);
-    setIsChatOpen(false); // Cerrar chat al salir
+    setIsChatOpen(false);
   };
 
   const GlobalToaster = (
@@ -376,7 +457,6 @@ function App() {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
-              {/* Toggle Dark Mode */}
               <button 
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
