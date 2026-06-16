@@ -3,9 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// ==============================================================
-// ORDEN DE EXTERMINIO: MATAR CUALQUIER SERVICE WORKER VIEJO
-// ==============================================================
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.getRegistrations().then(function(registrations) {
