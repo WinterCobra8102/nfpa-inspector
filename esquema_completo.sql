@@ -1,6 +1,3 @@
-
-
-
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -45,196 +42,146 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") RETURNS "uuid"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-  v_user_id uuid;
-BEGIN
-  v_user_id := gen_random_uuid();
-
-  INSERT INTO auth.users (
-    id, instance_id, email, encrypted_password, 
-    email_confirmed_at, raw_app_meta_data, raw_user_meta_data, 
-    aud, role, created_at, updated_at, is_super_admin,
-    confirmation_token, recovery_token, email_change_token_new, email_change_token_current, phone_change_token
-  )
-  VALUES (
-    v_user_id, '00000000-0000-0000-0000-000000000000', p_email, 
-    auth.crypt(p_password, auth.gen_salt('bf')), 
-    now(), 
-    jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', p_role),
-    jsonb_build_object('full_name', p_full_name), 
-    'authenticated', 'authenticated', now(), now(), false,
-    '', '', '', '', ''
-  );
-
-  INSERT INTO auth.identities (
-    id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
-  )
-  VALUES (
-    gen_random_uuid(), 
-    v_user_id, 
-    p_email, 
-    jsonb_build_object('sub', v_user_id::text, 'email', p_email), 
-    'email', now(), now(), now()
-  );
-
-  INSERT INTO public.profiles (id, full_name, role)
-  VALUES (v_user_id, p_full_name, p_role);
-
-  RETURN v_user_id;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid" DEFAULT NULL::"uuid") RETURNS "uuid"
+CREATE OR REPLACE FUNCTION "public"."admin_create_user"("p_client_id" "uuid", "p_email" "text", "p_full_name" "text", "p_password" "text", "p_role" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 DECLARE
     new_user_id uuid;
-    meta_data jsonb;
+    encrypted_pw text;
 BEGIN
-    -- 1. Preparamos los metadatos
-    meta_data := jsonb_build_object(
-        'full_name', p_full_name,
-        'role', p_role,
-        'client_id', p_client_id
-    );
+    -- Encriptar la contraseña
+    encrypted_pw := crypt(p_password, gen_salt('bf'));
 
-    new_user_id := gen_random_uuid();
-
-    -- 2. Insertamos al usuario en auth.users (AHORA CON LOS TOKENS VACÍOS)
+    -- Insertar el usuario en auth.users
     INSERT INTO auth.users (
         instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-        raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-        confirmation_token, recovery_token, email_change_token_new, email_change_token_current
-    ) VALUES (
-        '00000000-0000-0000-0000-000000000000',
-        new_user_id,
-        'authenticated',
-        'authenticated',
-        p_email,
-        crypt(p_password, gen_salt('bf')),
-        now(),
-        '{"provider":"email","providers":["email"]}'::jsonb,
-        meta_data,
-        now(),
-        now(),
-        '', '', '', '' -- <--- EL PARCHE DE ORO: Evita el colapso del servidor
-    );
+        recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
+        created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+    )
+    VALUES (
+        '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', p_email, encrypted_pw, now(),
+        now(), now(), jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
+        jsonb_build_object('full_name', p_full_name, 'role', p_role, 'client_id', p_client_id),
+        now(), now(), '', '', '', '' -- Asegurarse de que estas columnas no sean NULL
+    )
+    RETURNING id INTO new_user_id;
 
-    -- 3. Insertamos la identidad
-    INSERT INTO auth.identities (
-        id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
-    ) VALUES (
-        gen_random_uuid(), new_user_id, new_user_id::text, 
-        jsonb_build_object('sub', new_user_id, 'email', p_email),
-        'email', now(), now(), now()
-    );
-
-    -- 4. Insertar en la tabla de perfiles para que React lo vea
+    -- Insertar los datos adicionales en la tabla public.profiles
     INSERT INTO public.profiles (id, full_name, role, client_id)
-    VALUES (new_user_id, p_full_name, p_role, p_client_id)
-    ON CONFLICT (id) DO UPDATE 
-    SET full_name = EXCLUDED.full_name,
-        role = EXCLUDED.role,
-        client_id = EXCLUDED.client_id;
+    VALUES (new_user_id, p_full_name, p_role, p_client_id);
 
     RETURN new_user_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_create_user"("p_client_id" "uuid", "p_email" "text", "p_full_name" "text", "p_password" "text", "p_role" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
-  -- 1. Si escribiste un correo nuevo en el formulario, lo actualizamos
-  IF new_email <> '' THEN
-    UPDATE auth.users SET email = new_email WHERE id = target_user_id;
-    -- Actualizamos la identidad para evitar errores de login
-    UPDATE auth.identities 
-    SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(new_email)) 
-    WHERE user_id = target_user_id;
-  END IF;
-
-  -- 2. Actualizamos el Rol en los metadatos de seguridad
-  UPDATE auth.users
-  SET raw_app_meta_data = jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', new_role),
-      raw_user_meta_data = jsonb_build_object('full_name', new_name)
-  WHERE id = target_user_id;
-
-  -- 3. Actualizamos la tarjeta visual en tu tabla pública
-  UPDATE public.profiles
-  SET full_name = new_name, role = new_role
-  WHERE id = target_user_id;
+  DELETE FROM auth.users WHERE id = target_user_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text", "new_password" "text" DEFAULT ''::"text") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "target_user_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth', 'extensions'
     AS $$
 BEGIN
-  IF new_email <> '' THEN
-    UPDATE auth.users SET email = new_email WHERE id = target_user_id;
-    UPDATE auth.identities 
-    SET provider_id = new_email, 
-        identity_data = jsonb_set(identity_data, '{email}', to_jsonb(new_email)) 
-    WHERE user_id = target_user_id;
-  END IF;
+    -- 1. Actualizar el correo electrónico si se proporciona uno nuevo
+    IF new_email IS NOT NULL AND new_email <> '' THEN
+        UPDATE auth.users SET email = new_email WHERE id = target_user_id;
+        -- También actualizar la identidad para evitar problemas de inicio de sesión
+        UPDATE auth.identities 
+        SET provider_id = new_email, 
+            identity_data = jsonb_set(identity_data, 
+                                      ARRAY['email'], 
+                                      to_jsonb(new_email), 
+                                      true)
+        WHERE user_id = target_user_id;
+    END IF;
 
-  IF new_password <> '' THEN
+    -- 2. Actualizar la contraseña si se proporciona una nueva
+    IF new_password IS NOT NULL AND new_password <> '' THEN
+        UPDATE auth.users
+        SET encrypted_password = crypt(new_password, gen_salt('bf')) -- gen_salt ahora será encontrado
+        WHERE id = target_user_id;
+    END IF;
+
+    -- 3. Actualizar los metadatos del usuario en auth.users (nombre y rol)
     UPDATE auth.users
-    SET encrypted_password = auth.crypt(new_password, auth.gen_salt('bf')) 
+    SET 
+        raw_app_meta_data = jsonb_set(COALESCE(raw_app_meta_data, '{}'::jsonb), ARRAY['role'], to_jsonb(new_role), true),
+        raw_user_meta_data = jsonb_set(COALESCE(raw_user_meta_data, '{}'::jsonb), ARRAY['full_name'], to_jsonb(new_name), true)
     WHERE id = target_user_id;
-  END IF;
 
-  UPDATE auth.users
-  SET raw_app_meta_data = jsonb_build_object('provider', 'email', 'providers', '["email"]'::jsonb, 'role', new_role),
-      raw_user_meta_data = jsonb_build_object('full_name', new_name)
-  WHERE id = target_user_id;
+    -- 4. Actualizar los datos en la tabla public.profiles (nombre y rol)
+    UPDATE public.profiles
+    SET 
+        full_name = new_name,
+        role = new_role
+    WHERE id = target_user_id;
 
-  UPDATE public.profiles
-  SET full_name = new_name, role = new_role
-  WHERE id = target_user_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text", "new_password" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "target_user_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
+CREATE OR REPLACE FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "new_phone" "text", "target_user_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, role, client_id, phone)
-  VALUES (
-    new.id,
-    COALESCE(new.raw_user_meta_data->>'full_name', 'Nuevo Usuario'),
-    COALESCE(new.raw_user_meta_data->>'role', 'MANAGER'),
-    NULLIF(new.raw_user_meta_data->>'client_id', '')::uuid,
-    new.raw_user_meta_data->>'phone'
-  )
-  ON CONFLICT (id) DO NOTHING; -- <--- ESTA LÍNEA ABSORBE EL GOLPE Y SALVA EL LOGIN
+    -- 1. Actualizar el correo electrónico si se proporciona uno nuevo
+    IF new_email IS NOT NULL AND new_email <> '' THEN
+        UPDATE auth.users SET email = new_email WHERE id = target_user_id;
+        -- También actualizar la identidad para evitar problemas de inicio de sesión
+        UPDATE auth.identities 
+        SET provider_id = new_email, 
+            identity_data = jsonb_set(identity_data, 
+                                      ARRAY["email"], 
+                                      to_jsonb(new_email), 
+                                      true)
+        WHERE user_id = target_user_id;
+    END IF;
 
-  RETURN new;
+    -- 2. Actualizar la contraseña si se proporciona una nueva
+    IF new_password IS NOT NULL AND new_password <> '' THEN
+        UPDATE auth.users
+        SET encrypted_password = crypt(new_password, gen_salt("bf"))
+        WHERE id = target_user_id;
+    END IF;
+
+    -- 3. Actualizar los metadatos del usuario en auth.users (nombre y rol)
+    UPDATE auth.users
+    SET 
+        raw_app_meta_data = jsonb_set(COALESCE(raw_app_meta_data, '{}'::jsonb), ARRAY["role"], to_jsonb(new_role), true),
+        raw_user_meta_data = jsonb_set(COALESCE(raw_user_meta_data, '{}'::jsonb), ARRAY["full_name"], to_jsonb(new_name), true)
+    WHERE id = target_user_id;
+
+    -- 4. Actualizar los datos en la tabla public.profiles (nombre, rol y teléfono)
+    UPDATE public.profiles
+    SET 
+        full_name = new_name,
+        role = new_role,
+        phone = new_phone
+    WHERE id = target_user_id;
+
 END;
 $$;
 
 
-ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
+ALTER FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "new_phone" "text", "target_user_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_admin"() RETURNS boolean
@@ -254,9 +201,75 @@ $$;
 
 ALTER FUNCTION "public"."is_admin"() OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "public"."is_room_member"("p_room_id" "uuid", "p_user_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.chat_participants
+    WHERE room_id = p_room_id AND user_id = p_user_id
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."is_room_member"("p_room_id" "uuid", "p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_chat_room_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE public.chat_rooms SET updated_at = now() WHERE id = NEW.room_id;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_chat_room_updated_at"() OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_messages" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "room_id" "uuid" NOT NULL,
+    "sender_id" "uuid" NOT NULL,
+    "content" "text" NOT NULL,
+    "is_system_message" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."chat_messages" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_participants" (
+    "room_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "joined_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "last_read_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."chat_participants" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_rooms" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "type" character varying(10) NOT NULL,
+    "client_id" "uuid",
+    "name" character varying(255),
+    "status" character varying(20) DEFAULT 'OPEN'::character varying NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."chat_rooms" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."clientes" (
@@ -344,6 +357,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "role" "text",
     "client_id" "uuid",
     "phone" "text",
+    "email" "text",
     CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['ADMIN'::"text", 'STAFF'::"text", 'MANAGER'::"text", 'CLIENTE'::"text"])))
 );
 
@@ -390,6 +404,21 @@ CREATE TABLE IF NOT EXISTS "public"."service_requests" (
 ALTER TABLE "public"."service_requests" OWNER TO "postgres";
 
 
+ALTER TABLE ONLY "public"."chat_messages"
+    ADD CONSTRAINT "chat_messages_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."chat_participants"
+    ADD CONSTRAINT "chat_participants_pkey" PRIMARY KEY ("room_id", "user_id");
+
+
+
+ALTER TABLE ONLY "public"."chat_rooms"
+    ADD CONSTRAINT "chat_rooms_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."clientes"
     ADD CONSTRAINT "clientes_pkey" PRIMARY KEY ("id");
 
@@ -433,6 +462,35 @@ CREATE INDEX "idx_ipm_tasks_client_id" ON "public"."ipm_tasks" USING "btree" ("c
 
 
 CREATE INDEX "idx_ipm_tasks_tecnico_id" ON "public"."ipm_tasks" USING "btree" ("tecnico_id");
+
+
+
+CREATE OR REPLACE TRIGGER "update_chat_room_updated_at_trigger" AFTER INSERT ON "public"."chat_messages" FOR EACH ROW EXECUTE FUNCTION "public"."update_chat_room_updated_at"();
+
+
+
+ALTER TABLE ONLY "public"."chat_messages"
+    ADD CONSTRAINT "chat_messages_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "public"."chat_rooms"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_messages"
+    ADD CONSTRAINT "chat_messages_sender_id_fkey" FOREIGN KEY ("sender_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_participants"
+    ADD CONSTRAINT "chat_participants_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "public"."chat_rooms"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_participants"
+    ADD CONSTRAINT "chat_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_rooms"
+    ADD CONSTRAINT "chat_rooms_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "public"."clientes"("id") ON DELETE CASCADE;
 
 
 
@@ -575,6 +633,55 @@ CREATE POLICY "Visibilidad de tareas IPM por Rol" ON "public"."ipm_tasks" FOR SE
 
 
 
+CREATE POLICY "admin_delete_rooms" ON "public"."chat_rooms" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."profiles"
+  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'ADMIN'::"text")))));
+
+
+
+ALTER TABLE "public"."chat_messages" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."chat_participants" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."chat_rooms" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "insert_messages" ON "public"."chat_messages" FOR INSERT WITH CHECK (("sender_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "insert_participants_v2" ON "public"."chat_participants" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "insert_rooms_v2" ON "public"."chat_rooms" FOR INSERT WITH CHECK (("auth"."role"() = 'authenticated'::"text"));
+
+
+
+CREATE POLICY "update_rooms" ON "public"."chat_rooms" FOR UPDATE USING (true);
+
+
+
+CREATE POLICY "view_messages_v3" ON "public"."chat_messages" FOR SELECT USING (("public"."is_room_member"("room_id", "auth"."uid"()) OR (EXISTS ( SELECT 1
+   FROM "public"."profiles"
+  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'ADMIN'::"text"))))));
+
+
+
+CREATE POLICY "view_participants_v3" ON "public"."chat_participants" FOR SELECT USING ((("user_id" = "auth"."uid"()) OR "public"."is_room_member"("room_id", "auth"."uid"()) OR (EXISTS ( SELECT 1
+   FROM "public"."profiles"
+  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'ADMIN'::"text"))))));
+
+
+
+CREATE POLICY "view_rooms_v3" ON "public"."chat_rooms" FOR SELECT USING (("public"."is_room_member"("id", "auth"."uid"()) OR (EXISTS ( SELECT 1
+   FROM "public"."profiles"
+  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'ADMIN'::"text"))))));
+
+
+
 
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
@@ -584,7 +691,23 @@ ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
 
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_messages";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_participants";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_rooms";
+
+
+
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."profiles";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."service_requests";
 
 
 
@@ -743,33 +866,27 @@ GRANT USAGE ON SCHEMA "public" TO "authenticator";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_client_id" "uuid", "p_email" "text", "p_full_name" "text", "p_password" "text", "p_role" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_client_id" "uuid", "p_email" "text", "p_full_name" "text", "p_password" "text", "p_role" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_create_user"("p_client_id" "uuid", "p_email" "text", "p_full_name" "text", "p_password" "text", "p_role" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_create_user"("p_email" "text", "p_password" "text", "p_full_name" "text", "p_role" "text", "p_client_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_delete_user"("target_user_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "target_user_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text", "new_password" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text", "new_password" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."admin_update_user"("target_user_id" "uuid", "new_email" "text", "new_name" "text", "new_role" "text", "new_password" "text") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
-GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "new_phone" "text", "target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "new_phone" "text", "target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."admin_update_user"("new_email" "text", "new_name" "text", "new_password" "text", "new_role" "text", "new_phone" "text", "target_user_id" "uuid") TO "service_role";
 
 
 
@@ -779,6 +896,15 @@ GRANT ALL ON FUNCTION "public"."is_admin"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."is_room_member"("p_room_id" "uuid", "p_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_room_member"("p_room_id" "uuid", "p_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_room_member"("p_room_id" "uuid", "p_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_chat_room_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_chat_room_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_chat_room_updated_at"() TO "service_role";
 
 
 
@@ -791,6 +917,27 @@ GRANT ALL ON FUNCTION "public"."is_admin"() TO "service_role";
 
 
 
+
+
+
+
+
+
+GRANT ALL ON TABLE "public"."chat_messages" TO "anon";
+GRANT ALL ON TABLE "public"."chat_messages" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_messages" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."chat_participants" TO "anon";
+GRANT ALL ON TABLE "public"."chat_participants" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_participants" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."chat_rooms" TO "anon";
+GRANT ALL ON TABLE "public"."chat_rooms" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_rooms" TO "service_role";
 
 
 

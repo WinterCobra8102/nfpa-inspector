@@ -25,6 +25,11 @@ const Chat = ({ currentUser }) => {
 
   const isAdmin = currentUser?.role === 'ADMIN';
 
+  // Limpiamos la memoria al salir por completo de la sección de chats
+  useEffect(() => {
+    return () => sessionStorage.removeItem('activeChatRoom');
+  }, []);
+
   useEffect(() => {
     fetchChatRooms();
 
@@ -46,6 +51,9 @@ const Chat = ({ currentUser }) => {
 
   useEffect(() => {
     if (selectedRoom) {
+      // MAGIA: Le avisamos al navegador qué sala estamos viendo
+      sessionStorage.setItem('activeChatRoom', selectedRoom.id);
+
       fetchMessages(selectedRoom.id);
       markRoomAsRead(selectedRoom.id);
 
@@ -58,7 +66,11 @@ const Chat = ({ currentUser }) => {
         })
         .subscribe();
 
-      return () => { supabase.removeChannel(messagesChannel); };
+      return () => {
+        // Al salir de este chat específico, borramos la marca
+        sessionStorage.removeItem('activeChatRoom');
+        supabase.removeChannel(messagesChannel);
+      };
     }
   }, [selectedRoom]);
 
@@ -349,7 +361,6 @@ const Chat = ({ currentUser }) => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Form (AQUÍ ESTÁ LA CORRECCIÓN DE LA "X" APLICANDO pr-20) */}
           <form onSubmit={sendMessage} className="p-3 pr-20 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-2 items-center shrink-0">
             <div className="flex-1 min-w-0 relative">
               <input 
