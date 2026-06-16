@@ -7,6 +7,16 @@ const MAP_URLS = [
 ];
 
 self.addEventListener('fetch', (event) => {
+  // ==============================================================
+  // EXCEPCIÓN CRÍTICA: Dejar pasar los PDFs directamente a la red
+  // ==============================================================
+  if (event.request.url.includes('/docs/')) {
+    // Al usar "return" aquí, el Service Worker ignora la petición 
+    // y el navegador la descarga de forma normal y nativa.
+    return; 
+  }
+
+  // Lógica original para guardar los mapas de OpenStreetMap
   if (MAP_URLS.some(url => event.request.url.startsWith(url))) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
