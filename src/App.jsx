@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks'; 
 import { db } from './db';
 import { supabase } from './supabaseClient'; 
@@ -96,6 +96,12 @@ function App() {
         async (payload) => {
           // No notificar si el mensaje es mío
           if (payload.new.sender_id === currentUser.id) return;
+
+          // ¡MAGIA!: Revisamos qué chat tiene abierto el usuario en memoria
+          const activeRoomId = sessionStorage.getItem('activeChatRoom');
+          
+          // Si el mensaje nuevo viene del chat que ya estoy viendo en pantalla... ¡No muestres la alerta!
+          if (activeRoomId === payload.new.room_id) return;
 
           // Verificar si el usuario es participante de la sala
           const { data: isParticipant } = await supabase
@@ -485,7 +491,10 @@ function App() {
             {activeTab === 'form' && <NewInspection currentUser={currentUser} onComplete={() => navigateTo('list')} />}
             {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
             {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
-            {activeTab === 'profile' && <UserProfile currentUser={currentUser} onLogout={handleLogout} />}
+            
+            {/* SOLUCIÓN: Agregada la función navigateTo al componente de perfil */}
+            {activeTab === 'profile' && <UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} />}
+            
             {activeTab === 'staff' && <StaffManagement currentUser={currentUser} />}
             {activeTab === 'companies' && <CompaniesView currentUser={currentUser} onSelectCompany={(c) => { setSelectedCompany(c); navigateTo('calendar'); }} />}
             {activeTab === 'calendar' && <IPMCalendar currentUser={currentUser} selectedCompany={selectedCompany} onBack={() => navigateTo('companies')} />}

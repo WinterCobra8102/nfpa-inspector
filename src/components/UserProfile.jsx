@@ -55,34 +55,42 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
     }
   };
 
+  // Función de navegación segura
+  const handleGoBack = () => {
+    if (typeof navigateTo === 'function') {
+      navigateTo('dashboard'); 
+    } else {
+      console.error("⚠️ ERROR: La función 'navigateTo' no se está pasando desde el componente padre.");
+      toast.error("Error de navegación. Revisa la consola.");
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
       
       {/* BOTÓN VOLVER */}
       <div className="flex items-center justify-between">
         <button 
-          onClick={() => navigateTo('home')}
-          className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-600 transition-all"
+          type="button"
+          onClick={handleGoBack}
+          className="flex items-center gap-2 text-sm font-medium text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-all active:scale-95"
         >
           <ChevronLeft size={16} /> Volver al Panel
         </button>
       </div>
 
-      {/* --- NUEVA CABECERA INTEGRADA AQUÍ --- */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-6 transition-colors">
         <h1 className="text-slate-900 dark:text-white text-xl font-semibold">Mi Perfil</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Gestiona tu información personal y credenciales de acceso</p>
       </div>
-      {/* ------------------------------------- */}
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
-        {/* Header del perfil */}
-        <div className="bg-slate-50 border-b border-slate-200 p-8 text-center">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors">
+        <div className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 p-8 text-center transition-colors">
           <div className="w-20 h-20 bg-red-600 rounded-xl mx-auto flex items-center justify-center text-white shadow-sm">
             <User size={36} />
           </div>
-          <h2 className="text-slate-900 mt-4 font-semibold text-lg">{currentUser.full_name || 'Usuario'}</h2>
-          <span className="inline-block mt-2 bg-red-50 text-red-600 text-xs font-medium px-3 py-1 rounded-md border border-red-100">
+          <h2 className="text-slate-900 dark:text-white mt-4 font-semibold text-lg">{currentUser.full_name || 'Usuario'}</h2>
+          <span className="inline-block mt-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 text-xs font-medium px-3 py-1 rounded-md border border-red-100 dark:border-red-900/30">
             {currentUser.role === 'MANAGER' ? 'Jefe de Sucursal' : currentUser.role}
           </span>
         </div>
@@ -90,72 +98,71 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
         <form onSubmit={handleUpdate} className="p-8 space-y-6">
           <div className="grid gap-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-500 ml-1">Nombre Completo</label>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Nombre Completo</label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                 <input 
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg py-3.5 pl-11 pr-4 font-medium text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-slate-700 uppercase"
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg py-3.5 pl-11 pr-4 font-medium text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-slate-700 dark:text-slate-200 uppercase"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-500 ml-1">Correo Electrónico (No editable)</label>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Correo Electrónico (No editable)</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={16} />
                 <input 
                   type="text" disabled
                   value={currentUser.email}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg py-3.5 pl-11 pr-4 font-medium text-sm text-slate-400 cursor-not-allowed"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg py-3.5 pl-11 pr-4 font-medium text-sm text-slate-400 dark:text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-500 ml-1">Identificador de Acceso</label>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Identificador de Acceso</label>
               <div className="relative">
-                <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={16} />
                 <input 
                   type="text" disabled
                   value={currentUser.id}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg py-3.5 pl-11 pr-4 font-mono text-xs text-slate-400 cursor-not-allowed"
+                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg py-3.5 pl-11 pr-4 font-mono text-xs text-slate-400 dark:text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
 
-            {/* SECCIÓN CAMBIO DE CONTRASEÑA */}
-            <div className="mt-4 pt-6 border-t border-slate-100 space-y-4">
-              <p className="text-xs font-medium text-slate-500 flex items-center gap-2">
-                <Lock size={14} className="text-red-600" /> Cambiar Contraseña de Acceso
+            <div className="mt-4 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <Lock size={14} className="text-red-600 dark:text-red-500" /> Cambiar Contraseña de Acceso
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-500 ml-1">Nueva Contraseña</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Nueva Contraseña</label>
                   <input 
                     type="password" 
                     placeholder="Min. 6 caracteres" 
-                    className="w-full bg-white border border-slate-200 p-3.5 rounded-lg text-sm font-medium outline-none text-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-3.5 rounded-lg text-sm font-medium outline-none text-slate-700 dark:text-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-500 ml-1">Confirmar Contraseña</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Confirmar Contraseña</label>
                   <input 
                     type="password" 
                     placeholder="Repetir contraseña" 
-                    className="w-full bg-white border border-slate-200 p-3.5 rounded-lg text-sm font-medium outline-none text-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-3.5 rounded-lg text-sm font-medium outline-none text-slate-700 dark:text-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                   />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed px-1">
+              <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed px-1">
                 Si dejas estos campos vacíos, tu contraseña actual no se modificará.
               </p>
             </div>
