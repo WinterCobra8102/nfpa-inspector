@@ -1,15 +1,77 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
-import { User, Mail, Shield, Save, RefreshCw, ChevronLeft, Lock } from 'lucide-react';
+import { User, Mail, Shield, Save, RefreshCw, ChevronLeft, Lock, Camera } from 'lucide-react';
 
 export default function UserProfile({ currentUser, setCurrentUser, navigateTo }) {
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState(currentUser.full_name || '');
-
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Estado para la subida de la foto
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // --- FUNCIÓN PARA SUBIR FOTO DE PERFIL ---
+  const handleAvatarUpload = async (event) => {
+    try {
+      setUploadingAvatar(true);
+      
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Validaciones básicas de seguridad
+      if (!file.type.startsWith('image/')) {
+        toast.error('Por favor, sube un archivo de imagen válido.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) { // Límite de 2MB
+        toast.error('La imagen es muy pesada. Máximo 2MB.');
+        return;
+      }
+
+      const loadingToast = toast.loading("Subiendo foto...");
+
+      // 1. Limpiar el nombre y crear ruta única
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      // 2. Subir imagen al bucket 'avatars' de Supabase
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Obtener la URL pública de la imagen
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 4. Actualizar la tabla de profiles con la nueva URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', currentUser.id);
+
+      if (updateError) throw updateError;
+
+      // 5. Actualizar el estado global para que cambie en toda la app
+      if (typeof setCurrentUser === 'function') {
+        setCurrentUser({ ...currentUser, avatar_url: publicUrl });
+      }
+
+      toast.success('Foto de perfil actualizada con éxito', { id: loadingToast });
+    } catch (error) {
+      console.error("Error al subir foto:", error);
+      toast.error('Ocurrió un error al subir la imagen.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // --- FUNCIÓN PARA GUARDAR TEXTO Y CONTRASEÑA ---
   const handleUpdate = async (e) => {
     e.preventDefault();
 
@@ -42,7 +104,6 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
 
       if (profileError) throw profileError;
 
-      // BLINDAJE DE INGENIERÍA: Verificamos que setCurrentUser exista como función
       if (typeof setCurrentUser === 'function') {
         setCurrentUser({ ...currentUser, full_name: fullName.toUpperCase() });
       }
@@ -53,8 +114,6 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
       toast.success('Perfil actualizado correctamente', { id: loadingToast });
     } catch (err) {
       console.error("Error al actualizar:", err);
-      // Si aún así ocurre un error relacionado con funciones que no existen (minificación),
-      // mostramos el éxito pero indicamos recargar la página.
       if (err.message && err.message.includes("is not a function")) {
          toast.success('Perfil actualizado. Recarga la página para ver los cambios.', { id: loadingToast });
       } else {
@@ -69,7 +128,6 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
     if (typeof navigateTo === 'function') {
       navigateTo('BACK'); 
     } else {
-      console.error("⚠️ ERROR: La función 'navigateTo' no se está pasando desde el componente padre.");
       toast.error("Error de navegación. Revisa la consola.");
     }
   };
@@ -77,7 +135,6 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in fade-in duration-300">
       
-      {/* BOTÓN VOLVER */}
       <div className="flex items-center justify-between">
         <button 
           type="button"
@@ -95,10 +152,38 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
 
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors">
         <div className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 p-8 text-center transition-colors">
-          <div className="w-20 h-20 bg-red-600 rounded-xl mx-auto flex items-center justify-center text-white shadow-sm">
-            <User size={36} />
+          
+          {/* FOTO DE PERFIL INTERACTIVA */}
+          <div className="relative group mx-auto w-24 h-24 mb-4">
+            <div className="w-full h-full bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-sm overflow-hidden border-2 border-white dark:border-slate-800 relative z-0">
+              {currentUser.avatar_url ? (
+                <img src={currentUser.avatar_url} alt="Perfil" className="w-full h-full object-cover" />
+              ) : (
+                <User size={40} />
+              )}
+            </div>
+            
+            {/* Overlay para subir imagen */}
+            <label className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10">
+              {uploadingAvatar ? (
+                <RefreshCw size={24} className="text-white animate-spin" />
+              ) : (
+                <>
+                  <Camera size={24} className="text-white mb-1" />
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">Cambiar</span>
+                </>
+              )}
+              <input 
+                type="file" 
+                accept="image/png, image/jpeg, image/jpg" 
+                className="hidden" 
+                onChange={handleAvatarUpload}
+                disabled={uploadingAvatar}
+              />
+            </label>
           </div>
-          <h2 className="text-slate-900 dark:text-white mt-4 font-semibold text-lg">{currentUser.full_name || 'Usuario'}</h2>
+
+          <h2 className="text-slate-900 dark:text-white font-semibold text-lg">{currentUser.full_name || 'Usuario'}</h2>
           <span className="inline-block mt-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 text-xs font-medium px-3 py-1 rounded-md border border-red-100 dark:border-red-900/30">
             {currentUser.role === 'MANAGER' ? 'Jefe de Sucursal' : currentUser.role}
           </span>
