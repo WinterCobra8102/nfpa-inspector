@@ -3,12 +3,22 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// --- REGISTRO DEL SERVICE WORKER PARA MODO APP ---
+// ==============================================================
+// ORDEN DE EXTERMINIO: MATAR CUALQUIER SERVICE WORKER VIEJO
+// ==============================================================
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => console.log('🚀 Service Worker activo para TletlApp', reg))
-      .catch(err => console.error('❌ Error al registrar el SW', err));
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister()
+          .then(function() {
+            console.log('🧹 Service Worker viejo purgado exitosamente.');
+          })
+          .catch(function(error) {
+            console.error('❌ Error al eliminar Service Worker:', error);
+          });
+      }
+    });
   });
 }
 
