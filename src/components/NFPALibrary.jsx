@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, X, FileText, ShieldCheck, 
   Droplets, Flame, Bell, Activity, ClipboardCheck, 
-  AlertTriangle, Waves, Search 
+  AlertTriangle, Waves, Search, Loader2 
 } from 'lucide-react';
 
-// Catálogo maestro de documentos NFPA
+// ==========================================
+// CATÁLOGO MAESTRO DE NORMAS NFPA
+// Rutas absolutas optimizadas (Sin espacios para Vercel)
+// ==========================================
 const NFPA_DOCS = [
   { 
     id: 'nfpa-3', 
@@ -14,7 +17,7 @@ const NFPA_DOCS = [
     desc: 'Norma para el Comisionamiento de Sistemas de Protección contra Incendios y Seguridad Humana.', 
     icon: ClipboardCheck, 
     color: 'bg-slate-700', 
-    file: '/docs/NFPA 3 2018 ESP.pdf' 
+    file: '/docs/NFPA_3_2018_ESP.pdf' 
   },
   { 
     id: 'nfpa-4', 
@@ -23,7 +26,7 @@ const NFPA_DOCS = [
     desc: 'Norma para la Prueba de Sistemas Integrados de Protección contra Incendios y Seguridad Humana.', 
     icon: Activity, 
     color: 'bg-indigo-600', 
-    file: '/docs/NFPA 4 2018 ESP.pdf' 
+    file: '/docs/NFPA_4_2018_ESP.pdf' 
   },
   { 
     id: 'nfpa-13', 
@@ -32,7 +35,7 @@ const NFPA_DOCS = [
     desc: 'Norma para la Instalación de Sistemas de Rociadores.', 
     icon: Droplets, 
     color: 'bg-cyan-600', 
-    file: '/docs/NFPA 13 2019 ESP.pdf' 
+    file: '/docs/NFPA_13_2019_ESP.pdf' 
   },
   { 
     id: 'nfpa-25', 
@@ -41,7 +44,7 @@ const NFPA_DOCS = [
     desc: 'Norma para la Inspección, Prueba y Mantenimiento de Sistemas de Protección contra Incendios a Base de Agua.', 
     icon: ShieldCheck, 
     color: 'bg-blue-600', 
-    file: '/docs/NFPA 25 2017 ES.pdf' 
+    file: '/docs/NFPA_25_2017_ES.pdf' 
   },
   { 
     id: 'nfpa-72', 
@@ -50,7 +53,7 @@ const NFPA_DOCS = [
     desc: 'Código Nacional de Alarmas de Incendio y Señalización.', 
     icon: Bell, 
     color: 'bg-red-600', 
-    file: '/docs/NFPA 72 2016 ES.pdf' 
+    file: '/docs/NFPA_72_2016_ES.pdf' 
   },
   { 
     id: 'nfpa-170', 
@@ -59,7 +62,7 @@ const NFPA_DOCS = [
     desc: 'Norma para Símbolos de Emergencia y Seguridad contra Incendios.', 
     icon: AlertTriangle, 
     color: 'bg-yellow-500', 
-    file: '/docs/NFPA 170 2018 - ES.pdf' 
+    file: '/docs/NFPA_170_2018_ES.pdf' 
   },
   { 
     id: 'nfpa-704', 
@@ -68,7 +71,7 @@ const NFPA_DOCS = [
     desc: 'Sistema Estándar para la Identificación de los Peligros de Materiales para Respuesta a Emergencias.', 
     icon: Flame, 
     color: 'bg-orange-500', 
-    file: '/docs/NFPA 704 2022 ESP.pdf' 
+    file: '/docs/NFPA_704_2022_ESP.pdf' 
   },
   { 
     id: 'nfpa-1962-2018', 
@@ -77,7 +80,7 @@ const NFPA_DOCS = [
     desc: 'Estándar para el Cuidado, Uso, Inspección, Prueba de Servicio y Reemplazo de Mangueras, Acoplamientos y Boquillas.', 
     icon: Waves, 
     color: 'bg-teal-600', 
-    file: '/docs/NFPA 1962 2018 ESP.pdf' 
+    file: '/docs/NFPA_1962_2018_ESP.pdf' 
   },
   { 
     id: 'nfpa-1962-2008', 
@@ -86,15 +89,78 @@ const NFPA_DOCS = [
     desc: 'Norma para la Inspección, Cuidado y Uso de la Manguera contra Incendios (Edición Antigua).', 
     icon: Waves, 
     color: 'bg-teal-800', 
-    file: '/docs/NFPA 1962 2008 ESP.pdf' 
+    file: '/docs/NFPA_1962_2008_ESP.pdf' 
   }
 ];
 
+// ==========================================
+// COMPONENTE OPTIMIZADO PARA CARGA DE PDF
+// ==========================================
+const PDFViewer = ({ doc, onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Truco para forzar al navegador a limpiar memoria al desmontar
+  useEffect(() => {
+    return () => setIsLoading(true);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[9999] flex flex-col animate-in fade-in duration-200">
+      
+      {/* Topbar del visor */}
+      <div className="bg-slate-900 px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 shadow-lg z-20">
+        <div className="flex items-center gap-3 text-white">
+          <div className={`${doc.color} p-2 rounded-lg`}>
+            <doc.icon size={18} />
+          </div>
+          <div className="hidden sm:block">
+            <h3 className="font-semibold text-base leading-none">{doc.title}</h3>
+            <span className="text-xs text-slate-400 mt-0.5">{doc.subtitle}</span>
+          </div>
+        </div>
+
+        <button 
+          onClick={onClose} 
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-2"
+          title="Cerrar Visor"
+        >
+          <span className="text-sm font-medium hidden md:inline">Cerrar Visor</span>
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Contenedor Principal Optimizado */}
+      <div className="flex-1 w-full bg-[#323639] relative overflow-hidden flex items-center justify-center">
+        
+        {/* Pantalla de Carga Fluida */}
+        {isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#323639] z-10 animate-pulse">
+            <Loader2 size={48} className="text-slate-400 animate-spin mb-4" />
+            <p className="text-sm font-bold text-slate-300 uppercase tracking-widest">Preparando Documento</p>
+            <p className="text-xs text-slate-500 mt-1">Optimizando rendimiento...</p>
+          </div>
+        )}
+        
+        {/* Iframe Blindado */}
+        {/* Usamos toolbar=0 para algunos navegadores y #view=FitH para forzar un renderizado vertical suave */}
+        <iframe 
+          src={`${doc.file}#toolbar=0&view=FitH`} 
+          className={`w-full h-full border-none relative z-0 transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          title={`Visor PDF ${doc.title}`}
+          onLoad={() => setIsLoading(false)}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
 export default function NFPALibrary() {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Lógica de filtrado en tiempo real
   const filteredDocs = NFPA_DOCS.filter(doc => 
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.subtitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -181,50 +247,9 @@ export default function NFPALibrary() {
         </div>
       )}
 
-      {/* MODAL VISOR DE PDF A PANTALLA COMPLETA — Se mantiene oscuro (inmersivo) */}
+      {/* RENDERIZADO DEL VISOR OPTIMIZADO */}
       {selectedDoc && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[9999] flex flex-col">
-          
-          {/* Topbar del visor */}
-          <div className="bg-slate-900 px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 shadow-lg z-10">
-            <div className="flex items-center gap-3 text-white">
-              <div className={`${selectedDoc.color} p-2 rounded-lg`}>
-                <selectedDoc.icon size={18} />
-              </div>
-              <div className="hidden sm:block">
-                <h3 className="font-semibold text-base leading-none">{selectedDoc.title}</h3>
-                <span className="text-xs text-slate-400 mt-0.5">{selectedDoc.subtitle}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setSelectedDoc(null)} 
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-2"
-                title="Cerrar Visor"
-              >
-                <span className="text-sm font-medium hidden md:inline">Cerrar Visor</span>
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Contenedor del Iframe */}
-          <div className="flex-1 w-full bg-[#525659] relative overflow-hidden flex items-center justify-center">
-            {/* Fallback visual por si tarda en cargar */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white/20 -z-10">
-              <FileText size={48} className="mb-4 animate-pulse" />
-              <span className="text-sm text-white/30">Cargando Documento...</span>
-            </div>
-            
-            <iframe 
-              src={`${selectedDoc.file}#view=FitH`} 
-              className="w-full h-full border-none relative z-10"
-              loading="lazy"
-              title={`Visor PDF ${selectedDoc.title}`}
-            />
-          </div>
-        </div>
+        <PDFViewer doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
       )}
     </div>
   );
