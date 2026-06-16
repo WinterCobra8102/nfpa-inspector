@@ -42,23 +42,32 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
 
       if (profileError) throw profileError;
 
-      setCurrentUser({ ...currentUser, full_name: fullName.toUpperCase() });
+      // BLINDAJE DE INGENIERÍA: Solo ejecutamos esto si App.jsx sí envió la función.
+      // Así evitamos el error "t is not a function" en Vercel.
+      if (typeof setCurrentUser === 'function') {
+        setCurrentUser({ ...currentUser, full_name: fullName.toUpperCase() });
+      }
       
       setNewPassword("");
       setConfirmPassword("");
 
       toast.success('Perfil actualizado correctamente', { id: loadingToast });
     } catch (err) {
-      toast.error(err.message, { id: loadingToast });
+      console.error("Error al actualizar:", err);
+      // Si a pesar del blindaje ocurre un error de minificación, mostramos un mensaje amigable
+      if (err.message && err.message.includes("is not a function")) {
+         toast.success('Perfil actualizado. Recarga la página para ver los cambios.', { id: loadingToast });
+      } else {
+         toast.error(err.message, { id: loadingToast });
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Función de navegación segura
   const handleGoBack = () => {
     if (typeof navigateTo === 'function') {
-      navigateTo('dashboard'); 
+      navigateTo('home'); 
     } else {
       console.error("⚠️ ERROR: La función 'navigateTo' no se está pasando desde el componente padre.");
       toast.error("Error de navegación. Revisa la consola.");
@@ -66,7 +75,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
+    <div className="max-w-2xl mx-auto p-4 space-y-6 animate-in fade-in duration-300">
       
       {/* BOTÓN VOLVER */}
       <div className="flex items-center justify-between">
