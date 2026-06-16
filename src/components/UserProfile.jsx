@@ -55,37 +55,28 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
     }
   };
 
-  // Función de navegación segura
-  const handleGoBack = () => {
-    if (typeof navigateTo === 'function') {
-      // Cambia 'dashboard' por el nombre real de tu vista principal si es diferente
-      navigateTo('dashboard'); 
-    } else {
-      console.error("⚠️ ERROR: La función 'navigateTo' no se está pasando desde el componente padre.");
-      toast.error("Error de navegación. Revisa la consola.");
-    }
-  };
-
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
       
       {/* BOTÓN VOLVER */}
       <div className="flex items-center justify-between">
         <button 
-          type="button"
-          onClick={handleGoBack}
-          className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-600 transition-all active:scale-95"
+          onClick={() => navigateTo('home')}
+          className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-600 transition-all"
         >
           <ChevronLeft size={16} /> Volver al Panel
         </button>
       </div>
 
+      {/* --- NUEVA CABECERA INTEGRADA AQUÍ --- */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6">
         <h1 className="text-slate-900 dark:text-white text-xl font-semibold">Mi Perfil</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Gestiona tu información personal y credenciales de acceso</p>
       </div>
+      {/* ------------------------------------- */}
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+        {/* Header del perfil */}
         <div className="bg-slate-50 border-b border-slate-200 p-8 text-center">
           <div className="w-20 h-20 bg-red-600 rounded-xl mx-auto flex items-center justify-center text-white shadow-sm">
             <User size={36} />
@@ -135,6 +126,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
               </div>
             </div>
 
+            {/* SECCIÓN CAMBIO DE CONTRASEÑA */}
             <div className="mt-4 pt-6 border-t border-slate-100 space-y-4">
               <p className="text-xs font-medium text-slate-500 flex items-center gap-2">
                 <Lock size={14} className="text-red-600" /> Cambiar Contraseña de Acceso
