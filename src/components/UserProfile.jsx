@@ -42,8 +42,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
 
       if (profileError) throw profileError;
 
-      // BLINDAJE DE INGENIERÍA: Solo ejecutamos esto si App.jsx sí envió la función.
-      // Así evitamos el error "t is not a function" en Vercel.
+      // BLINDAJE DE INGENIERÍA: Verificamos que setCurrentUser exista como función
       if (typeof setCurrentUser === 'function') {
         setCurrentUser({ ...currentUser, full_name: fullName.toUpperCase() });
       }
@@ -54,7 +53,8 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
       toast.success('Perfil actualizado correctamente', { id: loadingToast });
     } catch (err) {
       console.error("Error al actualizar:", err);
-      // Si a pesar del blindaje ocurre un error de minificación, mostramos un mensaje amigable
+      // Si aún así ocurre un error relacionado con funciones que no existen (minificación),
+      // mostramos el éxito pero indicamos recargar la página.
       if (err.message && err.message.includes("is not a function")) {
          toast.success('Perfil actualizado. Recarga la página para ver los cambios.', { id: loadingToast });
       } else {
@@ -67,7 +67,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
 
   const handleGoBack = () => {
     if (typeof navigateTo === 'function') {
-      navigateTo('home'); 
+      navigateTo('BACK'); 
     } else {
       console.error("⚠️ ERROR: La función 'navigateTo' no se está pasando desde el componente padre.");
       toast.error("Error de navegación. Revisa la consola.");
@@ -84,7 +84,7 @@ export default function UserProfile({ currentUser, setCurrentUser, navigateTo })
           onClick={handleGoBack}
           className="flex items-center gap-2 text-sm font-medium text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-all active:scale-95"
         >
-          <ChevronLeft size={16} /> Volver al Panel
+          <ChevronLeft size={16} /> Regresar
         </button>
       </div>
 

@@ -52,6 +52,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null); 
   const [isInitializing, setIsInitializing] = useState(true); 
   const [activeTab, setActiveTab] = useState('home'); 
+  const [previousTab, setPreviousTab] = useState('home'); // <-- AQUÍ ESTÁ LA MEMORIA DE NAVEGACIÓN
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -260,7 +261,21 @@ function App() {
     totalAssets: visibleInspections ? [...new Set(visibleInspections.map(i => i.equipmentName))].length : 0
   };
 
+  // --- NAVEGACIÓN INTELIGENTE CON REVERSA ---
   const navigateTo = (tab, data = null) => {
+    // 1. Si la orden es regresar, sacamos la pestaña anterior de la memoria
+    if (tab === 'BACK') {
+      setActiveTab(previousTab || 'home');
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    // 2. Si vamos a abrir el perfil, guardamos la pestaña actual como "previa"
+    if (tab === 'profile') {
+      setPreviousTab(activeTab);
+    }
+
+    // 3. Navegación normal
     setActiveTab(tab);
     setInspectionData(data); 
     setMobileMenuOpen(false);
@@ -492,7 +507,6 @@ function App() {
             {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
             {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
             
-            {/* SOLUCIÓN: Agregada la función navigateTo al componente de perfil */}
             {activeTab === 'profile' && <UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} />}
             
             {activeTab === 'staff' && <StaffManagement currentUser={currentUser} />}
