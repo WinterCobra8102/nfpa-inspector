@@ -347,8 +347,13 @@ export default function StaffManagement({ currentUser }) {
             visibleStaff.map(person => (
               <div key={person.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md transition-all">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm ${person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600'}`}>
-                    {person.full_name?.charAt(0).toUpperCase() || 'U'}
+                  {/* AQUÍ ESTÁ EL CÓDIGO ACTUALIZADO PARA MOSTRAR LA FOTO DE PERFIL */}
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm overflow-hidden shrink-0 border border-slate-100 dark:border-slate-700 ${!person.avatar_url ? (person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600') : 'bg-transparent'}`}>
+                    {person.avatar_url ? (
+                      <img src={person.avatar_url} alt={person.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      person.full_name?.charAt(0).toUpperCase() || 'U'
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

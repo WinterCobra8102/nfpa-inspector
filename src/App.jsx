@@ -493,8 +493,13 @@ function App() {
                   <span className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">{currentUser.full_name}</span>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{currentUser.role}</span>
                 </div>
-                <button onClick={() => navigateTo('profile')} className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 overflow-hidden group">
-                  <UserIcon size={18} className="group-hover:scale-110 transition-transform" />
+                {/* BOTÓN CON LÓGICA DE AVATAR */}
+                <button onClick={() => navigateTo('profile')} className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 overflow-hidden group p-0">
+                  {currentUser?.avatar_url ? (
+                    <img src={currentUser.avatar_url} alt="Perfil" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon size={18} className="group-hover:scale-110 transition-transform" />
+                  )}
                 </button>
               </div>
             </div>
