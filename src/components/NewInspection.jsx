@@ -70,7 +70,8 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
   useEffect(() => {
     const fetchClients = async () => {
-      const { data } = await supabase.from('clientes').select('id, nombre, direccion').order('nombre');
+      // IMPORTANTE: Solicitamos también 'lat' y 'lng' de la base de datos
+      const { data } = await supabase.from('clientes').select('id, nombre, direccion, lat, lng').order('nombre');
       if (data) setClientsDb(data);
     };
 
@@ -90,16 +91,26 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
       if (prefillData?.location) {
         setLocation(prefillData.location);
-      } else if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }), () => {}
-        );
       }
+      // Se eliminó la petición a navigator.geolocation para no rastrear al técnico
     };
 
     fetchClients();
     loadUserAndLocation();
   }, [prefillData]);
+
+  // --- EFECTO NUEVO: VINCULAR COORDENADAS OFICIALES AL CAMBIAR CLIENTE ---
+  useEffect(() => {
+    if (selectedClient && clientsDb.length > 0) {
+      const clientObj = clientsDb.find(c => c.id === selectedClient);
+      // Si la empresa tiene coordenadas registradas, las usamos
+      if (clientObj && clientObj.lat && clientObj.lng) {
+        setLocation({ lat: clientObj.lat, lng: clientObj.lng });
+      } else {
+        setLocation(null);
+      }
+    }
+  }, [selectedClient, clientsDb]);
 
   useEffect(() => {
     if (selectedIPM && selectedIPM.sections) {
@@ -254,6 +265,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
         else if (statusesArray.includes('advertencia')) calculatedStatus = 'ADVERTENCIA';
       }
 
+      // Si no encontró las coordenadas en la BD, pone la de Mérida por defecto para no romper el mapa
       const safeLocation = location || { lat: 20.9673, lng: -89.5925 };
 
       await db.inspections.add({
@@ -295,16 +307,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     ctx.drawImage(img, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 1024, 768);
     setDetails(prev => ({ ...prev, [activePoint]: { ...prev[activePoint], photo: canvas.toDataURL('image/jpeg', 0.8) } }));
     setImageToCrop(null);
-  };
-
-  const updateGPS = () => {
-    if (navigator.geolocation) {
-      toast.loading("Obteniendo coordenadas...", { id: "gps" });
-      navigator.geolocation.getCurrentPosition(
-        (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); toast.success("Coordenadas actualizadas", { id: "gps" }); },
-        () => { toast.error("No se pudo acceder al GPS", { id: "gps" }); }
-      );
-    }
   };
 
   // =========================================================================
@@ -438,7 +440,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
                <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Ubicación GPS</span>
                <p className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px]">{location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Pendiente'}</p>
              </div>
-             <button onClick={updateGPS} className="text-blue-600 dark:text-blue-400 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Actualizar GPS"><RefreshCcw size={14}/></button>
+             {/* SE ELIMINÓ EL BOTÓN REFRESH MANUAL */}
            </div>
            <div className="p-4">
              <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Fecha de Ejecución</span>
@@ -729,7 +731,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
         </div>
       )}
 
-      {/* MODAL FIRMA CLIENTE FULLSCREEN — Se mantiene oscuro (inmersivo) */}
+      {/* MODAL FIRMA CLIENTE FULLSCREEN */}
       {showClientSigModal && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4 animate-in fade-in duration-200">
           <div className="flex justify-between items-center mb-4 mt-2">
@@ -750,7 +752,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
         </div>
       )}
 
-      {/* MODAL FIRMA TÉCNICO FULLSCREEN — Se mantiene oscuro (inmersivo) */}
+      {/* MODAL FIRMA TÉCNICO FULLSCREEN */}
       {showTechSigModal && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4 animate-in fade-in duration-200">
           <div className="flex justify-between items-center mb-4 mt-2">

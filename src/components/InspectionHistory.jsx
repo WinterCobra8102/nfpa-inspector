@@ -21,7 +21,6 @@ export default function InspectionHistory({ navigateTo }) {
   const [filterStd, setFilterStd] = useState('TODOS');
   const [filterCat, setFilterCat] = useState('TODOS');
   
-  // NUEVOS ESTADOS DE FILTRO
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCompany, setFilterCompany] = useState('TODOS');
 
@@ -31,9 +30,26 @@ export default function InspectionHistory({ navigateTo }) {
   const [tempDetails, setTempDetails] = useState({});
   const [tempVoltages, setTempVoltages] = useState([]);
 
+  // --- NUEVO ESTADO: MEMORIA DE MANAGERS ---
+  const [managers, setManagers] = useState([]);
+
   const inspections = useLiveQuery(() => db.inspections.orderBy('date').reverse().toArray());
 
-  // Obtener lista única de empresas para el filtro
+  // --- NUEVO EFECTO: OBTENER MANAGERS DESDE SUPABASE ---
+  useEffect(() => {
+    const fetchManagers = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('client_id, full_name')
+        .eq('role', 'MANAGER');
+      
+      if (data && !error) {
+        setManagers(data);
+      }
+    };
+    fetchManagers();
+  }, []);
+
   const uniqueCompanies = React.useMemo(() => {
     if (!inspections) return [];
     const companies = inspections.map(item => item.clientName).filter(Boolean);
@@ -59,18 +75,14 @@ export default function InspectionHistory({ navigateTo }) {
   };
 
   const filteredInspections = inspections?.filter(item => {
-    // Filtro de Norma
     const currentStd = item.standard || ((item.serviceCode === 'IPM-03' || item.formCode === 'F-SER-019') ? 'NFPA 72' : 'NFPA 25');
     const matchStd = filterStd === 'TODOS' || currentStd === filterStd;
     
-    // Filtro de Categoría
     const currentCat = item.category || getCategoryFromCode(item.serviceCode || item.formCode || item.equipmentName);
     const matchCat = filterCat === 'TODOS' || currentCat.toUpperCase() === filterCat.toUpperCase();
 
-    // NUEVO: Filtro de Empresa
     const matchCompany = filterCompany === 'TODOS' || item.clientName === filterCompany;
 
-    // NUEVO: Buscador General
     const searchLower = searchTerm.toLowerCase();
     const matchSearch = !searchTerm || 
       item.equipmentName?.toLowerCase().includes(searchLower) ||
@@ -83,12 +95,41 @@ export default function InspectionHistory({ navigateTo }) {
   });
 
   const handleOpenModal = (item, isEdit) => {
+    if (!item) return;
+    
     setSelectedReport(item);
     setTempObs(item.generalObs || item.observations || "");
     setTempStatus(item.overallStatus || "ÓPTIMO");
-    setTempOwnerName(item.ownerName || "");
-    setTempDetails(item.details ? JSON.parse(JSON.stringify(item.details)) : {});
-    setTempVoltages(item.voltages ? JSON.parse(JSON.stringify(item.voltages)) : Array.from({ length: 6 }, () => ({ min: '', max: '' })));
+    
+    // --- LÓGICA INTELIGENTE DE AUTOCOMPLETADO DE RESPONSABLE ---
+    const matchedManager = managers.find(m => m.client_id === item.clientId);
+    const suggestedName = matchedManager?.full_name || "";
+    setTempOwnerName(item.ownerName || suggestedName);
+    
+    let parsedDetails = {};
+    try {
+      if (typeof item.details === 'string') {
+        parsedDetails = JSON.parse(item.details);
+      } else if (typeof item.details === 'object' && item.details !== null) {
+        parsedDetails = { ...item.details };
+      }
+    } catch (e) {
+      console.error("Error al parsear detalles:", e);
+    }
+    setTempDetails(parsedDetails);
+
+    let parsedVoltages = Array.from({ length: 6 }, () => ({ min: '', max: '' }));
+    try {
+      if (typeof item.voltages === 'string') {
+        parsedVoltages = JSON.parse(item.voltages);
+      } else if (Array.isArray(item.voltages)) {
+        parsedVoltages = [...item.voltages];
+      }
+    } catch (e) {
+      console.error("Error al parsear voltajes:", e);
+    }
+    setTempVoltages(parsedVoltages);
+    
     setEditMode(isEdit);
   };
 
@@ -244,7 +285,7 @@ export default function InspectionHistory({ navigateTo }) {
         </div>
       </div>
 
-      {/* BARRA DE BÚSQUEDA Y FILTRO POR EMPRESA (NUEVO) */}
+      {/* BARRA DE BÚSQUEDA Y FILTRO POR EMPRESA */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Buscador General */}
         <div className="relative group">
@@ -437,7 +478,15 @@ export default function InspectionHistory({ navigateTo }) {
               {/* Grid Información General */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoBlock icon={<Building2 size={16}/>} label="Sucursal / Cliente" value={selectedReport.clientName} />
-                <InfoBlock icon={<MapPin size={16}/>} label="Ubicación en Sitio" value={selectedReport.location || "No especificada"} />
+                <InfoBlock 
+                  icon={<MapPin size={16}/>} 
+                  label="Dirección Oficial" 
+                  value={selectedReport.clientAddress && selectedReport.clientAddress !== 'No capturada' 
+                    ? selectedReport.clientAddress 
+                    : (selectedReport.location && typeof selectedReport.location === 'object' 
+                        ? `Lat: ${selectedReport.location.lat}, Lng: ${selectedReport.location.lng}` 
+                        : "No especificada")} 
+                />
                 <InfoBlock icon={<User size={16}/>} label="Técnico Responsable" value={selectedReport.performedBy || "Sin asignar"} />
               </div>
 
@@ -481,7 +530,8 @@ export default function InspectionHistory({ navigateTo }) {
                     />
                   ) : (
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                      {selectedReport.ownerName || "No capturado"}
+                      {/* --- LÓGICA DE VISUALIZACIÓN DEL AUTOCOMPLETADO --- */}
+                      {selectedReport.ownerName || (managers.find(m => m.client_id === selectedReport.clientId)?.full_name) || "No capturado"}
                     </p>
                   )}
                 </div>
@@ -523,6 +573,7 @@ export default function InspectionHistory({ navigateTo }) {
                           {['SÍ', 'NO', 'N/A'].map(option => (
                             <button
                               key={option}
+                              type="button"
                               onClick={() => setTempDetails(prev => ({ ...prev, [key]: option }))}
                               className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${val === option ? 'bg-white dark:bg-slate-900 text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >

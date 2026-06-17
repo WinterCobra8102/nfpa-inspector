@@ -95,7 +95,7 @@ function App() {
           table: 'chat_messages'
         },
         async (payload) => {
-          // No notificar si el mensaje es mío
+          // No notificar si el mensaje es mio
           if (payload.new.sender_id === currentUser.id) return;
 
           // ¡MAGIA!: Revisamos qué chat tiene abierto el usuario en memoria
@@ -508,7 +508,8 @@ function App() {
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
             {activeTab === 'home' && <Dashboard currentUser={currentUser} navigateTo={navigateTo} stats={stats} />}
-            {activeTab === 'form' && <NewInspection currentUser={currentUser} onComplete={() => navigateTo('list')} />}
+            {/* CORRECCIÓN APLICADA AQUÍ: */}
+            {activeTab === 'form' && <NewInspection navigateTo={navigateTo} prefillData={inspectionData} />}
             {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
             {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
             
