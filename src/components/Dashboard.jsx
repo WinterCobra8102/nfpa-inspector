@@ -58,12 +58,43 @@ export default function Dashboard({ navigateTo, stats }) {
       }
     }
 
-    const { data, error } = await query.order('nombre', { ascending: true });
-    if (!error && data) setClientes(data);
-    if (error) {
-        console.error("Error al cargar clientes:", error.message);
+    const { data: clientsData, error: clientsError } = await query.order('nombre', { ascending: true });
+    
+    if (clientsError) {
+        console.error("Error al cargar clientes:", clientsError.message);
         toast.error("Error al cargar empresas.");
+        setLoading(false);
+        return;
     }
+
+    if (clientsData) {
+      // === MAGIA DE INGENIERÍA: CRUCE DE DATOS ===
+      // 1. Buscamos a todos los usuarios que tengan el rol de MANAGER en el sistema
+      const { data: managersData, error: managersError } = await supabase
+        .from('profiles')
+        .select('client_id, full_name, email')
+        .eq('role', 'MANAGER');
+
+      if (!managersError && managersData) {
+        // 2. Cruzamos la información. Si la empresa tiene un Manager asignado, lo sobrescribimos.
+        const clientesActualizados = clientsData.map(cliente => {
+          const managerEncontrado = managersData.find(m => m.client_id === cliente.id);
+          if (managerEncontrado) {
+            return {
+              ...cliente,
+              encargado_nombre: managerEncontrado.full_name,
+              encargado_email: managerEncontrado.email
+            };
+          }
+          return cliente;
+        });
+        setClientes(clientesActualizados);
+      } else {
+        // Si hay error buscando managers, mostramos los clientes como estaban
+        setClientes(clientsData);
+      }
+    }
+    
     setLoading(false);
   };
 
@@ -144,7 +175,7 @@ export default function Dashboard({ navigateTo, stats }) {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS ONLINE (Alineado a la derecha sin el título duplicado) */}
+      {/* STATUS ONLINE */}
       <div className="flex justify-end items-center">
         <div className="bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-md border border-green-200 dark:border-green-800 flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -163,7 +194,6 @@ export default function Dashboard({ navigateTo, stats }) {
               onClick={() => navigateTo(item.id)}
               className="relative flex flex-col w-full overflow-hidden rounded-xl text-left shadow-sm hover:shadow-md transition-all group active:scale-[0.98] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             >
-              {/* Bloque de Color con Icono */}
               <div className={`w-full h-[100px] ${item.color} flex items-center justify-center relative`}>
                 <Icon size={40} className="text-white" strokeWidth={1.5} />
                 
@@ -174,7 +204,6 @@ export default function Dashboard({ navigateTo, stats }) {
                 )}
               </div>
 
-              {/* Título y Subtítulo */}
               <div className="bg-white dark:bg-slate-900 px-4 py-4 flex flex-col justify-center">
                 <h3 className="font-semibold text-slate-900 dark:text-white text-sm leading-tight mb-0.5">
                   {item.label}
@@ -209,6 +238,7 @@ export default function Dashboard({ navigateTo, stats }) {
                     <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover:bg-red-50 dark:group-hover:bg-red-900/20 group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors border border-slate-100 dark:border-slate-700"><Building size={18} strokeWidth={1.5} /></div>
                     <div className="overflow-hidden">
                       <h4 className="font-medium text-sm text-slate-900 dark:text-white truncate">{cliente.nombre}</h4>
+                      {/* AQUÍ SE MUESTRA EL NOMBRE YA CRUZADO DESDE LA TABLA PROFILES */}
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{cliente.encargado_nombre || 'Sin encargado'}</p>
                     </div>
                   </div>
@@ -228,7 +258,6 @@ export default function Dashboard({ navigateTo, stats }) {
           
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 h-full shadow-xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-slate-200 dark:border-slate-700">
             
-            {/* Header del Panel */}
             <div className="p-6 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 relative">
               <button 
                 type="button"
@@ -247,7 +276,6 @@ export default function Dashboard({ navigateTo, stats }) {
               </div>
             </div>
 
-            {/* Contenido del Panel */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
@@ -279,7 +307,6 @@ export default function Dashboard({ navigateTo, stats }) {
                 </div>
               </div>
 
-              {/* Sección Responsable */}
               <div className="space-y-4">
                 <h4 className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3"><UserCircle size={14} className="text-red-500" strokeWidth={1.5}/> Responsable</h4>
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-lg border border-slate-200 dark:border-slate-700 space-y-4">
@@ -323,7 +350,6 @@ export default function Dashboard({ navigateTo, stats }) {
                 </div>
               </div>
 
-              {/* Notas Internas */}
               <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-lg border border-amber-200 dark:border-amber-800">
                 <h4 className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2"><FileText size={14} strokeWidth={1.5}/> Notas Internas</h4>
                 {isEditing ? (
@@ -336,7 +362,6 @@ export default function Dashboard({ navigateTo, stats }) {
               </div>
             </div>
 
-            {/* Footer del Panel */}
             <div className="p-5 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex gap-3">
               {isEditing ? (
                 <button 
