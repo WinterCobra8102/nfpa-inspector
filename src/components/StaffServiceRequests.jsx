@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
-import { showConfirmDelete } from '../alerts'; 
 import { 
   ClipboardList, CheckCircle2, AlertCircle, Building2, 
   Calendar, RefreshCw, FileText, Play, CheckCheck
@@ -96,30 +95,33 @@ export default function StaffServiceRequests({ currentUser }) {
 
   // Acción 2: El técnico termina la reparación (Cambia a COMPLETADO)
   const handleCompleteWork = async (requestId, title) => {
-    showConfirmDelete(`FINALIZAR ORDEN: ${title}`, async () => {
-        setIsSubmitting(true);
-        const actionToast = toast.loading("Cerrando ticket de servicio...");
+    // Utilizamos una alerta de sistema limpia en lugar de la alerta roja de borrado
+    const isConfirmed = window.confirm(`¿Estás seguro de concluir el trabajo:\n"${title}"?\n\nAl aceptar, esta orden desaparecerá de tu bandeja y se marcará como terminada.`);
+    
+    if (!isConfirmed) return;
 
-        try {
-          const { error } = await supabase
-            .from('service_requests')
-            .update({
-              status: 'COMPLETADO',
-              fecha_resolucion: new Date().toISOString(), // Marca la hora exacta de terminación
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', requestId);
+    setIsSubmitting(true);
+    const actionToast = toast.loading("Cerrando ticket de servicio...");
 
-          if (error) throw error;
+    try {
+      const { error } = await supabase
+        .from('service_requests')
+        .update({
+          status: 'COMPLETADO',
+          fecha_resolucion: new Date().toISOString(), // Marca la hora exacta de terminación
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
 
-          toast.success("¡Orden completada y archivada exitosamente!", { id: actionToast });
-          fetchMyRequests(); // Al recargar, desaparecerá de su lista
-        } catch (err) {
-          toast.error(`Error: ${err.message}`, { id: actionToast });
-        } finally {
-          setIsSubmitting(false);
-        }
-    }, "Si concluyes el trabajo, esta orden desaparecerá de tu bandeja.");
+      if (error) throw error;
+
+      toast.success("¡Orden completada y archivada exitosamente!", { id: actionToast });
+      fetchMyRequests(); // Al recargar, desaparecerá de su lista
+    } catch (err) {
+      toast.error(`Error: ${err.message}`, { id: actionToast });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStatusBadge = (status) => {
