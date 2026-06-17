@@ -5,7 +5,8 @@ import { supabase } from '../supabaseClient';
 import { 
   FileDown, AlertTriangle, CheckCircle, XCircle, ClipboardList, ClipboardCheck, 
   Trash2, Edit3, Eye, X, CheckSquare, Square, Cloud, CloudOff, RefreshCw, 
-  Filter, Home, MapPin, User, FileText, Check, Image as ImageIcon, MessageSquare, Lock
+  Filter, Home, MapPin, User, FileText, Check, Image as ImageIcon, MessageSquare, Lock,
+  Search, Building2
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
@@ -19,6 +20,10 @@ export default function InspectionHistory({ navigateTo }) {
   
   const [filterStd, setFilterStd] = useState('TODOS');
   const [filterCat, setFilterCat] = useState('TODOS');
+  
+  // NUEVOS ESTADOS DE FILTRO
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCompany, setFilterCompany] = useState('TODOS');
 
   const [tempObs, setTempObs] = useState("");
   const [tempStatus, setTempStatus] = useState("");
@@ -27,6 +32,13 @@ export default function InspectionHistory({ navigateTo }) {
   const [tempVoltages, setTempVoltages] = useState([]);
 
   const inspections = useLiveQuery(() => db.inspections.orderBy('date').reverse().toArray());
+
+  // Obtener lista única de empresas para el filtro
+  const uniqueCompanies = React.useMemo(() => {
+    if (!inspections) return [];
+    const companies = inspections.map(item => item.clientName).filter(Boolean);
+    return ['TODOS', ...new Set(companies)];
+  }, [inspections]);
 
   const categoriesByStd = {
     'NFPA 25': ['BOMBAS', 'HIDRANTES', 'MANGUERAS', 'ROCIADORES', 'VÁLVULAS', 'OBSERVACIONES'],
@@ -47,10 +59,27 @@ export default function InspectionHistory({ navigateTo }) {
   };
 
   const filteredInspections = inspections?.filter(item => {
+    // Filtro de Norma
     const currentStd = item.standard || ((item.serviceCode === 'IPM-03' || item.formCode === 'F-SER-019') ? 'NFPA 72' : 'NFPA 25');
     const matchStd = filterStd === 'TODOS' || currentStd === filterStd;
+    
+    // Filtro de Categoría
     const currentCat = item.category || getCategoryFromCode(item.serviceCode || item.formCode || item.equipmentName);
-    return matchStd && (filterCat === 'TODOS' || currentCat.toUpperCase() === filterCat.toUpperCase());
+    const matchCat = filterCat === 'TODOS' || currentCat.toUpperCase() === filterCat.toUpperCase();
+
+    // NUEVO: Filtro de Empresa
+    const matchCompany = filterCompany === 'TODOS' || item.clientName === filterCompany;
+
+    // NUEVO: Buscador General
+    const searchLower = searchTerm.toLowerCase();
+    const matchSearch = !searchTerm || 
+      item.equipmentName?.toLowerCase().includes(searchLower) ||
+      item.clientName?.toLowerCase().includes(searchLower) ||
+      item.formCode?.toLowerCase().includes(searchLower) ||
+      item.serviceCode?.toLowerCase().includes(searchLower) ||
+      item.generalObs?.toLowerCase().includes(searchLower);
+
+    return matchStd && matchCat && matchCompany && matchSearch;
   });
 
   const handleOpenModal = (item, isEdit) => {
@@ -182,7 +211,7 @@ export default function InspectionHistory({ navigateTo }) {
         </button>
       </div>
 
-      {/* Header y Filtros */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-6 gap-4">
         <div className="flex items-center gap-4">
           <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl text-red-600 dark:text-red-500 border border-red-100 dark:border-red-900/30">
@@ -215,9 +244,55 @@ export default function InspectionHistory({ navigateTo }) {
         </div>
       </div>
 
+      {/* BARRA DE BÚSQUEDA Y FILTRO POR EMPRESA (NUEVO) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Buscador General */}
+        <div className="relative group">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors">
+            <Search size={18} />
+          </div>
+          <input 
+            type="text"
+            placeholder="Buscar por equipo, folio u observaciones..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:border-red-600/30 focus:ring-4 focus:ring-red-600/5 transition-all text-slate-800 dark:text-slate-200"
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Filtro por Empresa */}
+        <div className="relative group">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors">
+            <Building2 size={18} />
+          </div>
+          <select 
+            value={filterCompany}
+            onChange={(e) => setFilterCompany(e.target.value)}
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:border-red-600/30 focus:ring-4 focus:ring-red-600/5 transition-all text-slate-800 dark:text-slate-200 appearance-none"
+          >
+            {uniqueCompanies.map(company => (
+              <option key={company} value={company}>
+                {company === 'TODOS' ? 'Todas las empresas / sucursales' : company}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+            <Filter size={14} />
+          </div>
+        </div>
+      </div>
+
       {/* Filtro de Categoría */}
       {filterStd !== 'TODOS' && (
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {['TODOS', ...categoriesByStd[filterStd]].map(cat => (
             <button 
               key={cat} 
@@ -232,277 +307,305 @@ export default function InspectionHistory({ navigateTo }) {
 
       {/* Barra de Selección Masiva */}
       {selectedIds.length > 0 && (
-        <div className="p-4 bg-slate-900 dark:bg-slate-800 rounded-lg flex items-center justify-between text-white">
-          <span className="text-sm font-medium">{selectedIds.length} seleccionados</span>
-          <button onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-md text-xs font-medium transition-colors">
-            Eliminar Selección
-          </button>
+        <div className="p-4 bg-slate-900 dark:bg-slate-800 rounded-xl flex items-center justify-between text-white shadow-lg animate-in slide-in-from-top-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-600 p-2 rounded-lg">
+              <ClipboardCheck size={18} />
+            </div>
+            <span className="text-sm font-semibold">{selectedIds.length} reportes seleccionados</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setSelectedIds([])} className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg text-xs font-bold transition-colors">
+              Eliminar Selección
+            </button>
+          </div>
         </div>
       )}
       
       {/* LISTADO TÉCNICO */}
       <div className="grid gap-3">
         {filteredInspections?.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 p-16 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-sm flex flex-col items-center justify-center space-y-4">
+          <div className="bg-white dark:bg-slate-900 p-16 rounded-2xl border border-slate-200 dark:border-slate-700 text-center shadow-sm flex flex-col items-center justify-center space-y-4">
             <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-full border border-slate-100 dark:border-slate-700">
-              <Filter size={32} className="text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
+              <Search size={32} className="text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
             </div>
-            <p className="font-medium text-sm text-slate-500 dark:text-slate-400">Sin registros con estos filtros</p>
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-white">No se encontraron resultados</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Intenta con otros términos o filtros</p>
+            </div>
+            {(searchTerm || filterCompany !== 'TODOS' || filterStd !== 'TODOS') && (
+              <button 
+                onClick={() => { setSearchTerm(''); setFilterCompany('TODOS'); setFilterStd('TODOS'); setFilterCat('TODOS'); }}
+                className="text-red-600 dark:text-red-400 text-xs font-bold hover:underline mt-2"
+              >
+                Limpiar todos los filtros
+              </button>
+            )}
           </div>
         ) : (
           filteredInspections.map((item) => {
             const style = statusConfig[item.overallStatus] || statusConfig['PENDIENTE'];
             const isSelected = selectedIds.includes(item.id);
             return (
-              <div key={item.id} className={`flex flex-col p-5 bg-white dark:bg-slate-900 rounded-xl border-l-4 ${style.border} ${isSelected ? 'border border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10' : 'border border-slate-200 dark:border-slate-700'} shadow-sm hover:shadow-md transition-shadow`}>
-                <div className="flex justify-between">
+              <div key={item.id} className={`flex flex-col p-5 bg-white dark:bg-slate-900 rounded-xl border-l-4 ${style.border} ${isSelected ? 'border border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10' : 'border border-slate-200 dark:border-slate-700'} shadow-sm hover:shadow-md transition-all`}>
+                <div className="flex justify-between items-start">
                   <div className="flex gap-4">
-                    <button onClick={() => toggleSelect(item.id)} className={isSelected ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400'}>
+                    <button onClick={() => toggleSelect(item.id)} className={isSelected ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors'}>
                       {isSelected ? <CheckSquare size={22} /> : <Square size={22} />}
                     </button>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-500 dark:text-slate-400">{item.standard}</span>
-                        <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{item.equipmentName}</h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500 dark:text-slate-400 tracking-wider">{item.standard}</span>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">{item.equipmentName}</h3>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {item.formCode || item.serviceCode || 'IPM'} &middot; {new Date(item.date).toLocaleDateString()} &middot; <span className="text-slate-600 dark:text-slate-300">{item.clientName || 'Sin sucursal'}</span>
-                      </p>
+                      <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1.5">
+                        <p className="text-xs font-medium text-slate-400 flex items-center gap-1">
+                          <FileText size={12} /> {item.formCode || item.serviceCode || 'IPM'}
+                        </p>
+                        <p className="text-xs font-medium text-slate-400 flex items-center gap-1">
+                          <RefreshCw size={12} /> {new Date(item.date).toLocaleDateString()}
+                        </p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                          <MapPin size={12} /> {item.clientName || 'Sin sucursal'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className={`px-3 py-1 rounded-md text-xs font-medium ${style.badge}`}>
-                      {item.overallStatus || 'PENDIENTE'}
+
+                  <div className="flex items-center gap-1">
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase ${style.badge}`}>
+                      {style.icon} {item.overallStatus}
                     </div>
-                    {item.synced ? <Cloud size={14} className="text-blue-400" /> : <CloudOff size={14} className="text-orange-400 animate-pulse" />}
+                    <div className="flex items-center gap-1 ml-2">
+                      <ActionIcon icon={<Eye size={18} />} onClick={() => handleOpenModal(item, false)} />
+                      <ActionIcon icon={<Edit3 size={18} />} onClick={() => handleOpenModal(item, true)} />
+                      <button onClick={() => generatePDF(item)} className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <FileDown size={18} />
+                      </button>
+                      <button onClick={() => handleDeleteIndividual(item.id, item.equipmentName)} className="p-2 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
-                  <div className="flex gap-1">
-                    <button type="button" className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors" onClick={() => handleOpenModal(item, false)}><Eye size={16}/></button>
-                    <button type="button" className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-colors" onClick={() => handleOpenModal(item, true)}><Edit3 size={16}/></button>
+                
+                {item.generalObs && (
+                  <div className="mt-3 ml-10 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 italic">
+                      "{item.generalObs}"
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => generatePDF(item)} className="bg-slate-900 dark:bg-white hover:bg-red-600 dark:hover:bg-red-600 text-white dark:text-slate-900 dark:hover:text-white px-4 py-2 rounded-md font-medium text-xs flex items-center gap-2 transition-colors">
-                      <FileDown size={14}/> PDF
-                    </button>
-                    <button onClick={() => handleDeleteIndividual(item.id, item.equipmentName)} className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 transition-colors">
-                      <Trash2 size={16}/>
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })
         )}
       </div>
 
-      {/* MODAL DE PREVISUALIZACIÓN / EDICIÓN */}
+      {/* MODAL DETALLE / EDICIÓN */}
       {selectedReport && (
-        <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[92vh] rounded-xl overflow-hidden flex flex-col shadow-xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedReport(null)}></div>
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-700">
             
-            {/* Header del Modal */}
-            <div className="bg-slate-50 dark:bg-slate-800 p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
-              <div>
-                <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-md border border-red-100 dark:border-red-900/30">
-                  {editMode ? "Modo Editor" : "Previsualización"}
-                </span>
-                <h3 className="font-semibold text-xl text-slate-900 dark:text-white mt-2">{selectedReport.equipmentName}</h3>
+            {/* Header Modal */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-4">
+                <div className="bg-red-600 p-2.5 rounded-xl text-white shadow-lg shadow-red-600/20">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                    {editMode ? 'Editar Reporte Técnico' : 'Detalles de Inspección'}
+                  </h3>
+                  <p className="text-xs font-medium text-slate-400 mt-0.5">
+                    Folio: {selectedReport.formCode || selectedReport.serviceCode} &middot; {selectedReport.standard}
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setSelectedReport(null)} className="p-2 bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-colors border border-slate-200 dark:border-slate-700">
-                <X size={18}/>
+              <button onClick={() => setSelectedReport(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400">
+                <X size={20} />
               </button>
             </div>
 
-            {/* Contenido del Modal */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+            {/* Contenido Modal */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
               
-              {/* Banner de Información */}
-              <div className="bg-red-600 p-6 rounded-xl text-white">
-                <h4 className="text-lg font-semibold">TLETL - Protección Contra Incendios</h4>
-                <p className="text-sm opacity-80 mt-1">Formato Técnico: {selectedReport.formCode || 'IPM'} &middot; Norma: {selectedReport.standard}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/20 text-sm">
-                  <p>Técnico Operador: <span className="opacity-90">{selectedReport.performedBy || 'Isai Moo'}</span></p>
-                  <p>Fecha de Registro: <span className="opacity-90">{new Date(selectedReport.date).toLocaleString()}</span></p>
+              {/* Grid Información General */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <InfoBlock icon={<Building2 size={16}/>} label="Sucursal / Cliente" value={selectedReport.clientName} />
+                <InfoBlock icon={<MapPin size={16}/>} label="Ubicación en Sitio" value={selectedReport.location || "No especificada"} />
+                <InfoBlock icon={<User size={16}/>} label="Técnico Responsable" value={selectedReport.performedBy || "Sin asignar"} />
+              </div>
+
+              {/* Sección de Estatus y Firma */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1 h-1 bg-red-600 rounded-full"></div>
+                    Diagnóstico General
+                  </h4>
+                  {editMode ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {['ÓPTIMO', 'ADVERTENCIA', 'CRÍTICO'].map(st => (
+                        <button 
+                          key={st}
+                          onClick={() => setTempStatus(st)}
+                          className={`py-3 rounded-xl text-[10px] font-bold border transition-all ${tempStatus === st ? 'bg-red-600 text-white border-red-600 shadow-lg shadow-red-600/20 scale-[1.02]' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'}`}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold ${statusConfig[selectedReport.overallStatus]?.badge}`}>
+                      {statusConfig[selectedReport.overallStatus]?.icon} {selectedReport.overallStatus}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1 h-1 bg-red-600 rounded-full"></div>
+                    Nombre del Responsable (Firma)
+                  </h4>
+                  {editMode ? (
+                    <input 
+                      type="text" 
+                      value={tempOwnerName} 
+                      onChange={(e) => setTempOwnerName(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 px-4 text-sm outline-none focus:border-red-600 transition-all text-slate-800 dark:text-slate-200"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                      {selectedReport.ownerName || "No capturado"}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Datos de Localización */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
-                  <MapPin size={14} strokeWidth={1.5}/> Datos de Localización de la Sucursal
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700 dark:text-slate-300">
-                  <div className="space-y-1">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Empresa / Sucursal</p>
-                    <p className="font-semibold text-slate-900 dark:text-white">{selectedReport.clientName || 'NO ESPECIFICADO'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Responsable Conformidad</p>
-                    {editMode ? (
-                      <input className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 p-2.5 rounded-md text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500" value={tempOwnerName} onChange={e => setTempOwnerName(e.target.value)} />
-                    ) : (
-                      <p className="font-medium text-slate-900 dark:text-white">{tempOwnerName || 'No capturado'}</p>
-                    )}
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Dirección de Google Maps</p>
-                    <p className="text-slate-600 dark:text-slate-300 leading-tight">{selectedReport.clientAddress || 'No mapeada en la ficha técnica'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Selector de Estatus (Solo en modo edición) */}
-              {editMode && (
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center">Modificar Diagnóstico del Semáforo Global</p>
-                  <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
-                    {['ÓPTIMO', 'ADVERTENCIA', 'CRÍTICO'].map(s => (
-                      <button key={s} type="button" onClick={() => setTempStatus(s)} className={`flex-1 py-3 rounded-md text-xs font-medium transition-all ${tempStatus === s ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Checklist */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-3">Puntos del Checklist Evaluados</p>
-                
-                {Object.keys(tempDetails).length === 0 ? (
-                  <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No se capturaron celdas específicas en este reporte.</p>
+              {/* Observaciones */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-1 h-1 bg-red-600 rounded-full"></div>
+                  Observaciones Técnicas y Hallazgos
+                </h4>
+                {editMode ? (
+                  <textarea 
+                    value={tempObs} 
+                    onChange={(e) => setTempObs(e.target.value)}
+                    rows={4}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-red-600 transition-all text-slate-800 dark:text-slate-200 resize-none"
+                    placeholder="Describe los hallazgos técnicos..."
+                  />
                 ) : (
-                  <div className="space-y-4">
-                    {Object.entries(tempDetails).map(([pointName, val]) => (
-                      <div key={pointName} className="border-b border-slate-100 dark:border-slate-700 pb-4 space-y-2 last:border-0 last:pb-0">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                          <span className="text-sm text-slate-700 dark:text-slate-300 leading-tight flex-1">{pointName}</span>
-                          
-                          {editMode ? (
-                            <div className="flex gap-1 shrink-0">
-                              {[
-                                { k: 'bien', l: 'OK', c: 'bg-green-600 text-white' },
-                                { k: 'advertencia', l: 'ADV', c: 'bg-yellow-500 text-black' },
-                                { k: 'critico', l: 'X', c: 'bg-red-600 text-white' },
-                                { k: 'na', l: 'N/A', c: 'bg-slate-400 text-white' }
-                              ].map(opt => (
-                                <button
-                                  key={opt.k}
-                                  type="button"
-                                  onClick={() => setTempDetails(prev => ({ ...prev, [pointName]: { ...prev[pointName], status: opt.k } }))}
-                                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${tempDetails[pointName]?.status === opt.k ? `${opt.c} shadow-sm` : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
-                                >
-                                  {opt.l}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className={`px-3 py-1.5 rounded-md text-xs font-medium shrink-0 text-center ${
-                              val.status === 'bien' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800' :
-                              val.status === 'advertencia' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800' :
-                              val.status === 'critico' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                            }`}>
-                              {val.status === 'bien' ? 'OK' : val.status === 'advertencia' ? 'ADV' : val.status === 'critico' ? 'Crítico' : 'N/A'}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                          <MessageSquare size={13} className="text-slate-300 dark:text-slate-600 shrink-0"/>
-                          {editMode ? (
-                            <input className="w-full bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none" value={tempDetails[pointName]?.note || ''} placeholder="Modificar nota..." onChange={e => setTempDetails(prev => ({ ...prev, [pointName]: { ...prev[pointName], note: e.target.value } }))} />
-                          ) : (
-                            <p className="text-sm text-slate-600 dark:text-slate-300 leading-none">{val.note || 'Sin observaciones registradas.'}</p>
-                          )}
-                          {val.photo && <div className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 shrink-0 ml-auto bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md border border-green-200 dark:border-green-800"><ImageIcon size={12}/> Evidencia</div>}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 italic text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+                    "{selectedReport.generalObs || "Sin observaciones adicionales registradas."}"
                   </div>
                 )}
               </div>
 
-              {/* Voltajes */}
-              {tempVoltages.some(v => v.min || v.max || editMode) && (
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center border-b border-slate-100 dark:border-slate-700 pb-3">Registros de Voltaje de Arranque</p>
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400"><span>Ciclo</span><span>V. Mínimo</span><span>V. Máximo</span></div>
-                  {tempVoltages.map((v, i) => (
-                    <div key={i} className="grid grid-cols-3 gap-3 items-center">
-                      <span className="text-sm text-slate-700 dark:text-slate-300 text-center">{i+1}er Arranque</span>
+              {/* Detalles de la Inspección (Checklist) */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-1 h-1 bg-red-600 rounded-full"></div>
+                  Puntos de Inspección (Checklist)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.entries(tempDetails).map(([key, val]) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400 truncate mr-2">{key}</span>
                       {editMode ? (
-                        <input type="number" className="p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-md text-center text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500" value={v.min || ''} onChange={e => { const n = [...tempVoltages]; n[i].min = e.target.value; setTempVoltages(n); }} />
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg gap-1">
+                          {['SÍ', 'NO', 'N/A'].map(option => (
+                            <button
+                              key={option}
+                              onClick={() => setTempDetails(prev => ({ ...prev, [key]: option }))}
+                              className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${val === option ? 'bg-white dark:bg-slate-900 text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
                       ) : (
-                        <span className="text-sm text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-md text-center border border-slate-100 dark:border-slate-700">{v.min ? `${v.min} V` : '-'}</span>
-                      )}
-                      {editMode ? (
-                        <input type="number" className="p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-md text-center text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500" value={v.max || ''} onChange={e => { const n = [...tempVoltages]; n[i].max = e.target.value; setTempVoltages(n); }} />
-                      ) : (
-                        <span className="text-sm text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-md text-center border border-slate-100 dark:border-slate-700">{v.max ? `${v.max} V` : '-'}</span>
+                        <span className={`text-[10px] font-black px-2 py-1 rounded ${val === 'SÍ' ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : val === 'NO' ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'}`}>
+                          {val}
+                        </span>
                       )}
                     </div>
                   ))}
                 </div>
-              )}
-
-              {/* Observación General */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2"><FileText size={14} strokeWidth={1.5}/> Observación Técnica General Final</label>
-                {editMode ? (
-                  <textarea className="w-full h-28 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm outline-none text-slate-700 dark:text-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-500" value={tempObs} onChange={e => setTempObs(e.target.value)} />
-                ) : (
-                  <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-700 leading-relaxed">"{tempObs || 'Sin comentarios registrados.'}"</p>
-                )}
               </div>
 
-              {/* Firmas */}
-              {(selectedReport.signature || selectedReport.techSignature) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
-                  
-                  <div className="flex flex-col items-center text-center p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1"><Lock size={12}/> Firma Técnico Operador</p>
-                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-2 w-full h-28 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-700">
-                      {selectedReport.techSignature ? (
-                        <img src={selectedReport.techSignature} alt="Firma Técnico" className="max-h-full object-contain" />
-                      ) : (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">No capturada</span>
-                      )}
-                    </div>
+              {/* Voltajes (Si aplica) */}
+              {tempVoltages && tempVoltages.length > 0 && tempVoltages.some(v => v.min || v.max) && (
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1 h-1 bg-red-600 rounded-full"></div>
+                    Lecturas de Voltaje / Amperaje
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {tempVoltages.map((v, idx) => (
+                      <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
+                        <span className="text-[9px] font-bold text-slate-400 block mb-2 uppercase">Línea {idx + 1}</span>
+                        {editMode ? (
+                          <div className="space-y-1">
+                            <input type="text" value={v.min} onChange={(e) => { const n = [...tempVoltages]; n[idx].min = e.target.value; setTempVoltages(n); }} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[10px] text-center outline-none focus:border-red-600" placeholder="Min" />
+                            <input type="text" value={v.max} onChange={(e) => { const n = [...tempVoltages]; n[idx].max = e.target.value; setTempVoltages(n); }} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[10px] text-center outline-none focus:border-red-600" placeholder="Max" />
+                          </div>
+                        ) : (
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {v.min || '-'} / {v.max || '-'}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="flex flex-col items-center text-center p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1"><User size={12}/> Firma Conformidad Cliente</p>
-                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-2 w-full h-28 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-700">
-                      {selectedReport.signature ? (
-                        <img src={selectedReport.signature} alt="Firma Cliente" className="max-h-full object-contain" />
-                      ) : (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">No capturada</span>
-                      )}
-                    </div>
-                  </div>
-
                 </div>
               )}
-
             </div>
 
-            {/* Footer del Modal */}
-            <div className="p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setSelectedReport(null)} className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-medium text-sm transition-colors">
-                Cerrar
-              </button>
-              {editMode && (
-                <button type="button" onClick={handleUpdate} className="px-8 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm transition-colors flex items-center gap-2">
-                  <Check size={14}/> Guardar Cambios
+            {/* Footer Modal */}
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
+                {selectedReport.synced ? <Cloud size={14} className="text-green-500" /> : <CloudOff size={14} className="text-amber-500" />}
+                {selectedReport.synced ? 'Sincronizado con la nube' : 'Pendiente de sincronización'}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setSelectedReport(null)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                  Cerrar
                 </button>
-              )}
+                {editMode ? (
+                  <button onClick={handleUpdate} className="bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-red-600/20 transition-all active:scale-95">
+                    Guardar Cambios
+                  </button>
+                ) : (
+                  <button onClick={() => generatePDF(selectedReport)} className="bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                    <FileDown size={18} /> Descargar PDF
+                  </button>
+                )}
+              </div>
             </div>
-
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function InfoBlock({ icon, label, value }) {
+  return (
+    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+      <div className="flex items-center gap-2 text-red-600 mb-1.5">
+        {icon}
+        <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+      </div>
+      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+        {value || "No capturado"}
+      </p>
     </div>
   );
 }
