@@ -203,11 +203,6 @@ export default function SitesView({ navigateTo }) {
                 <h4 className="font-semibold text-sm text-slate-800 mt-2">{activeSite.name}</h4>
                 <p className="text-xs text-slate-400 mt-1">{activeSite.address}</p>
               </div>
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <button className="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2.5 rounded-lg font-medium flex items-center justify-center gap-2" onClick={() => navigateTo && navigateTo('form', { clientId: activeSite.id, clientName: activeSite.name })}>
-                  Crear Inspección
-                </button>
-              </div>
             </div>
           </InfoWindow>
         )}
