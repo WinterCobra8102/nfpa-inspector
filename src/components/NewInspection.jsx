@@ -70,7 +70,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
   useEffect(() => {
     const fetchClients = async () => {
-      // IMPORTANTE: Solicitamos también 'lat' y 'lng' de la base de datos
       const { data } = await supabase.from('clientes').select('id, nombre, direccion, lat, lng').order('nombre');
       if (data) setClientsDb(data);
     };
@@ -92,18 +91,36 @@ export default function NewInspection({ navigateTo, prefillData }) {
       if (prefillData?.location) {
         setLocation(prefillData.location);
       }
-      // Se eliminó la petición a navigator.geolocation para no rastrear al técnico
     };
 
     fetchClients();
     loadUserAndLocation();
   }, [prefillData]);
 
-  // --- EFECTO NUEVO: VINCULAR COORDENADAS OFICIALES AL CAMBIAR CLIENTE ---
+  // --- NUEVA CORRECCIÓN DE AUTORRUTAMIENTO INTEGRADA ---
+  useEffect(() => {
+    if (prefillData?.cliente_id && clientsDb.length > 0) {
+      setSelectedClient(prefillData.cliente_id);
+      
+      // Buscamos si la normativa NFPA provista coincide con alguna del catálogo
+      if (prefillData.normativa_nfpa) {
+        const matchedIPM = IPM_CATALOG.find(item => 
+          prefillData.normativa_nfpa.toUpperCase().includes(item.standard.toUpperCase()) &&
+          prefillData.normativa_nfpa.toUpperCase().includes(item.category.toUpperCase())
+        ) || IPM_CATALOG.find(item => prefillData.normativa_nfpa.toUpperCase().includes(item.standard.toUpperCase()));
+        
+        if (matchedIPM) {
+          setSelectedStandard(matchedIPM.standard);
+          setSelectedIPM(matchedIPM);
+          setStep(3); // Brincamos directo al Paso 3 (Checklist)
+        }
+      }
+    }
+  }, [prefillData, clientsDb]);
+
   useEffect(() => {
     if (selectedClient && clientsDb.length > 0) {
       const clientObj = clientsDb.find(c => c.id === selectedClient);
-      // Si la empresa tiene coordenadas registradas, las usamos
       if (clientObj && clientObj.lat && clientObj.lng) {
         setLocation({ lat: clientObj.lat, lng: clientObj.lng });
       } else {
@@ -146,10 +163,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     }
   }, [showTechSigModal]);
 
-  // =========================================================================
-  // --- LÓGICA DE AÑADIR/BORRAR PUNTOS ---
-  // =========================================================================
-  
   const triggerAddPoint = (sIdx, isInventoryTable) => {
     setCustomAddModal({ isOpen: true, sIdx, isInventory: isInventoryTable, tag: '', desc: '' });
   };
@@ -200,10 +213,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     toast.success("Elemento removido");
     setCustomDeleteModal({ isOpen: false, sIdx: null, pIdx: null, pointValue: '', displayName: '' });
   };
-
-  // =========================================================================
-  // --- LÓGICA DE FIRMAS Y DIBUJO ---
-  // =========================================================================
 
   const startDrawing = (e, canvasRef) => {
     if (e.cancelable) e.preventDefault(); 
@@ -265,7 +274,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
         else if (statusesArray.includes('advertencia')) calculatedStatus = 'ADVERTENCIA';
       }
 
-      // Si no encontró las coordenadas en la BD, pone la de Mérida por defecto para no romper el mapa
       const safeLocation = location || { lat: 20.9673, lng: -89.5925 };
 
       await db.inspections.add({
@@ -286,14 +294,20 @@ export default function NewInspection({ navigateTo, prefillData }) {
         date: new Date().toISOString()
       });
 
+      // Si la inspección viene de una orden, actualizamos la tabla relacional en Supabase
+      if (prefillData?.ticket_id) {
+        await supabase
+          .from('service_requests')
+          .update({ inspection_id: prefillData.ticket_id })
+          .eq('id', prefillData.ticket_id);
+      }
+
       toast.success("Reporte oficial guardado localmente");
       navigateTo('home'); 
     } catch (e) {
       console.error(e);
       toast.error("Error al guardar el reporte.");
-    } finally {
-      setIsSaving(false);
-    }
+    } Platform.OS === 'web' && setIsSaving(false);
   };
 
   const onCropComplete = useCallback((_, pixels) => setCroppedAreaPixels(pixels), []);
@@ -308,10 +322,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     setDetails(prev => ({ ...prev, [activePoint]: { ...prev[activePoint], photo: canvas.toDataURL('image/jpeg', 0.8) } }));
     setImageToCrop(null);
   };
-
-  // =========================================================================
-  // PASO 1: SELECCIÓN DE SUCURSAL
-  // =========================================================================
 
   if (step === 1) return (
       <div className="max-w-2xl mx-auto p-4 md:p-8 space-y-6">
@@ -346,10 +356,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
         </div>
       </div>
   );
-
-  // =========================================================================
-  // PASO 2: CATÁLOGO DE FORMULARIOS
-  // =========================================================================
 
   if (step === 2) {
     const services = IPM_CATALOG.filter(item => item.standard.includes(selectedStandard) || item.id === 'IPM-07');
@@ -386,24 +392,15 @@ export default function NewInspection({ navigateTo, prefillData }) {
     );
   }
 
-  // =========================================================================
-  // PASO 3: DISEÑO DE DOCUMENTO FORMAL (A4 STYLE)
-  // =========================================================================
-
   return (
     <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-24 pt-4 md:pt-8 px-2 md:px-4">
-      
-      {/* Botón de regreso fuera del documento */}
       <div className="max-w-5xl mx-auto mb-4 flex justify-between items-center">
         <button onClick={() => setStep(2)} className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-red-600 dark:hover:text-red-500 transition-colors">
           <ArrowLeft size={16} /> Cancelar y volver al catálogo
         </button>
       </div>
 
-      {/* --- INICIO DEL DOCUMENTO (HOJA) --- */}
       <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl rounded-sm overflow-hidden">
-        
-        {/* MEMBRETE (HEADER DOCUMENTO) */}
         <div className="border-b-[3px] border-slate-800 dark:border-slate-600 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center rounded-sm shrink-0">
@@ -423,7 +420,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
           </div>
         </div>
 
-        {/* INFO GENERAL (GRID) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
            <div className="p-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700">
              <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Empresa / Sitio</span>
@@ -440,7 +436,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
                <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Ubicación GPS</span>
                <p className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px]">{location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Pendiente'}</p>
              </div>
-             {/* SE ELIMINÓ EL BOTÓN REFRESH MANUAL */}
            </div>
            <div className="p-4">
              <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Fecha de Ejecución</span>
@@ -448,13 +443,9 @@ export default function NewInspection({ navigateTo, prefillData }) {
            </div>
         </div>
 
-        {/* --- DESARROLLO DEL CHECKLIST (SECCIONES) --- */}
         <div className="p-6 md:p-10 space-y-12">
-          
           {dynamicSections && dynamicSections.map((sec, sIdx) => (
             <div key={sIdx} className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden">
-              
-              {/* Encabezado de Sección */}
               <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600 flex justify-between items-center">
                  <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">{sec.title}</h3>
                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 border border-slate-200 dark:border-slate-700 rounded">
@@ -462,7 +453,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
                  </span>
               </div>
 
-              {/* Lista de Puntos */}
               <div className="divide-y divide-slate-200 dark:divide-slate-700">
                 {sec.points && sec.points.map((p, pIdx) => {
                   const currentStatus = details[p]?.status;
@@ -475,8 +465,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
                   return (
                     <div key={pIdx} className="flex flex-col hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors relative group">
-                      
-                      {/* Botón borrar (Aparece en hover) */}
                       <button 
                         type="button" 
                         onClick={() => triggerRemovePoint(sIdx, pIdx, p)} 
@@ -487,8 +475,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
                       </button>
 
                       <div className="flex flex-col lg:flex-row min-h-[60px] pl-6 md:pl-10">
-                        
-                        {/* Celda de Descripción */}
                         <div className="flex-1 py-4 pr-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-700 flex flex-col justify-center">
                           {isInventory ? (
                             <div className="flex items-start gap-2">
@@ -500,19 +486,12 @@ export default function NewInspection({ navigateTo, prefillData }) {
                           )}
                         </div>
 
-                        {/* Celda de Acciones */}
                         <div className="flex items-center gap-2 p-3 shrink-0">
-                          {/* Botones de Estado */}
                           <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'optimo'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'optimo' ? 'bg-green-500 text-white border-green-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-green-400 hover:text-green-500'}`}><CheckCircle2 size={16}/></button>
                           <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'advertencia'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'advertencia' ? 'bg-amber-500 text-white border-amber-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-amber-400 hover:text-amber-500'}`}><AlertTriangle size={16}/></button>
                           <button type="button" onClick={() => setDetails(prev => ({...prev, [p]: {...prev[p], status: 'critico'}}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${currentStatus === 'critico' ? 'bg-red-500 text-white border-red-500 scale-110' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-red-400 hover:text-red-500'}`}><AlertOctagon size={16}/></button>
-                          
                           <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
-                          
-                          {/* Botón Nota */}
                           <button type="button" onClick={() => setActiveComments(prev => ({...prev, [p]: !prev[p]}))} className={`w-9 h-9 rounded flex items-center justify-center border transition-all ${hasNote ? 'bg-blue-500 text-white border-blue-500' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-blue-400 hover:text-blue-500'}`}><MessageSquare size={14}/></button>
-                          
-                          {/* Botón Foto */}
                           <label className={`w-9 h-9 rounded flex items-center justify-center border transition-all cursor-pointer ${hasPhoto ? 'bg-purple-500 text-white border-purple-500' : 'border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-400 hover:text-purple-500'}`}>
                             <Camera size={14}/>
                             <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const file = e.target.files[0]; if(file){ setActivePoint(p); const reader = new FileReader(); reader.onload = (ev) => setImageToCrop(ev.target.result); reader.readAsDataURL(file); }}} />
@@ -520,7 +499,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
                         </div>
                       </div>
 
-                      {/* Área expandible: Nota + Foto */}
                       {activeComments[p] && (
                         <div className="px-6 md:px-10 pb-4 pt-2 space-y-3 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700">
                           <textarea 
@@ -542,13 +520,11 @@ export default function NewInspection({ navigateTo, prefillData }) {
                           )}
                         </div>
                       )}
-
                     </div>
                   );
                 })}
               </div>
 
-              {/* Fila inferior para añadir elementos */}
               <button
                 type="button"
                 onClick={() => triggerAddPoint(sIdx, sec.isInventoryTable)}
@@ -559,7 +535,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
             </div>
           ))}
 
-          {/* --- TABLA DE VOLTAJES FORMAL --- */}
           {selectedIPM.hasVoltages && (
               <div className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden mb-10">
                   <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600 flex items-center justify-between">
@@ -590,7 +565,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
               </div>
           )}
 
-          {/* DICTAMEN GENERAL */}
           <div className="border border-slate-300 dark:border-slate-600 rounded-sm overflow-hidden mb-8">
             <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 border-b border-slate-300 dark:border-slate-600">
                <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">DICTAMEN TÉCNICO Y OBSERVACIONES GENERALES</h3>
@@ -605,13 +579,10 @@ export default function NewInspection({ navigateTo, prefillData }) {
 
         </div>
 
-        {/* --- SECCIÓN DE FIRMAS Y LEGALIZACIÓN (ESTILO DOCUMENTO) --- */}
         <div className="border-t-[3px] border-slate-800 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 md:p-10">
           <h3 className="text-center font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-12 text-sm">Validación y Firmas de Conformidad</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 max-w-3xl mx-auto">
-            
-            {/* Firma Cliente */}
             <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
                  className="w-full bg-transparent border-b border-transparent focus:border-blue-400 text-center font-bold text-sm outline-none text-slate-800 dark:text-slate-200 mb-6 placeholder-slate-400 dark:placeholder-slate-500 transition-colors" 
@@ -632,7 +603,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-3 text-center">Firma de Recibido y Conformidad</p>
             </div>
 
-            {/* Firma Técnico */}
             <div className="flex flex-col items-center w-full max-w-[320px] mx-auto">
               <input 
                  className="w-full bg-transparent border-b border-transparent text-center font-bold text-sm outline-none text-slate-800 dark:text-slate-200 mb-6" 
@@ -651,10 +621,8 @@ export default function NewInspection({ navigateTo, prefillData }) {
               </div>
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-3 text-center">Técnico Autorizado TLETL</p>
             </div>
-
           </div>
           
-          {/* Botón Guardar */}
           <div className="mt-16 flex justify-center">
             <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 dark:bg-white hover:bg-red-600 dark:hover:bg-red-600 text-white dark:text-slate-900 dark:hover:text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
               {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />} 
@@ -662,12 +630,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
             </button>
           </div>
         </div>
-
       </div>
-
-      {/* ========================================================================= */}
-      {/* MODALES DE INTERFAZ */}
-      {/* ========================================================================= */}
 
       {/* MODAL: AÑADIR PUNTO/DISPOSITIVO */}
       {customAddModal.isOpen && (

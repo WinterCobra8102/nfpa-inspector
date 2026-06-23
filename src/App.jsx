@@ -413,7 +413,8 @@ function App() {
               isOpen={isSidebarOpen || isMobileMenuOpen} 
             />
 
-            <NavItem icon={<MapPin size={20} />} label="Ubicación de Sites" active={activeTab === 'sites'} onClick={() => navigateTo('sites')} isOpen={isSidebarOpen || isMobileMenuOpen} />
+            <NavItem icon={<MapPin size={20} />} label="Registrar empresas" active={activeTab === 'sites'} onClick={() => navigateTo('sites')} isOpen={isSidebarOpen || isMobileMenuOpen} />
+            
             <NavItem icon={<Building2 size={20} />} label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} active={activeTab === 'companies' || activeTab === 'calendar'} onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
             <div className="my-3 border-t border-slate-100 dark:border-slate-800 mx-3" />
@@ -465,7 +466,7 @@ function App() {
                 {activeTab === 'home' ? 'Panel de Control' : 
                  activeTab === 'form' ? 'Nueva Inspección' : 
                  activeTab === 'list' ? 'Historial de Reportes' : 
-                 activeTab === 'sites' ? 'Ubicación de Sites' :
+                 activeTab === 'sites' ? 'Registrar empresas' :
                  activeTab === 'profile' ? 'Mi Perfil' :
                  activeTab === 'staff' ? 'Gestión de Equipo' :
                  activeTab === 'calendar' ? 'Calendario IPM' :
@@ -508,7 +509,6 @@ function App() {
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
             {activeTab === 'home' && <Dashboard currentUser={currentUser} navigateTo={navigateTo} stats={stats} />}
-            {/* CORRECCIÓN APLICADA AQUÍ: */}
             {activeTab === 'form' && <NewInspection navigateTo={navigateTo} prefillData={inspectionData} />}
             {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
             {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
@@ -524,7 +524,8 @@ function App() {
             
             {activeTab === 'tickets' && (
               currentUser.role === 'ADMIN' ? <AdminServiceRequests currentUser={currentUser} /> :
-              currentUser.role === 'STAFF' ? <StaffServiceRequests currentUser={currentUser} /> :
+              // AQUÍ SE PASA EL NAVIGATETO AL TÉCNICO
+              currentUser.role === 'STAFF' ? <StaffServiceRequests currentUser={currentUser} navigateTo={navigateTo} /> :
               <ClientServiceRequests currentUser={currentUser} />
             )}
           </div>

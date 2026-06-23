@@ -3,22 +3,20 @@ import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import { 
   ClipboardList, CheckCircle2, AlertCircle, Building2, 
-  Calendar, RefreshCw, FileText, Play, CheckCheck, Clock, X, AlertTriangle
+  Calendar, RefreshCw, FileText, Play, CheckCheck, Clock, X, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 
-export default function StaffServiceRequests({ currentUser }) {
+export default function StaffServiceRequests({ currentUser, navigateTo }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ESTADO PARA EL MODAL PERSONALIZADO DE CONCLUSIÓN
   const [concludeModal, setConcludeModal] = useState({ isOpen: false, requestId: null, title: '' });
 
   useEffect(() => {
     if (currentUser?.id) {
       fetchMyRequests();
 
-      // Suscripción para escuchar si el Admin le asigna un nuevo ticket en tiempo real
       const channel = supabase
         .channel('solicitudes-staff')
         .on(
@@ -48,7 +46,6 @@ export default function StaffServiceRequests({ currentUser }) {
   }, [currentUser]);
 
   async function fetchMyRequests() {
-    // AHORA TRAEMOS TODAS, INCLUYENDO LAS COMPLETADAS (Se quitó el .neq)
     const { data, error } = await supabase
       .from('service_requests')
       .select(`
@@ -68,12 +65,10 @@ export default function StaffServiceRequests({ currentUser }) {
     setLoading(false);
   }
 
-  // --- LÓGICA DE RBAC: FLUJO OPERATIVO DEL TÉCNICO ---
-
-  // Acción 1: El técnico acepta la orden y empieza a trabajar (Cambia a EN_PROCESO)
-  const handleStartWork = async (requestId) => {
+  // ACCIÓN 1: Inicia el trabajo y salta al formulario
+  const handleStartWork = async (ticket) => {
     setIsSubmitting(true);
-    const actionToast = toast.loading("Iniciando orden de trabajo...");
+    const actionToast = toast.loading("Iniciando orden y abriendo reporte...");
 
     try {
       const { error } = await supabase
@@ -82,12 +77,27 @@ export default function StaffServiceRequests({ currentUser }) {
           status: 'EN_PROCESO',
           updated_at: new Date().toISOString() 
         })
-        .eq('id', requestId);
+        .eq('id', ticket.id);
 
       if (error) throw error;
 
-      toast.success("Has iniciado el trabajo. El cliente ha sido notificado.", { id: actionToast });
+      toast.success("Trabajo iniciado. Redirigiendo a la inspección...", { id: actionToast });
       fetchMyRequests(); 
+      
+      // EL SALTO AUTOMÁTICO
+      setTimeout(() => {
+        if(typeof navigateTo === 'function') {
+          navigateTo('form', {
+            ticket_id: ticket.id,
+            cliente_id: ticket.client_id,
+            cliente_nombre: ticket.clientes?.nombre,
+            normativa_nfpa: ticket.normativa_nfpa
+          });
+        } else {
+          toast.error("Error interno: La función de navegación no está conectada.");
+        }
+      }, 1000);
+
     } catch (err) {
       toast.error(`Error: ${err.message}`, { id: actionToast });
     } finally {
@@ -95,12 +105,10 @@ export default function StaffServiceRequests({ currentUser }) {
     }
   };
 
-  // Acción 2: Disparar el Modal Elegante
   const triggerCompleteWork = (requestId, title) => {
     setConcludeModal({ isOpen: true, requestId, title });
   };
 
-  // Acción 3: Confirmar desde el Modal y Guardar en BD
   const confirmCompleteWork = async () => {
     const { requestId } = concludeModal;
     setIsSubmitting(true);
@@ -126,6 +134,15 @@ export default function StaffServiceRequests({ currentUser }) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${ampm}`;
   };
 
   const getStatusBadge = (status) => {
@@ -177,7 +194,7 @@ export default function StaffServiceRequests({ currentUser }) {
                     {ticket.status === 'ASIGNADO' ? 'NUEVA ASIGNACIÓN' : ticket.status === 'COMPLETADO' ? 'FINALIZADO' : 'TRABAJO EN CURSO'}
                   </span>
                   <div className="text-xs font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                    <Calendar size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
+                    <Calendar size={12} /> Solicitado: {new Date(ticket.created_at).toLocaleDateString()}
                   </div>
                 </div>
 
@@ -191,26 +208,37 @@ export default function StaffServiceRequests({ currentUser }) {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-blue-50 dark:bg-blue-900/20 w-fit px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <Building2 size={14} className="text-blue-600 dark:text-blue-400" />
-                  Sucursal a Visitar: <span className="font-bold text-blue-700 dark:text-blue-400 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-100 dark:border-blue-800">
+                    <Building2 size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>Sucursal: <span className="font-bold text-blue-700 dark:text-blue-400 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span></span>
+                  </div>
+
+                  {ticket.fecha_programada && (
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-purple-50 dark:bg-purple-900/20 px-3 py-2 rounded-lg border border-purple-100 dark:border-purple-800 animate-pulse">
+                      <Clock size={14} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                      <span>Cita: <span className="font-bold text-purple-700 dark:text-purple-400 ml-1">{new Date(ticket.fecha_programada + 'T00:00:00').toLocaleDateString()} - {ticket.hora_programada ? formatTime(ticket.hora_programada) : 'Hora no definida'}</span></span>
+                    </div>
+                  )}
                 </div>
 
-                {/* NUEVO: SECCIÓN DE TIEMPOS DE RESPUESTA (SLA) */}
-                <div className="flex flex-wrap items-center gap-4 mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    <AlertCircle size={14} className="text-amber-500" />
-                    Max. Atención: <span className="text-slate-700 dark:text-slate-300 font-bold">24 hrs</span>
+                {ticket.normativa_nfpa && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-emerald-50 dark:bg-emerald-950/30 w-fit px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 mt-2">
+                    <ShieldCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>Bajo Marco Normativo: <span className="text-emerald-700 dark:text-emerald-400 font-bold uppercase">{ticket.normativa_nfpa}</span></span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    <Clock size={14} className="text-blue-500" />
-                    T. Estimado: <span className="text-slate-700 dark:text-slate-300 font-bold">2 hrs</span>
-                  </div>
-                </div>
+                )}
 
+                {!ticket.fecha_programada && (
+                  <div className="flex flex-wrap items-center gap-4 mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      <AlertCircle size={14} className="text-amber-500" />
+                      Límite de Asignación: <span className="text-slate-700 dark:text-slate-300 font-bold">24 hrs</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* PANEL DE ACCIONES DEL TÉCNICO */}
               <div className="shrink-0 w-full md:w-56 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg flex flex-col justify-center space-y-3">
                 {ticket.status === 'COMPLETADO' ? (
                   <div className="text-center space-y-1.5 py-2">
@@ -226,7 +254,7 @@ export default function StaffServiceRequests({ currentUser }) {
                     <button
                       type="button"
                       disabled={isSubmitting}
-                      onClick={() => handleStartWork(ticket.id)}
+                      onClick={() => handleStartWork(ticket)}
                       className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       {isSubmitting ? <RefreshCw className="animate-spin" size={16}/> : <><Play size={16}/> Iniciar Trabajo</>}
@@ -234,10 +262,31 @@ export default function StaffServiceRequests({ currentUser }) {
                   </>
                 ) : (
                   <>
-                    <div className="text-center space-y-1">
+                    {/* ESTE ES EL NUEVO CÓDIGO PARA RETOMAR EL TRABAJO */}
+                    <div className="text-center space-y-1 mb-2">
                         <AlertCircle size={20} className="text-amber-500 mx-auto animate-pulse" />
                         <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">En Ejecución</p>
                     </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if(typeof navigateTo === 'function') {
+                          navigateTo('form', {
+                            ticket_id: ticket.id,
+                            cliente_id: ticket.client_id,
+                            cliente_nombre: ticket.clientes?.nombre,
+                            normativa_nfpa: ticket.normativa_nfpa
+                          });
+                        } else {
+                          toast.error("Error: Actualiza tu archivo App.js");
+                        }
+                      }}
+                      className="w-full py-2.5 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 rounded-lg font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                    >
+                      <FileText size={16}/> Abrir Inspección
+                    </button>
+
                     <button
                       type="button"
                       disabled={isSubmitting}
@@ -255,7 +304,7 @@ export default function StaffServiceRequests({ currentUser }) {
         )}
       </div>
 
-      {/* --- MODAL ELEGANTE DE CONCLUSIÓN DE ORDEN --- */}
+      {/* MODAL */}
       {concludeModal.isOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 text-center border border-slate-200 dark:border-slate-700">

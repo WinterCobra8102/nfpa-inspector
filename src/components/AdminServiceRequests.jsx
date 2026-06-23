@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { showConfirmDelete } from '../alerts'; 
 import { 
   ClipboardList, UserCheck, Clock, CheckCircle2, 
-  AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2, AlertTriangle, MapPin
+  AlertCircle, Building2, Calendar, RefreshCw, FileText, Trash2, AlertTriangle, MapPin, ShieldCheck
 } from 'lucide-react';
 
 export default function AdminServiceRequests({ currentUser }) {
@@ -12,7 +12,19 @@ export default function AdminServiceRequests({ currentUser }) {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedTechs, setSelectedTechs] = useState({}); 
+  
+  // ESTADO PARA EL NUEVO FORMULARIO DE ASIGNACIÓN (Técnico, Fecha, Hora, NFPA)
+  const [assignmentData, setAssignmentData] = useState({}); 
+
+  // Catálogo base de normativas NFPA
+  const nfpaOptions = [
+    "NFPA 10 (Extintores)",
+    "NFPA 13 (Rociadores)",
+    "NFPA 20 (Bombas)",
+    "NFPA 25 (Inspección y Prueba)",
+    "NFPA 72 (Alarmas)",
+    "Otro / Revisión General"
+  ];
 
   useEffect(() => {
     fetchRequests();
@@ -83,29 +95,40 @@ export default function AdminServiceRequests({ currentUser }) {
     }
   }
 
-  const handleTechChange = (requestId, techId) => {
-    setSelectedTechs(prev => ({
+  const handleAssignmentChange = (requestId, field, value) => {
+    setAssignmentData(prev => ({
       ...prev,
-      [requestId]: techId
+      [requestId]: {
+        ...prev[requestId],
+        [field]: value
+      }
     }));
   };
 
   const handleAssignTechnician = async (requestId) => {
-    const tecnicoId = selectedTechs[requestId];
+    const ticketData = assignmentData[requestId] || {};
     
-    if (!tecnicoId) {
-      toast.error("Por favor, selecciona un técnico antes de confirmar.");
+    // Validaciones
+    if (!ticketData.tecnico_id) {
+      toast.error("Por favor, selecciona un técnico.");
+      return;
+    }
+    if (!ticketData.fecha_programada || !ticketData.hora_programada) {
+      toast.error("Debes establecer una fecha y hora para la cita técnica.");
       return;
     }
 
     setIsSubmitting(true);
-    const actionToast = toast.loading("Confirmando solicitud y asignando técnico...");
+    const actionToast = toast.loading("Confirmando agenda y asignando técnico...");
 
     try {
       const { error } = await supabase
         .from('service_requests')
         .update({
-          tecnico_id: tecnicoId,
+          tecnico_id: ticketData.tecnico_id,
+          fecha_programada: ticketData.fecha_programada,
+          hora_programada: ticketData.hora_programada,
+          normativa_nfpa: ticketData.normativa_nfpa || null,
           status: 'ASIGNADO',
           fecha_asignacion: new Date().toISOString()
         })
@@ -113,7 +136,7 @@ export default function AdminServiceRequests({ currentUser }) {
 
       if (error) throw error;
 
-      toast.success("Solicitud confirmada. Al cliente le aparecerá el estatus actualizado.", { id: actionToast });
+      toast.success("Solicitud confirmada y agendada correctamente.", { id: actionToast });
       fetchRequests(); 
     } catch (err) {
       toast.error(`Error: ${err.message}`, { id: actionToast });
@@ -158,6 +181,15 @@ export default function AdminServiceRequests({ currentUser }) {
         toast.error(`Error al vaciar: ${err.message}`, { id: deleteToast });
       }
     });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${ampm}`;
   };
 
   const getStatusBadge = (status) => {
@@ -211,7 +243,7 @@ export default function AdminServiceRequests({ currentUser }) {
           </div>
         ) : (
           requests.map((ticket) => (
-            <div key={ticket.id} className="relative bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-slate-300 hover:shadow-md transition-all">
+            <div key={ticket.id} className="relative bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-6 hover:border-slate-300 hover:shadow-md transition-all">
               
               {currentUser?.role === 'ADMIN' && (
                 <button 
@@ -243,31 +275,99 @@ export default function AdminServiceRequests({ currentUser }) {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg border border-blue-100">
-                  <Building2 size={14} className="text-blue-600" />
-                  Sucursal: <span className="text-blue-700 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg border border-blue-100">
+                    <Building2 size={14} className="text-blue-600" />
+                    Sucursal: <span className="text-blue-700 ml-1">{ticket.clientes?.nombre || 'Desconocida'}</span>
+                  </div>
+                  {ticket.location && (
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-purple-50 w-fit px-3 py-1.5 rounded-lg border border-purple-100">
+                      <MapPin size={14} className="text-purple-600" />
+                      <span className="text-purple-700">Ubicación Adjunta</span>
+                    </div>
+                  )}
                 </div>
-                {ticket.location && (
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-purple-50 w-fit px-3 py-1.5 rounded-lg border border-purple-100">
-                    <MapPin size={14} className="text-purple-600" />
-                    Ubicación: <span className="text-purple-700 ml-1">{typeof ticket.location === 'object' ? `Lat: ${ticket.location.lat}, Lng: ${ticket.location.lng}` : ticket.location}</span>
+
+                {/* Mostrar datos agendados si ya no está PENDIENTE */}
+                {ticket.status !== 'PENDIENTE' && (
+                  <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col sm:flex-row gap-4">
+                     {ticket.fecha_programada && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                         <Calendar size={14} className="text-red-500" />
+                         Cita Agendada: <span className="font-bold text-red-600">{new Date(ticket.fecha_programada + 'T00:00:00').toLocaleDateString()} a las {formatTime(ticket.hora_programada)}</span>
+                       </div>
+                     )}
+                     {ticket.normativa_nfpa && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                         <ShieldCheck size={14} className="text-emerald-500" />
+                         Norma: <span className="font-bold text-emerald-600 uppercase">{ticket.normativa_nfpa}</span>
+                       </div>
+                     )}
                   </div>
                 )}
               </div>
 
-              <div className="shrink-0 w-full md:w-60 p-4 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-center space-y-3">
+              {/* PANEL DE ASIGNACIÓN (Sólo si está PENDIENTE) */}
+              <div className="shrink-0 w-full lg:w-[280px]">
                 {ticket.status === 'PENDIENTE' ? (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-500 ml-1">Asignar Técnico</label>
+                  <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-600 ml-1 uppercase tracking-wider">1. Técnico Responsable</label>
                       <select 
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium outline-none text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                        value={selectedTechs[ticket.id] || ''}
-                        onChange={(e) => handleTechChange(ticket.id, e.target.value)}
+                        className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm outline-none text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                        value={assignmentData[ticket.id]?.tecnico_id || ''}
+                        onChange={(e) => handleAssignmentChange(ticket.id, 'tecnico_id', e.target.value)}
                       >
-                        <option value="">Seleccionar...</option>
+                        <option value="">Seleccionar técnico...</option>
                         {technicians.map(tech => (
                           <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-600 ml-1 uppercase tracking-wider">2. Día</label>
+                        <input 
+                          type="date" 
+                          className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm outline-none text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                          value={assignmentData[ticket.id]?.fecha_programada || ''}
+                          onChange={(e) => handleAssignmentChange(ticket.id, 'fecha_programada', e.target.value)}
+                        />
+                      </div>
+                      {/* AQUÍ ESTÁ EL NUEVO SELECTOR DE HORA AM/PM */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-600 ml-1 uppercase tracking-wider">3. Hora</label>
+                        <select 
+                          className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm outline-none text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                          value={assignmentData[ticket.id]?.hora_programada || ''}
+                          onChange={(e) => handleAssignmentChange(ticket.id, 'hora_programada', e.target.value)}
+                        >
+                          <option value="">Seleccionar...</option>
+                          {Array.from({ length: 48 }).map((_, i) => {
+                            const hour24 = Math.floor(i / 2);
+                            const minutes = i % 2 === 0 ? '00' : '30';
+                            const ampm = hour24 >= 12 ? 'PM' : 'AM';
+                            const hour12 = hour24 % 12 || 12;
+                            const timeString = `${hour24.toString().padStart(2, '0')}:${minutes}:00`;
+                            const displayString = `${hour12}:${minutes} ${ampm}`;
+                            
+                            return <option key={timeString} value={timeString}>{displayString}</option>;
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-600 ml-1 uppercase tracking-wider">4. Normativa NFPA (Opcional)</label>
+                      <select 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm outline-none text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                        value={assignmentData[ticket.id]?.normativa_nfpa || ''}
+                        onChange={(e) => handleAssignmentChange(ticket.id, 'normativa_nfpa', e.target.value)}
+                      >
+                        <option value="">Ninguna vinculación</option>
+                        {nfpaOptions.map(nfpa => (
+                          <option key={nfpa} value={nfpa}>{nfpa}</option>
                         ))}
                       </select>
                     </div>
@@ -276,17 +376,17 @@ export default function AdminServiceRequests({ currentUser }) {
                       type="button"
                       disabled={isSubmitting}
                       onClick={() => handleAssignTechnician(ticket.id)}
-                      className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                      className="w-full mt-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm shadow-md shadow-red-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isSubmitting ? <RefreshCw className="animate-spin" size={14}/> : <><UserCheck size={14}/> Confirmar Orden</>}
+                      {isSubmitting ? <RefreshCw className="animate-spin" size={16}/> : <><UserCheck size={16}/> Agendar y Asignar</>}
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <div className="text-center py-2 space-y-1.5">
-                    <CheckCircle2 size={20} className="text-green-500 mx-auto" />
-                    <p className="text-sm font-medium text-slate-700">Orden Procesada</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Técnico asignado. El cliente podrá ver el estatus actualizado.
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl h-full flex flex-col items-center justify-center p-6 space-y-2">
+                    <CheckCircle2 size={32} className="text-green-500" />
+                    <p className="text-sm font-bold text-slate-700 uppercase tracking-widest mt-2">Agendado</p>
+                    <p className="text-xs text-slate-400 text-center leading-relaxed">
+                      El técnico y el cliente ya tienen este evento en su panel.
                     </p>
                   </div>
                 )}
