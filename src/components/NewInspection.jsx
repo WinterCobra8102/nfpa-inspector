@@ -27,7 +27,7 @@ const IPM_CATALOG = [
   ] },
   { id: 'IPM-04', standard: 'NFPA 25', category: 'HIDRANTES', name: 'SERVICIO A HIDRANTES', formCode: 'F-SER-039', icon: MapPin, color: '#06b6d4', sections: [{ title: "INSPECCIONES", points: ["El hidrante tiene libre acceso", "Las tapas giran libremente", "Verificar que el barril del hidrante esté libre de agua o hielo", "Estado físico del hidrante", "Desgaste de roscas en conectores de descarga y tapas", "Estado físico de la válvula", "Empaques y empaquetaduras en buen estado", "Disponibilidad de la llave del hidrante"] }] },
   { id: 'IPM-05', standard: 'NFPA 25', category: 'VÁLVULAS', name: 'VÁLVULAS DE CONTROL', formCode: 'F-SER-041', icon: Settings, color: '#8b5cf6', sections: [{ title: "INSPECCIÓN", points: ["La válvula se encuentra operativa y libre de daño visible", "La válvula es accesible y libre de obstrucciones", "La válvula está equipada con la correspondiente llave para su manipulación", "La válvula cuenta con candado y/o se encuentra supervisada", "Verificar el estado correcto de la válvula (abierta o cerrada)"] }, { title: "PRUEBA", points: ["Ejercitar cerrando y abriendo 3 vueltas las válvulas normalmente abiertas"] }] },
-  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el sistema", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles y en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
+  { id: 'IPM-06', standard: 'NFPA 25', category: 'ROCIADORES', name: 'SISTEMA DE ROCIADORES', formCode: 'F-SER-IPM06', icon: Droplets, color: '#10b981', sections: [{ title: "INSPECCIONES", points: ["Verificar que el sistema se encuentre operativo", "Anotar la presión de suministro del riser", "Anotar presión de agua o aire en el system", "Verificar fugas y daño físico en válvula de alarma o acción previa", "Verificar que las válvulas estén accesibles y en estado correcto", "Verificar placa de identificación del riser", "Verificar conexión con bomberos", "Verificar que las válvulas estén enclavadas o supervisadas", "Verificar que se cuenta con rociadores de repuesto"] }] },
   { id: 'IPM-07', standard: 'NFPA 25/72', category: 'OBSERVACIONES', name: 'REPORTE DE OBSERVACIONES TÉCNICAS', formCode: 'F-SER-045', icon: Clipboard, color: '#0f172a', isObservations: true, sections: [{ title: "REPORTE", points: ["Revisión general de anomalías detectadas en sitio"] }] }
 ];
 
@@ -102,7 +102,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     if (prefillData?.cliente_id && clientsDb.length > 0) {
       setSelectedClient(prefillData.cliente_id);
       
-      // Buscamos si la normativa NFPA provista coincide con alguna del catálogo
       if (prefillData.normativa_nfpa) {
         const matchedIPM = IPM_CATALOG.find(item => 
           prefillData.normativa_nfpa.toUpperCase().includes(item.standard.toUpperCase()) &&
@@ -112,7 +111,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
         if (matchedIPM) {
           setSelectedStandard(matchedIPM.standard);
           setSelectedIPM(matchedIPM);
-          setStep(3); // Brincamos directo al Paso 3 (Checklist)
+          setStep(3); 
         }
       }
     }
@@ -294,7 +293,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
         date: new Date().toISOString()
       });
 
-      // Si la inspección viene de una orden, actualizamos la tabla relacional en Supabase
       if (prefillData?.ticket_id) {
         await supabase
           .from('service_requests')
@@ -334,10 +332,29 @@ export default function NewInspection({ navigateTo, prefillData }) {
              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Seleccione la sucursal o planta para vincular el documento.</p>
           </div>
           <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-2"><User size={14} /> Empresa / Sucursal</label>
-          <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-700 dark:text-slate-200 transition-colors">
+          
+          {/* SE INTEGRÓ EL BLOQUEO DINÁMICO AQUÍ */}
+          <select 
+            value={selectedClient} 
+            onChange={(e) => setSelectedClient(e.target.value)} 
+            disabled={!!prefillData?.cliente_id}
+            className={`w-full p-3 border rounded-lg text-sm outline-none transition-colors ${
+              prefillData?.cliente_id 
+                ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 cursor-not-allowed opacity-90' 
+                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-700 dark:text-slate-200'
+            }`}
+          >
             <option value="">-- Seleccionar de la base de datos --</option>
             {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
+
+          {/* ALERTA VISUAL DE VINCULACIÓN */}
+          {prefillData?.cliente_id && (
+            <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/50">
+              <ShieldAlert size={14} className="shrink-0" />
+              <span>Sucursal bloqueada. Asignación directa por Orden de Servicio.</span>
+            </div>
+          )}
         </div>
         
         <div className={`${!selectedClient ? 'opacity-50 pointer-events-none' : ''} space-y-3`}>
@@ -625,7 +642,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
           
           <div className="mt-16 flex justify-center">
             <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 dark:bg-white hover:bg-red-600 dark:hover:bg-red-600 text-white dark:text-slate-900 dark:hover:text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
-              {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />} 
+              {isSaving ? <RefreshCw className="animate-spin" size={20} /> : <Save size={20} />} 
               Cerrar y Guardar Documento
             </button>
           </div>

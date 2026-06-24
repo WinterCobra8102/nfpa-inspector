@@ -399,7 +399,8 @@ function App() {
           <nav className="flex-1 mt-2 overflow-y-auto flex flex-col px-2">
             <NavItem icon={<LayoutGrid size={20} />} label="Panel Principal" active={activeTab === 'home'} onClick={() => navigateTo('home')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            {['ADMIN', 'STAFF'].includes(currentUser.role) && (
+            {/* AQUÍ ESTÁ LA CORRECCIÓN: SOLO ADMIN VE "NUEVA INSPECCIÓN" */}
+            {currentUser.role === 'ADMIN' && (
               <NavItem icon={<PlusCircle size={20} />} label="Nueva Inspección" active={activeTab === 'form'} onClick={() => navigateTo('form')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             )}
 
@@ -524,7 +525,6 @@ function App() {
             
             {activeTab === 'tickets' && (
               currentUser.role === 'ADMIN' ? <AdminServiceRequests currentUser={currentUser} /> :
-              // AQUÍ SE PASA EL NAVIGATETO AL TÉCNICO
               currentUser.role === 'STAFF' ? <StaffServiceRequests currentUser={currentUser} navigateTo={navigateTo} /> :
               <ClientServiceRequests currentUser={currentUser} />
             )}
