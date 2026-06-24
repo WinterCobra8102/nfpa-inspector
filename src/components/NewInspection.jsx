@@ -97,7 +97,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
     loadUserAndLocation();
   }, [prefillData]);
 
-  // --- NUEVA CORRECCIÓN DE AUTORRUTAMIENTO INTEGRADA ---
   useEffect(() => {
     if (prefillData?.cliente_id && clientsDb.length > 0) {
       setSelectedClient(prefillData.cliente_id);
@@ -257,6 +256,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
     setModalState(false);
   };
 
+  // ✅ CORRECCIÓN: eliminado "Platform.OS === 'web' && setIsSaving(false)" y añadido bloque finally
   const handleSave = async () => {
     if (!selectedClient || !ownerName) return toast.error("Falta seleccionar cliente o responsable.");
     if (!clientSigData) return toast.error("La firma de conformidad del cliente es obligatoria.");
@@ -305,7 +305,9 @@ export default function NewInspection({ navigateTo, prefillData }) {
     } catch (e) {
       console.error(e);
       toast.error("Error al guardar el reporte.");
-    } Platform.OS === 'web' && setIsSaving(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const onCropComplete = useCallback((_, pixels) => setCroppedAreaPixels(pixels), []);
@@ -333,7 +335,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
           </div>
           <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-2"><User size={14} /> Empresa / Sucursal</label>
           
-          {/* SE INTEGRÓ EL BLOQUEO DINÁMICO AQUÍ */}
           <select 
             value={selectedClient} 
             onChange={(e) => setSelectedClient(e.target.value)} 
@@ -348,7 +349,6 @@ export default function NewInspection({ navigateTo, prefillData }) {
             {clientsDb.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
 
-          {/* ALERTA VISUAL DE VINCULACIÓN */}
           {prefillData?.cliente_id && (
             <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/50">
               <ShieldAlert size={14} className="shrink-0" />
@@ -641,8 +641,9 @@ export default function NewInspection({ navigateTo, prefillData }) {
           </div>
           
           <div className="mt-16 flex justify-center">
+            {/* ✅ CORRECCIÓN: RefreshCw → RefreshCcw */}
             <button onClick={handleSave} disabled={isSaving} className="w-full max-w-md py-4 bg-slate-900 dark:bg-white hover:bg-red-600 dark:hover:bg-red-600 text-white dark:text-slate-900 dark:hover:text-white rounded font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-70 transition-colors shadow-lg active:scale-95">
-              {isSaving ? <RefreshCw className="animate-spin" size={20} /> : <Save size={20} />} 
+              {isSaving ? <RefreshCcw className="animate-spin" size={20} /> : <Save size={20} />} 
               Cerrar y Guardar Documento
             </button>
           </div>
@@ -752,6 +753,7 @@ export default function NewInspection({ navigateTo, prefillData }) {
           </div>
         </div>
       )}
+
       {imageToCrop && (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col p-4">
           <div className="relative flex-1 rounded overflow-hidden border border-slate-700"><Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={5/4} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} /></div>

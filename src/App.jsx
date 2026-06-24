@@ -511,7 +511,7 @@ function App() {
           <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
             {activeTab === 'home' && <Dashboard currentUser={currentUser} navigateTo={navigateTo} stats={stats} />}
             {activeTab === 'form' && <NewInspection navigateTo={navigateTo} prefillData={inspectionData} />}
-            {activeTab === 'list' && <InspectionHistory currentUser={currentUser} onEdit={(data) => navigateTo('form', data)} />}
+            {activeTab === 'list' && <InspectionHistory currentUser={currentUser} navigateTo={navigateTo} />}
             {activeTab === 'sites' && <SitesView currentUser={currentUser} />}
             
             {activeTab === 'profile' && <UserProfile currentUser={currentUser} setCurrentUser={setCurrentUser} navigateTo={navigateTo} />}

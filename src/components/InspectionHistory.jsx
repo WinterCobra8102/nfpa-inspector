@@ -12,7 +12,7 @@ import { generatePDF } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { showConfirmDelete } from '../alerts'; 
 
-export default function InspectionHistory({ navigateTo }) {
+export default function InspectionHistory({ navigateTo, currentUser }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -30,25 +30,10 @@ export default function InspectionHistory({ navigateTo }) {
   const [tempDetails, setTempDetails] = useState({});
   const [tempVoltages, setTempVoltages] = useState([]);
 
-  // --- NUEVO ESTADO: MEMORIA DE MANAGERS ---
-  const [managers, setManagers] = useState([]);
-
   const inspections = useLiveQuery(() => db.inspections.orderBy('date').reverse().toArray());
 
-  // --- NUEVO EFECTO: OBTENER MANAGERS DESDE SUPABASE ---
-  useEffect(() => {
-    const fetchManagers = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('client_id, full_name')
-        .eq('role', 'MANAGER');
-      
-      if (data && !error) {
-        setManagers(data);
-      }
-    };
-    fetchManagers();
-  }, []);
+  // ✅ CORRECCIÓN: solo ADMIN puede eliminar
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const uniqueCompanies = React.useMemo(() => {
     if (!inspections) return [];
@@ -100,11 +85,7 @@ export default function InspectionHistory({ navigateTo }) {
     setSelectedReport(item);
     setTempObs(item.generalObs || item.observations || "");
     setTempStatus(item.overallStatus || "ÓPTIMO");
-    
-    // --- LÓGICA INTELIGENTE DE AUTOCOMPLETADO DE RESPONSABLE ---
-    const matchedManager = managers.find(m => m.client_id === item.clientId);
-    const suggestedName = matchedManager?.full_name || "";
-    setTempOwnerName(item.ownerName || suggestedName);
+    setTempOwnerName(item.ownerName || "");
     
     let parsedDetails = {};
     try {
@@ -190,7 +171,9 @@ export default function InspectionHistory({ navigateTo }) {
   const toggleSelect = (id) => { setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]); };
   const toggleSelectAll = () => { if (selectedIds.length === filteredInspections?.length) setSelectedIds([]); else setSelectedIds(filteredInspections.map(i => i.id)); };
   
+  // ✅ Eliminación masiva — solo ADMIN
   const handleBulkDelete = () => {
+    if (!isAdmin) return;
     const totalSelected = selectedIds.length;
     showConfirmDelete(`${totalSelected} REPORTES FILTRADOS`, async () => {
       const deleteToast = toast.loading("Eliminando registros en masa...");
@@ -205,7 +188,9 @@ export default function InspectionHistory({ navigateTo }) {
     });
   };
 
+  // ✅ Eliminación individual — solo ADMIN
   const handleDeleteIndividual = (id, title) => {
+    if (!isAdmin) return;
     const displayTitle = title ? title : "ESTE REPORTE TÉCNICO";
     showConfirmDelete(displayTitle, async () => {
       const deleteToast = toast.loading("Removiendo del historial...");
@@ -287,7 +272,6 @@ export default function InspectionHistory({ navigateTo }) {
 
       {/* BARRA DE BÚSQUEDA Y FILTRO POR EMPRESA */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Buscador General */}
         <div className="relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors">
             <Search size={18} />
@@ -309,7 +293,6 @@ export default function InspectionHistory({ navigateTo }) {
           )}
         </div>
 
-        {/* Filtro por Empresa */}
         <div className="relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors">
             <Building2 size={18} />
@@ -346,8 +329,8 @@ export default function InspectionHistory({ navigateTo }) {
         </div>
       )}
 
-      {/* Barra de Selección Masiva */}
-      {selectedIds.length > 0 && (
+      {/* ✅ Barra de Selección Masiva — solo visible para ADMIN */}
+      {isAdmin && selectedIds.length > 0 && (
         <div className="p-4 bg-slate-900 dark:bg-slate-800 rounded-xl flex items-center justify-between text-white shadow-lg animate-in slide-in-from-top-4">
           <div className="flex items-center gap-3">
             <div className="bg-red-600 p-2 rounded-lg">
@@ -394,9 +377,12 @@ export default function InspectionHistory({ navigateTo }) {
               <div key={item.id} className={`flex flex-col p-5 bg-white dark:bg-slate-900 rounded-xl border-l-4 ${style.border} ${isSelected ? 'border border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10' : 'border border-slate-200 dark:border-slate-700'} shadow-sm hover:shadow-md transition-all`}>
                 <div className="flex justify-between items-start">
                   <div className="flex gap-4">
-                    <button onClick={() => toggleSelect(item.id)} className={isSelected ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors'}>
-                      {isSelected ? <CheckSquare size={22} /> : <Square size={22} />}
-                    </button>
+                    {/* ✅ Checkbox de selección — solo ADMIN */}
+                    {isAdmin && (
+                      <button onClick={() => toggleSelect(item.id)} className={isSelected ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 transition-colors'}>
+                        {isSelected ? <CheckSquare size={22} /> : <Square size={22} />}
+                      </button>
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500 dark:text-slate-400 tracking-wider">{item.standard}</span>
@@ -421,14 +407,18 @@ export default function InspectionHistory({ navigateTo }) {
                       {style.icon} {item.overallStatus}
                     </div>
                     <div className="flex items-center gap-1 ml-2">
+                      {/* ✅ Ver y Editar disponibles para todos */}
                       <ActionIcon icon={<Eye size={18} />} onClick={() => handleOpenModal(item, false)} />
                       <ActionIcon icon={<Edit3 size={18} />} onClick={() => handleOpenModal(item, true)} />
                       <button onClick={() => generatePDF(item)} className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                         <FileDown size={18} />
                       </button>
-                      <button onClick={() => handleDeleteIndividual(item.id, item.equipmentName)} className="p-2 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors">
-                        <Trash2 size={18} />
-                      </button>
+                      {/* ✅ Botón eliminar — SOLO ADMIN */}
+                      {isAdmin && (
+                        <button onClick={() => handleDeleteIndividual(item.id, item.equipmentName)} className="p-2 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors">
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -475,22 +465,20 @@ export default function InspectionHistory({ navigateTo }) {
             {/* Contenido Modal */}
             <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
               
-              {/* Grid Información General */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoBlock icon={<Building2 size={16}/>} label="Sucursal / Cliente" value={selectedReport.clientName} />
                 <InfoBlock 
                   icon={<MapPin size={16}/>} 
-                  label="Dirección Oficial" 
-                  value={selectedReport.clientAddress && selectedReport.clientAddress !== 'No capturada' 
-                    ? selectedReport.clientAddress 
-                    : (selectedReport.location && typeof selectedReport.location === 'object' 
-                        ? `Lat: ${selectedReport.location.lat}, Lng: ${selectedReport.location.lng}` 
-                        : "No especificada")} 
+                  label="Ubicación en Sitio" 
+                  value={selectedReport.location 
+                    ? (typeof selectedReport.location === 'object' 
+                      ? `Lat: ${selectedReport.location.lat}, Lng: ${selectedReport.location.lng}` 
+                      : selectedReport.location) 
+                    : "No especificada"} 
                 />
                 <InfoBlock icon={<User size={16}/>} label="Técnico Responsable" value={selectedReport.performedBy || "Sin asignar"} />
               </div>
 
-              {/* Sección de Estatus y Firma */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -530,14 +518,12 @@ export default function InspectionHistory({ navigateTo }) {
                     />
                   ) : (
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                      {/* --- LÓGICA DE VISUALIZACIÓN DEL AUTOCOMPLETADO --- */}
-                      {selectedReport.ownerName || (managers.find(m => m.client_id === selectedReport.clientId)?.full_name) || "No capturado"}
+                      {selectedReport.ownerName || "No capturado"}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Observaciones */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <div className="w-1 h-1 bg-red-600 rounded-full"></div>
@@ -558,7 +544,6 @@ export default function InspectionHistory({ navigateTo }) {
                 )}
               </div>
 
-              {/* Detalles de la Inspección (Checklist) */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <div className="w-1 h-1 bg-red-600 rounded-full"></div>
@@ -591,7 +576,6 @@ export default function InspectionHistory({ navigateTo }) {
                 </div>
               </div>
 
-              {/* Voltajes (Si aplica) */}
               {tempVoltages && tempVoltages.length > 0 && tempVoltages.some(v => v.min || v.max) && (
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
