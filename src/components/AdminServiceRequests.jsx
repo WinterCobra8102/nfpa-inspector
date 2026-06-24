@@ -308,7 +308,7 @@ export default function AdminServiceRequests({ currentUser }) {
               </div>
 
               {/* PANEL DE ASIGNACIÓN (Sólo si está PENDIENTE) */}
-              <div className="shrink-0 w-full lg:w-[280px]">
+              <div className="shrink-0 w-full lg:w-70">
                 {ticket.status === 'PENDIENTE' ? (
                   <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-4 shadow-sm">
                     <div className="space-y-1">
