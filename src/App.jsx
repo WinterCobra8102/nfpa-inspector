@@ -526,7 +526,7 @@ function App() {
             {activeTab === 'calendar' && <IPMCalendar currentUser={currentUser} selectedCompany={selectedCompany} onBack={() => navigateTo('companies')} />}
             {activeTab === 'nfpa' && <NFPALibrary currentUser={currentUser} />}
             {activeTab === 'pump-calc' && <PumpEfficiency currentUser={currentUser} />}
-            
+            {(activeTab === 'criticals' || activeTab === 'critical') && <CriticalFindings currentUser={currentUser} onBack={() => navigateTo('home')} />}
             
             {activeTab === 'tickets' && (
               currentUser.role === 'ADMIN' ? <AdminServiceRequests currentUser={currentUser} /> :
