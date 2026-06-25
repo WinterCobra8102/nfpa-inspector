@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { 
-  LocateFixed, Search, LayoutGrid,
-  X, Loader2, PlusCircle, ShieldCheck, Save, Building2, MapPin
+  LocateFixed, Search, MapPin, 
+  X, Loader2, PlusCircle, ShieldCheck, Save, Building2
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
@@ -49,7 +49,7 @@ export default function SitesView({ navigateTo }) {
   const [activeSite, setActiveSite] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // ESTADO PARA EL REGISTRO MANUAL CON CHINCHETA ARRASTRABLE
+  // ESTADO PARA EL REGISTRO MANUAL CON CHINCHETA
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualForm, setManualForm] = useState({ name: '', address: '' });
   const [draggableMarker, setDraggableMarker] = useState(null); // {lat, lng}
@@ -122,11 +122,25 @@ export default function SitesView({ navigateTo }) {
     // Colocar la chincheta en el centro actual del mapa
     const center = map ? { lat: map.getCenter().lat(), lng: map.getCenter().lng() } : CENTER_MERIDA;
     setDraggableMarker(center);
-    toast("Arrastra la chincheta roja al lugar exacto de la empresa.", { icon: "📍" });
+    toast("Toca cualquier parte del mapa para mover la chincheta.", { icon: "👆" });
+  };
+
+  // ==================== MOVER CHINCHETA CON SOLO TOCAR EL MAPA ====================
+  const handleMapClick = (e) => {
+    if (showManualForm && e.latLng) {
+      // Si el formulario manual está abierto, tocar el mapa mueve el pin
+      setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    } else {
+      // Comportamiento normal: limpiar selecciones al tocar el mapa
+      setActiveSite(null);
+      setSelectedPlace(null);
+    }
   };
 
   const onMarkerDragEnd = (e) => {
-    setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    if (e.latLng) {
+      setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    }
   };
 
   const cancelManualRegister = () => {
@@ -227,10 +241,11 @@ export default function SitesView({ navigateTo }) {
         center={CENTER_MERIDA} 
         zoom={13} 
         onLoad={setMap} 
+        onClick={handleMapClick} 
         options={{ 
           disableDefaultUI: true, 
           styles: isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
-          gestureHandling: "greedy" // ESTO QUITA EL MENSAJE DE "USA DOS DEDOS"
+          gestureHandling: "greedy" // ESTO QUITA EL MENSAJE DE "USA DOS DEDOS" Y PERMITE 1 DEDO
         }}
       >
         
@@ -248,7 +263,7 @@ export default function SitesView({ navigateTo }) {
           </InfoWindow>
         )}
 
-        {/* CHINCHETA ARRASTRABLE PARA REGISTRO MANUAL */}
+        {/* CHINCHETA PARA REGISTRO MANUAL (AHORA SE MUEVE AL TOCAR EL MAPA) */}
         {draggableMarker && (
           <Marker 
             position={draggableMarker} 
@@ -278,15 +293,6 @@ export default function SitesView({ navigateTo }) {
         )}
       </GoogleMap>
 
-      {/* BOTÓN VISTA DE LISTA */}
-      <div className={`absolute top-5 left-4 z-[1000] flex flex-col gap-3 transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-1.5 rounded-xl shadow-lg flex flex-col gap-1 w-fit">
-          <button onClick={() => navigateTo('companies')} title="Ver Lista de Empresas" className="p-3 rounded-lg transition-all text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700">
-            <LayoutGrid size={18}/>
-          </button>
-        </div>
-      </div>
-
       {/* TARJETA FLOTANTE DE REGISTRO MANUAL */}
       {showManualForm && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3000] w-[90%] md:w-[400px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-10">
@@ -298,21 +304,23 @@ export default function SitesView({ navigateTo }) {
           </div>
           
           <div className="space-y-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 italic">Desliza la <span className="font-bold text-red-500">chincheta roja</span> en el mapa hasta la ubicación deseada y llena los datos.</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              Toca cualquier punto del mapa para colocar el <span className="font-bold text-red-500">pin rojo</span> en la ubicación exacta de la empresa.
+            </p>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nombre Sucursal <span className="text-red-500">*</span></label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre Sucursal <span className="text-red-500">*</span></label>
               <input 
                 type="text" autoFocus placeholder="Ej: Nave Industrial B" 
-                className="w-full mt-1 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                 value={manualForm.name} onChange={(e) => setManualForm({...manualForm, name: e.target.value})}
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Dirección Física <span className="text-red-500">*</span></label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dirección Física <span className="text-red-500">*</span></label>
               <textarea 
                 rows="2"
-                placeholder="Calle, referencias, etc..." 
-                className="w-full mt-1 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"
+                placeholder="Calle, colonia, referencias..." 
+                className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"
                 value={manualForm.address} onChange={(e) => setManualForm({...manualForm, address: e.target.value})}
               />
             </div>
