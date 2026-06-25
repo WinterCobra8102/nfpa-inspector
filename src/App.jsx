@@ -52,7 +52,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null); 
   const [isInitializing, setIsInitializing] = useState(true); 
   const [activeTab, setActiveTab] = useState('home'); 
-  const [previousTab, setPreviousTab] = useState('home'); // <-- AQUÍ ESTÁ LA MEMORIA DE NAVEGACIÓN
+  const [previousTab, setPreviousTab] = useState('home');
   const [isSidebarOpen, setSidebarOpen] = useState(true); 
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -60,16 +60,13 @@ function App() {
   const [inspectionData, setInspectionData] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null); 
 
-  // --- ESTADO PARA DARK MODE ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme === 'dark';
   });
 
-  // --- ESTADO PARA CHAT ---
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // --- EFECTO PARA APLICAR CLASE DARK AL HTML ---
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -80,11 +77,9 @@ function App() {
     }
   }, [isDarkMode]);
 
-  // --- SISTEMA DE NOTIFICACIONES EN TIEMPO REAL ---
   useEffect(() => {
     if (!currentUser) return;
 
-    // Escuchar nuevos mensajes globalmente
     const channel = supabase
       .channel('global_notifications')
       .on(
@@ -95,16 +90,12 @@ function App() {
           table: 'chat_messages'
         },
         async (payload) => {
-          // No notificar si el mensaje es mio
           if (payload.new.sender_id === currentUser.id) return;
 
-          // ¡MAGIA!: Revisamos qué chat tiene abierto el usuario en memoria
           const activeRoomId = sessionStorage.getItem('activeChatRoom');
           
-          // Si el mensaje nuevo viene del chat que ya estoy viendo en pantalla... ¡No muestres la alerta!
           if (activeRoomId === payload.new.room_id) return;
 
-          // Verificar si el usuario es participante de la sala
           const { data: isParticipant } = await supabase
             .from('chat_participants')
             .select('room_id')
@@ -113,14 +104,12 @@ function App() {
             .single();
 
           if (isParticipant) {
-            // Obtener nombre del remitente para el Toast
             const { data: senderProfile } = await supabase
               .from('profiles')
               .select('full_name')
               .eq('id', payload.new.sender_id)
               .single();
 
-            // Lanzar notificación visual (Toast)
             toast.custom((t) => (
               <div
                 className={`${
@@ -169,56 +158,77 @@ function App() {
 
   useEffect(() => {
     const fetchProfile = async (userId) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (!error && data) {
-        setCurrentUser(data);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (!error && data) {
+          setCurrentUser(data);
+          
+          // --- NUEVO: GUARDAR SESIÓN EN CACHÉ PARA USO OFFLINE ---
+          localStorage.setItem('tle_user_cache', JSON.stringify(data));
 
-        if (data.client_id) {
-          const { data: clientData } = await supabase
-            .from('clientes')
-            .select('is_active')
-            .eq('id', data.client_id)
-            .single();
-            
-          if (clientData && clientData.is_active === false) {
-            setIsCompanyActive(false); 
+          if (data.client_id) {
+            const { data: clientData } = await supabase
+              .from('clientes')
+              .select('is_active')
+              .eq('id', data.client_id)
+              .single();
+              
+            if (clientData && clientData.is_active === false) {
+              setIsCompanyActive(false); 
+            } else {
+              setIsCompanyActive(true);
+            }
           } else {
             setIsCompanyActive(true);
           }
-        } else {
-          setIsCompanyActive(true);
-        }
 
-        try {
-          const { data: remoteClientes, error: clientesError } = await supabase
-            .from('clientes')
-            .select('*');
+          try {
+            const { data: remoteClientes, error: clientesError } = await supabase
+              .from('clientes')
+              .select('*');
 
-          if (!clientesError && remoteClientes) {
-            await db.clientes.clear();
-            await db.clientes.bulkPut(remoteClientes);
+            if (!clientesError && remoteClientes) {
+              await db.clientes.clear();
+              await db.clientes.bulkPut(remoteClientes);
+            }
+          } catch (syncErr) {
+            console.warn("Offline: no se pudieron sincronizar clientes", syncErr);
           }
-        } catch (syncErr) {
-          console.error("Error en la sincronización inicial de empresas:", syncErr);
         }
+      } catch (err) {
+        console.warn("Modo Offline: Usando caché de la aplicación", err);
+      } finally {
+        // --- NUEVO: ASEGURAR QUE SIEMPRE SE QUITE LA PANTALLA DE CARGA ---
+        setIsInitializing(false); 
       }
-      setIsInitializing(false); 
     };
 
     const checkInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
+          // --- NUEVO: CARGA RÁPIDA DESDE CACHÉ ANTES DE CONSULTAR A SUPABASE ---
+          const cachedUser = localStorage.getItem('tle_user_cache');
+          if (cachedUser) {
+            setCurrentUser(JSON.parse(cachedUser));
+            setIsInitializing(false); 
+          }
           await fetchProfile(session.user.id);
         } else {
           setIsInitializing(false); 
         }
       } catch (error) {
+        // --- NUEVO: SI NO HAY RED PARA VALIDAR SESIÓN, INTENTAR CON LA CACHÉ ---
+        console.warn("Modo Offline (Session): Usando caché local", error);
+        const cachedUser = localStorage.getItem('tle_user_cache');
+        if (cachedUser) {
+          setCurrentUser(JSON.parse(cachedUser));
+        }
         setIsInitializing(false);
       }
     };
@@ -261,21 +271,17 @@ function App() {
     totalAssets: visibleInspections ? [...new Set(visibleInspections.map(i => i.equipmentName))].length : 0
   };
 
-  // --- NAVEGACIÓN INTELIGENTE CON REVERSA ---
   const navigateTo = (tab, data = null) => {
-    // 1. Si la orden es regresar, sacamos la pestaña anterior de la memoria
     if (tab === 'BACK') {
       setActiveTab(previousTab || 'home');
       window.scrollTo(0, 0);
       return;
     }
 
-    // 2. Si vamos a abrir el perfil, guardamos la pestaña actual como "previa"
     if (tab === 'profile') {
       setPreviousTab(activeTab);
     }
 
-    // 3. Navegación normal
     setActiveTab(tab);
     setInspectionData(data); 
     setMobileMenuOpen(false);
@@ -284,6 +290,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('tle_user_cache'); // Llimpiar caché al salir
     setCurrentUser(null);
     setActiveTab('home');
     setSelectedCompany(null);
@@ -399,7 +406,6 @@ function App() {
           <nav className="flex-1 mt-2 overflow-y-auto flex flex-col px-2">
             <NavItem icon={<LayoutGrid size={20} />} label="Panel Principal" active={activeTab === 'home'} onClick={() => navigateTo('home')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            {/* AQUÍ ESTÁ LA CORRECCIÓN: SOLO ADMIN VE "NUEVA INSPECCIÓN" */}
             {currentUser.role === 'ADMIN' && (
               <NavItem icon={<PlusCircle size={20} />} label="Nueva Inspección" active={activeTab === 'form'} onClick={() => navigateTo('form')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             )}
@@ -495,7 +501,6 @@ function App() {
                   <span className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">{currentUser.full_name}</span>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{currentUser.role}</span>
                 </div>
-                {/* BOTÓN CON LÓGICA DE AVATAR */}
                 <button onClick={() => navigateTo('profile')} className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 overflow-hidden group p-0">
                   {currentUser?.avatar_url ? (
                     <img src={currentUser.avatar_url} alt="Perfil" className="w-full h-full object-cover" />

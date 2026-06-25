@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Flame, Lock, Mail, RefreshCw, ShieldAlert, ArrowRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
@@ -13,12 +14,28 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     setError(null);
 
+    // 1. COMPROBAR SI ESTAMOS OFFLINE ANTES DE HABLAR CON SUPABASE
+    if (!navigator.onLine) {
+      const cachedUser = localStorage.getItem('tle_user_cache');
+      
+      if (cachedUser) {
+        toast.success("Iniciando sesión en modo Offline");
+        onLoginSuccess(JSON.parse(cachedUser));
+        setLoading(false);
+        return;
+      } else {
+        setError('No hay conexión a internet y no tienes una sesión guardada en este dispositivo.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. SI HAY INTERNET, PROCEDER NORMALMENTE
     try {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (authError) throw authError;
 
@@ -45,21 +62,28 @@ export default function Login({ onLoginSuccess }) {
       if (profileError) throw profileError;
 
       if (!profile) {
-        setError(
-          'Cuenta válida, pero no tienes un PERFIL asignado. Contacta al administrador.'
-        );
+        setError('Cuenta válida, pero no tienes un PERFIL asignado. Contacta al administrador.');
         setLoading(false);
         return;
       }
 
-      onLoginSuccess({ ...user, ...profile });
+      // Guardar en caché para futuros logins offline
+      const userDataToSave = { ...user, ...profile };
+      localStorage.setItem('tle_user_cache', JSON.stringify(userDataToSave));
+
+      onLoginSuccess(userDataToSave);
 
     } catch (err) {
-      setError(
-        err.message === 'Invalid login credentials'
-          ? 'Correo o contraseña incorrectos'
-          : err.message
-      );
+      // MANEJO DE ERRORES MEJORADO PARA RED
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Error de conexión. Verifica tu internet o intenta más tarde.');
+      } else {
+        setError(
+          err.message === 'Invalid login credentials'
+            ? 'Correo o contraseña incorrectos'
+            : err.message
+        );
+      }
     } finally {
       setLoading(false);
     }
