@@ -12,15 +12,17 @@ import {
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 
-// AÑADIMOS 'navigateTo' como prop
 export default function CriticalFindings({ navigateTo }) { 
   
-  const criticalReports = useLiveQuery(() => 
-    db.inspections
+  const criticalReports = useLiveQuery(async () => {
+    // 1. Obtenemos los reportes filtrados como un Array normal
+    const reports = await db.inspections
       .filter(report => report.overallStatus === 'CRÍTICO')
-      .reverse()
-      .toArray()
-  );
+      .toArray();
+      
+    // 2. Aplicamos reverse al Array ya generado
+    return reports.reverse();
+  });
 
   if (!criticalReports) return (
     <div className="flex flex-col items-center justify-center p-20 text-slate-400 dark:text-slate-500 animate-pulse">
@@ -81,7 +83,7 @@ export default function CriticalFindings({ navigateTo }) {
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-3">
                     <span className="bg-red-600 text-white text-xs font-medium px-2.5 py-1 rounded-md">Crítico</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{report.serviceCode}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{report.formCode || report.serviceCode || 'IPM'}</span>
                   </div>
                   <h3 className="text-xl font-semibold text-slate-900 dark:text-white leading-tight group-hover:text-red-600 transition-colors">
                     {report.equipmentName}
@@ -90,7 +92,7 @@ export default function CriticalFindings({ navigateTo }) {
                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <MapPin size={14} className="text-slate-400 dark:text-slate-500" strokeWidth={1.5} />
                       <span className="text-sm">
-                        {report.location?.address?.split(',')[0] || 'Sin ubicación registrada'}
+                        {report.clientName || 'Sin ubicación registrada'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
@@ -117,7 +119,7 @@ export default function CriticalFindings({ navigateTo }) {
                 <div>
                   <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Diagnóstico Técnico</p>
                   <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
-                    "{report.observations || 'No se detalló el riesgo en el reporte.'}"
+                    "{report.generalObs || report.observations || 'No se detalló el riesgo en el reporte.'}"
                   </p>
                 </div>
               </div>
