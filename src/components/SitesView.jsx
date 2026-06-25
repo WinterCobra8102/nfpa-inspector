@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { 
-  LocateFixed, Search, LayoutGrid, MapPin, 
-  X, Loader2, PlusCircle, ShieldCheck, Save, Building2
+  LocateFixed, Search, LayoutGrid,
+  X, Loader2, PlusCircle, ShieldCheck, Save, Building2, MapPin
 } from 'lucide-react';
 import { db } from '../db';
 import { supabase } from '../supabaseClient';
@@ -49,9 +49,10 @@ export default function SitesView({ navigateTo }) {
   const [activeSite, setActiveSite] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // ESTADO PARA EL MODAL DE REGISTRO MANUAL
+  // ESTADO PARA EL REGISTRO MANUAL CON CHINCHETA ARRASTRABLE
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualForm, setManualForm] = useState({ name: '', address: '' });
+  const [draggableMarker, setDraggableMarker] = useState(null); // {lat, lng}
 
   const isDark = document.documentElement.classList.contains('dark');
 
@@ -100,6 +101,8 @@ export default function SitesView({ navigateTo }) {
     };
     setSelectedPlace(newPos);
     setActiveSite(null);
+    setShowManualForm(false);
+    setDraggableMarker(null);
     if (map) { map.panTo(newPos); map.setZoom(17); }
   };
 
@@ -109,11 +112,26 @@ export default function SitesView({ navigateTo }) {
     setSelectedPlace(null);
   };
 
+  // ==================== INICIA PROCESO DE REGISTRO MANUAL ====================
   const openManualForm = () => {
     setManualForm({ name: '', address: '' });
     setShowManualForm(true);
     setSelectedPlace(null);
     setActiveSite(null);
+    
+    // Colocar la chincheta en el centro actual del mapa
+    const center = map ? { lat: map.getCenter().lat(), lng: map.getCenter().lng() } : CENTER_MERIDA;
+    setDraggableMarker(center);
+    toast("Arrastra la chincheta roja al lugar exacto de la empresa.", { icon: "📍" });
+  };
+
+  const onMarkerDragEnd = (e) => {
+    setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+  };
+
+  const cancelManualRegister = () => {
+    setShowManualForm(false);
+    setDraggableMarker(null);
   };
 
   const handleManualRegister = async () => {
@@ -126,12 +144,9 @@ export default function SitesView({ navigateTo }) {
       return;
     }
     
-    // Coordenadas invisibles para el usuario: usa su GPS actual o el centro de Mérida
-    const fallbackLat = userPos ? userPos.lat : CENTER_MERIDA.lat;
-    const fallbackLng = userPos ? userPos.lng : CENTER_MERIDA.lng;
-    
-    await performRegistration(manualForm.name, manualForm.address, fallbackLat, fallbackLng);
+    await performRegistration(manualForm.name, manualForm.address, draggableMarker.lat, draggableMarker.lng);
     setShowManualForm(false);
+    setDraggableMarker(null);
   };
 
   const performRegistration = async (name, address, lat, lng) => {
@@ -184,10 +199,10 @@ export default function SitesView({ navigateTo }) {
       `}</style>
 
       {/* ÁREA DE BÚSQUEDA Y BOTÓN MANUAL CENTRAL */}
-      <div className="absolute top-5 left-1/2 -translate-x-1/2 w-[95%] md:w-[480px] z-[2000] space-y-2">
+      <div className="absolute top-5 left-1/2 -translate-x-1/2 w-[95%] md:w-[480px] z-[2000] space-y-2 pointer-events-none">
         
         {/* Input Buscador Google */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 flex items-center gap-3 shadow-lg">
+        <div className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 flex items-center gap-3 shadow-lg pointer-events-auto transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <Search className="text-slate-400 dark:text-slate-500 shrink-0" size={18} />
           <div className="flex-1">
             <Autocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
@@ -197,21 +212,30 @@ export default function SitesView({ navigateTo }) {
           {searchTerm && <button onClick={() => { setSearchTerm(''); setSelectedPlace(null); }}><X className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" size={16}/></button>}
         </div>
 
-        {/* Botón de Registro Manual explícito debajo del buscador */}
+        {/* Botón de Registro Manual explícito */}
         <button 
           onClick={openManualForm}
-          className="w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors"
+          className={`w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all pointer-events-auto ${showManualForm ? 'hidden' : 'block'}`}
         >
           <Building2 size={16} /> ¿No encuentras la empresa? Añádela manualmente
         </button>
 
       </div>
 
-      <GoogleMap mapContainerStyle={MAP_CONTAINER_STYLE} center={CENTER_MERIDA} zoom={13} onLoad={setMap} options={{ disableDefaultUI: true, styles: isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE }}>
+      <GoogleMap 
+        mapContainerStyle={MAP_CONTAINER_STYLE} 
+        center={CENTER_MERIDA} 
+        zoom={13} 
+        onLoad={setMap} 
+        options={{ 
+          disableDefaultUI: true, 
+          styles: isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
+          gestureHandling: "greedy" // ESTO QUITA EL MENSAJE DE "USA DOS DEDOS"
+        }}
+      >
         
+        {/* MARCADOR DE BÚSQUEDA GOOGLE */}
         {selectedPlace && <Marker position={{ lat: selectedPlace.lat, lng: selectedPlace.lng }} icon="http://maps.google.com/mapfiles/ms/icons/blue-dot.png" />}
-
-        {/* InfoWindow simple - Solo registrar empresa de autocompletado */}
         {selectedPlace && (
           <InfoWindow position={{ lat: selectedPlace.lat, lng: selectedPlace.lng }} onCloseClick={() => setSelectedPlace(null)}>
             <div className="p-4 min-w-[240px] bg-white rounded-lg text-center">
@@ -224,13 +248,24 @@ export default function SitesView({ navigateTo }) {
           </InfoWindow>
         )}
 
+        {/* CHINCHETA ARRASTRABLE PARA REGISTRO MANUAL */}
+        {draggableMarker && (
+          <Marker 
+            position={draggableMarker} 
+            draggable={true} 
+            onDragEnd={onMarkerDragEnd} 
+            animation={window.google.maps.Animation.DROP}
+          />
+        )}
+
+        {/* EMPRESAS REGISTRADAS */}
         <MarkerClusterer>
           {(clusterer) => filteredSites.map(site => (
             <Marker key={site.id} position={{ lat: site.lat, lng: site.lng }} clusterer={clusterer} onClick={() => setActiveSite(site)} icon={site.overallStatus === 'CRÍTICO' ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"} />
           ))}
         </MarkerClusterer>
 
-        {activeSite && (
+        {activeSite && !showManualForm && (
           <InfoWindow position={{ lat: activeSite.lat, lng: activeSite.lng }} onCloseClick={() => setActiveSite(null)}>
             <div className="p-4 text-center min-w-[200px] space-y-3">
               <div>
@@ -243,8 +278,8 @@ export default function SitesView({ navigateTo }) {
         )}
       </GoogleMap>
 
-      {/* BOTÓN VISTA DE LISTA (Icono de cuadrícula izquierdo) */}
-      <div className="absolute top-24 left-4 z-[1000] flex flex-col gap-3">
+      {/* BOTÓN VISTA DE LISTA */}
+      <div className={`absolute top-5 left-4 z-[1000] flex flex-col gap-3 transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-1.5 rounded-xl shadow-lg flex flex-col gap-1 w-fit">
           <button onClick={() => navigateTo('companies')} title="Ver Lista de Empresas" className="p-3 rounded-lg transition-all text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700">
             <LayoutGrid size={18}/>
@@ -252,56 +287,52 @@ export default function SitesView({ navigateTo }) {
         </div>
       </div>
 
-      {/* MODAL EMERGENTE DE REGISTRO MANUAL */}
+      {/* TARJETA FLOTANTE DE REGISTRO MANUAL */}
       {showManualForm && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[3000] w-[90%] max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95">
-          <div className="flex justify-between items-center mb-6">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3000] w-[90%] md:w-[400px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-10">
+          <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="font-semibold text-base text-slate-900 dark:text-white flex items-center gap-2">
-              <Building2 size={18} className="text-red-600" /> Registro Manual
+              <MapPin size={18} className="text-red-600" /> Detalle de la Ubicación
             </h3>
-            <button onClick={() => setShowManualForm(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
+            <button onClick={cancelManualRegister} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
           </div>
           
-          <div className="space-y-5">
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 italic">Desliza la <span className="font-bold text-red-500">chincheta roja</span> en el mapa hasta la ubicación deseada y llena los datos.</p>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nombre de la Sucursal / Empresa <span className="text-red-500">*</span></label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nombre Sucursal <span className="text-red-500">*</span></label>
               <input 
-                type="text" autoFocus placeholder="Ej: Nave Industrial" 
-                className="w-full mt-1.5 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                type="text" autoFocus placeholder="Ej: Nave Industrial B" 
+                className="w-full mt-1 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                 value={manualForm.name} onChange={(e) => setManualForm({...manualForm, name: e.target.value})}
               />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Dirección Física <span className="text-red-500">*</span></label>
               <textarea 
-                rows="3"
-                placeholder="Calle, colonia, referencias..." 
-                className="w-full mt-1.5 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"
+                rows="2"
+                placeholder="Calle, referencias, etc..." 
+                className="w-full mt-1 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"
                 value={manualForm.address} onChange={(e) => setManualForm({...manualForm, address: e.target.value})}
               />
             </div>
             
             <div className="pt-2">
               <button onClick={handleManualRegister} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-red-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                <Save size={18}/> Guardar en el Sistema
+                <Save size={18}/> Guardar Empresa Aquí
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Fondo oscuro para resaltar el modal manual */}
-      {showManualForm && (
-        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[2500]" onClick={() => setShowManualForm(false)}></div>
-      )}
-
       {/* Botón GPS */}
-      <div className="absolute bottom-32 right-5 z-[1000]">
+      <div className={`absolute bottom-32 right-5 z-[1000] transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button onClick={() => userPos && map?.panTo(userPos)} className="bg-red-600 hover:bg-red-700 p-4 rounded-xl border border-red-500/20 text-white active:scale-95 shadow-lg transition-all"><LocateFixed size={22} /></button>
       </div>
 
       {/* Barra inferior de estadísticas */}
-      <div className="absolute bottom-6 left-4 right-4 z-[1000]">
+      <div className={`absolute bottom-6 left-4 right-4 z-[1000] transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-lg max-w-lg mx-auto flex items-center justify-around">
           <div className="text-center">
             <span className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Empresas en Radar</span>
