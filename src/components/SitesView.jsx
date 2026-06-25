@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, InfoWindow, MarkerClusterer } from '@react-google-maps/api';
 import { 
-  LocateFixed, Search, MapPin, 
+  LocateFixed, Search, LayoutGrid, MapPin, 
   X, Loader2, PlusCircle, ShieldCheck, Save, Building2
 } from 'lucide-react';
 import { db } from '../db';
@@ -49,10 +49,9 @@ export default function SitesView({ navigateTo }) {
   const [activeSite, setActiveSite] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // ESTADO PARA EL REGISTRO MANUAL CON CHINCHETA
+  // ESTADO PARA EL MODAL DE REGISTRO MANUAL
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualForm, setManualForm] = useState({ name: '', address: '' });
-  const [draggableMarker, setDraggableMarker] = useState(null); // {lat, lng}
 
   const isDark = document.documentElement.classList.contains('dark');
 
@@ -102,7 +101,6 @@ export default function SitesView({ navigateTo }) {
     setSelectedPlace(newPos);
     setActiveSite(null);
     setShowManualForm(false);
-    setDraggableMarker(null);
     if (map) { map.panTo(newPos); map.setZoom(17); }
   };
 
@@ -112,59 +110,54 @@ export default function SitesView({ navigateTo }) {
     setSelectedPlace(null);
   };
 
-  // ==================== INICIA PROCESO DE REGISTRO MANUAL ====================
   const openManualForm = () => {
     setManualForm({ name: '', address: '' });
     setShowManualForm(true);
     setSelectedPlace(null);
     setActiveSite(null);
-    
-    // Colocar la chincheta en el centro actual del mapa
-    const center = map ? { lat: map.getCenter().lat(), lng: map.getCenter().lng() } : CENTER_MERIDA;
-    setDraggableMarker(center);
-    toast("Toca cualquier parte del mapa para mover la chincheta.", { icon: "👆" });
   };
 
-  // ==================== MOVER CHINCHETA CON SOLO TOCAR EL MAPA ====================
-  const handleMapClick = (e) => {
-    if (showManualForm && e.latLng) {
-      // Si el formulario manual está abierto, tocar el mapa mueve el pin
-      setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-    } else {
-      // Comportamiento normal: limpiar selecciones al tocar el mapa
-      setActiveSite(null);
-      setSelectedPlace(null);
-    }
-  };
-
-  const onMarkerDragEnd = (e) => {
-    if (e.latLng) {
-      setDraggableMarker({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-    }
-  };
-
-  const cancelManualRegister = () => {
-    setShowManualForm(false);
-    setDraggableMarker(null);
-  };
-
+  // ==================== GEOCODIFICACIÓN INVISIBLE (De texto a coordenadas) ====================
   const handleManualRegister = async () => {
     if (!manualForm.name.trim()) {
       toast.error("El nombre de la empresa es obligatorio");
       return;
     }
     if (!manualForm.address.trim()) {
-      toast.error("La dirección es obligatoria para registros manuales");
+      toast.error("Debes escribir una dirección para que Google la encuentre.");
       return;
     }
-    
-    await performRegistration(manualForm.name, manualForm.address, draggableMarker.lat, draggableMarker.lng);
-    setShowManualForm(false);
-    setDraggableMarker(null);
+
+    const loadingToast = toast.loading("Buscando dirección y registrando...");
+
+    try {
+      // Usar la API de Geocoding nativa de JS
+      const geocoder = new window.google.maps.Geocoder();
+      
+      geocoder.geocode({ address: manualForm.address }, async (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const foundLat = results[0].geometry.location.lat();
+          const foundLng = results[0].geometry.location.lng();
+          const formattedAddress = results[0].formatted_address; // La dirección "oficial" corregida por Google
+
+          toast.dismiss(loadingToast);
+          await performRegistration(manualForm.name, formattedAddress, foundLat, foundLng);
+          
+          setShowManualForm(false);
+          if (map) { map.panTo({ lat: foundLat, lng: foundLng }); map.setZoom(17); }
+
+        } else {
+          toast.error("No se encontró esa dirección en el mapa. Sé más específico (ej. Calle 60 #123, Mérida).", { id: loadingToast });
+        }
+      });
+      
+    } catch (e) {
+      toast.error("Error al conectar con Google Maps.", { id: loadingToast });
+    }
   };
 
   const performRegistration = async (name, address, lat, lng) => {
-    const loading = toast.loading("Registrando empresa...");
+    const loading = toast.loading("Guardando en la base de datos...");
     try {
       const companyId = crypto.randomUUID();
 
@@ -241,11 +234,10 @@ export default function SitesView({ navigateTo }) {
         center={CENTER_MERIDA} 
         zoom={13} 
         onLoad={setMap} 
-        onClick={handleMapClick} 
         options={{ 
           disableDefaultUI: true, 
           styles: isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
-          gestureHandling: "greedy" // ESTO QUITA EL MENSAJE DE "USA DOS DEDOS" Y PERMITE 1 DEDO
+          gestureHandling: "greedy" // Permite mover el mapa con 1 dedo
         }}
       >
         
@@ -261,16 +253,6 @@ export default function SitesView({ navigateTo }) {
               </button>
             </div>
           </InfoWindow>
-        )}
-
-        {/* CHINCHETA PARA REGISTRO MANUAL (AHORA SE MUEVE AL TOCAR EL MAPA) */}
-        {draggableMarker && (
-          <Marker 
-            position={draggableMarker} 
-            draggable={true} 
-            onDragEnd={onMarkerDragEnd} 
-            animation={window.google.maps.Animation.DROP}
-          />
         )}
 
         {/* EMPRESAS REGISTRADAS */}
@@ -293,33 +275,42 @@ export default function SitesView({ navigateTo }) {
         )}
       </GoogleMap>
 
-      {/* TARJETA FLOTANTE DE REGISTRO MANUAL */}
+      {/* BOTÓN VISTA DE LISTA */}
+      <div className={`absolute top-5 left-4 z-[1000] flex flex-col gap-3 transition-opacity ${showManualForm ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-1.5 rounded-xl shadow-lg flex flex-col gap-1 w-fit">
+          <button onClick={() => navigateTo('companies')} title="Ver Lista de Empresas" className="p-3 rounded-lg transition-all text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700">
+            <LayoutGrid size={18}/>
+          </button>
+        </div>
+      </div>
+
+      {/* TARJETA FLOTANTE DE REGISTRO MANUAL CON AUTO-UBICACIÓN */}
       {showManualForm && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3000] w-[90%] md:w-[400px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-10">
           <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="font-semibold text-base text-slate-900 dark:text-white flex items-center gap-2">
-              <MapPin size={18} className="text-red-600" /> Detalle de la Ubicación
+              <MapPin size={18} className="text-red-600" /> Registro Manual
             </h3>
-            <button onClick={cancelManualRegister} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
+            <button onClick={() => setShowManualForm(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
           </div>
           
           <div className="space-y-4">
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-              Toca cualquier punto del mapa para colocar el <span className="font-bold text-red-500">pin rojo</span> en la ubicación exacta de la empresa.
+              Escribe la <span className="font-bold text-red-500">calle exacta</span>. El sistema calculará las coordenadas de forma automática.
             </p>
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre Sucursal <span className="text-red-500">*</span></label>
               <input 
-                type="text" autoFocus placeholder="Ej: Nave Industrial B" 
+                type="text" autoFocus placeholder="Ej: Bodega TLETL Norte" 
                 className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                 value={manualForm.name} onChange={(e) => setManualForm({...manualForm, name: e.target.value})}
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dirección Física <span className="text-red-500">*</span></label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dirección para Buscar <span className="text-red-500">*</span></label>
               <textarea 
                 rows="2"
-                placeholder="Calle, colonia, referencias..." 
+                placeholder="Ej. Calle 60 #123, Mérida..." 
                 className="w-full mt-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"
                 value={manualForm.address} onChange={(e) => setManualForm({...manualForm, address: e.target.value})}
               />
@@ -327,7 +318,7 @@ export default function SitesView({ navigateTo }) {
             
             <div className="pt-2">
               <button onClick={handleManualRegister} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-red-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                <Save size={18}/> Guardar Empresa Aquí
+                <Save size={18}/> Guardar Empresa
               </button>
             </div>
           </div>
