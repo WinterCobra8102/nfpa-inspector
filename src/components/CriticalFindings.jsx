@@ -12,17 +12,12 @@ import {
 } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 
-export default function CriticalFindings({ navigateTo }) { 
+export default function CriticalFindings({ onBack }) { 
   
-  const criticalReports = useLiveQuery(async () => {
-    // 1. Obtenemos los reportes filtrados como un Array normal
-    const reports = await db.inspections
-      .filter(report => report.overallStatus === 'CRÍTICO')
-      .toArray();
-      
-    // 2. Aplicamos reverse al Array ya generado
-    return reports.reverse();
-  });
+  // Obtenemos los reportes de forma segura con Dexie
+  const criticalReports = useLiveQuery(() => 
+    db.inspections.filter(report => report.overallStatus === 'CRÍTICO').toArray()
+  );
 
   if (!criticalReports) return (
     <div className="flex flex-col items-center justify-center p-20 text-slate-400 dark:text-slate-500 animate-pulse">
@@ -31,13 +26,16 @@ export default function CriticalFindings({ navigateTo }) {
     </div>
   );
 
+  // Invertimos el arreglo DESPUÉS de que Dexie lo entregó para no romper la base de datos
+  const displayReports = [...criticalReports].reverse();
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6 pb-20 animate-in fade-in duration-500">
       
       {/* BOTÓN DE REGRESO */}
       <div>
         <button 
-          onClick={() => navigateTo('home')}
+          onClick={onBack}
           className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors group"
         >
           <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" strokeWidth={1.5} />
@@ -62,13 +60,13 @@ export default function CriticalFindings({ navigateTo }) {
       {/* CONTADOR */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-md border border-red-200 dark:border-red-800">
-          {criticalReports.length} Hallazgos Críticos Detectados
+          {displayReports.length} Hallazgos Críticos Detectados
         </span>
       </div>
 
       {/* LISTADO DE HALLAZGOS */}
       <div className="grid gap-4">
-        {criticalReports.length === 0 ? (
+        {displayReports.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 p-16 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-sm flex flex-col items-center justify-center space-y-4">
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-full border border-green-100 dark:border-green-800">
               <ShieldAlert size={32} className="text-green-500 dark:text-green-400" strokeWidth={1.5} />
@@ -76,7 +74,7 @@ export default function CriticalFindings({ navigateTo }) {
             <p className="font-medium text-sm text-slate-500 dark:text-slate-400">Sistema libre de riesgos críticos</p>
           </div>
         ) : (
-          criticalReports.map((report) => (
+          displayReports.map((report) => (
             <div key={report.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 relative overflow-hidden">
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
               <div className="flex flex-col md:flex-row justify-between gap-6 pl-4">
