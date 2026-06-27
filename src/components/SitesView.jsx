@@ -34,7 +34,8 @@ const DARK_MAP_STYLE = [
   { "elementType": "labels.text.stroke", "stylers": [{ "color": "#0f172a" }] }
 ];
 
-export default function SitesView({ navigateTo }) { 
+// Añadimos currentUser a los props para poder leer su región (tenant_id)
+export default function SitesView({ navigateTo, currentUser }) { 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: "AIzaSyBveI-_k-o2HEhcY9QkBiGPMgquQQEOsJY",
@@ -131,14 +132,13 @@ export default function SitesView({ navigateTo }) {
     const loadingToast = toast.loading("Buscando dirección y registrando...");
 
     try {
-      // Usar la API de Geocoding nativa de JS
       const geocoder = new window.google.maps.Geocoder();
       
       geocoder.geocode({ address: manualForm.address }, async (results, status) => {
         if (status === 'OK' && results[0]) {
           const foundLat = results[0].geometry.location.lat();
           const foundLng = results[0].geometry.location.lng();
-          const formattedAddress = results[0].formatted_address; // La dirección "oficial" corregida por Google
+          const formattedAddress = results[0].formatted_address; 
 
           toast.dismiss(loadingToast);
           await performRegistration(manualForm.name, formattedAddress, foundLat, foundLng);
@@ -161,12 +161,16 @@ export default function SitesView({ navigateTo }) {
     try {
       const companyId = crypto.randomUUID();
 
+      // --- AQUÍ APLICAMOS LA LÓGICA SAAS MULTI-TENANT ---
+      const tenantId = currentUser?.tenant_id || null;
+
       const { error } = await supabase.from('clientes').insert([{
         id: companyId,
         nombre: name.toUpperCase(),
         direccion: address,
         latitud: lat,
-        longitud: lng
+        longitud: lng,
+        tenant_id: tenantId // Vinculamos la empresa al estado/franquicia actual
       }]);
 
       if (error) throw error;
@@ -176,7 +180,8 @@ export default function SitesView({ navigateTo }) {
         nombre: name.toUpperCase(),
         direccion: address,
         latitud: lat,
-        longitud: lng
+        longitud: lng,
+        tenant_id: tenantId // También lo guardamos localmente en Dexie
       });
 
       toast.success("Empresa registrada con éxito", { id: loading });

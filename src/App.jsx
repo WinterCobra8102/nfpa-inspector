@@ -159,38 +159,60 @@ function App() {
   useEffect(() => {
     const fetchProfile = async (userId) => {
       try {
+        // Traemos el perfil y hacemos JOIN con el tenant para saber si la región está activa
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select(`
+            *,
+            tenants (
+              nombre,
+              is_active
+            )
+          `)
           .eq('id', userId)
           .maybeSingle();
         
         if (!error && data) {
           setCurrentUser(data);
-          
-          // --- NUEVO: GUARDAR SESIÓN EN CACHÉ PARA USO OFFLINE ---
           localStorage.setItem('tle_user_cache', JSON.stringify(data));
 
-          if (data.client_id) {
-            const { data: clientData } = await supabase
-              .from('clientes')
-              .select('is_active')
-              .eq('id', data.client_id)
-              .single();
-              
-            if (clientData && clientData.is_active === false) {
-              setIsCompanyActive(false); 
-            } else {
-              setIsCompanyActive(true);
-            }
-          } else {
-            setIsCompanyActive(true);
-          }
+          // --- LOGICA DE BLOQUEO SAAS (TENANTS & CLIENTES) ---
+          let isAllowed = true;
 
+          // Si NO es el dueño de todo el sistema, verificamos bloqueos
+          if (data.role !== 'SUPER_ADMIN') {
+            
+            // 1. Bloqueo Regional (SaaS Tenant)
+            if (data.tenants && data.tenants.is_active === false) {
+              isAllowed = false;
+            }
+            
+            // 2. Bloqueo Local (Cliente específico)
+            if (isAllowed && data.client_id) {
+              const { data: clientData } = await supabase
+                .from('clientes')
+                .select('is_active')
+                .eq('id', data.client_id)
+                .single();
+                
+              if (clientData && clientData.is_active === false) {
+                isAllowed = false; 
+              }
+            }
+          }
+          
+          setIsCompanyActive(isAllowed);
+
+          // --- SINCRONIZACIÓN DE EMPRESAS FILTRADA ---
           try {
-            const { data: remoteClientes, error: clientesError } = await supabase
-              .from('clientes')
-              .select('*');
+            let clientesQuery = supabase.from('clientes').select('*');
+            
+            // El SUPER_ADMIN descarga todas las empresas del mundo, los demás solo su región
+            if (data.role !== 'SUPER_ADMIN') {
+              clientesQuery = clientesQuery.eq('tenant_id', data.tenant_id);
+            }
+
+            const { data: remoteClientes, error: clientesError } = await clientesQuery;
 
             if (!clientesError && remoteClientes) {
               await db.clientes.clear();
@@ -203,7 +225,6 @@ function App() {
       } catch (err) {
         console.warn("Modo Offline: Usando caché de la aplicación", err);
       } finally {
-        // --- NUEVO: ASEGURAR QUE SIEMPRE SE QUITE LA PANTALLA DE CARGA ---
         setIsInitializing(false); 
       }
     };
@@ -212,7 +233,6 @@ function App() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // --- NUEVO: CARGA RÁPIDA DESDE CACHÉ ANTES DE CONSULTAR A SUPABASE ---
           const cachedUser = localStorage.getItem('tle_user_cache');
           if (cachedUser) {
             setCurrentUser(JSON.parse(cachedUser));
@@ -223,7 +243,6 @@ function App() {
           setIsInitializing(false); 
         }
       } catch (error) {
-        // --- NUEVO: SI NO HAY RED PARA VALIDAR SESIÓN, INTENTAR CON LA CACHÉ ---
         console.warn("Modo Offline (Session): Usando caché local", error);
         const cachedUser = localStorage.getItem('tle_user_cache');
         if (cachedUser) {
@@ -258,10 +277,16 @@ function App() {
 
   const inspections = useLiveQuery(() => db.inspections.toArray());
 
+  // --- FILTRADO GLOBAL DE REPORTES POR ROL Y REGIÓN ---
   const visibleInspections = inspections?.filter(i => {
     if (!currentUser) return false;
+    // 1. El dueño global ve todo
+    if (currentUser.role === 'SUPER_ADMIN') return true; 
+    // 2. El cliente solo ve su edificio
     if (currentUser.role === 'CLIENTE') return i.clientId === currentUser.client_id;
-    return true; 
+    // 3. El Admin/Técnico regional solo ve los reportes de su región (tenant)
+    // (!i.tenant_id permite que veas reportes viejos que aún no tienen tenant asignado en la migración)
+    return !i.tenant_id || i.tenant_id === currentUser.tenant_id; 
   });
 
   const stats = {
@@ -290,7 +315,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('tle_user_cache'); // Llimpiar caché al salir
+    localStorage.removeItem('tle_user_cache'); 
     setCurrentUser(null);
     setActiveTab('home');
     setSelectedCompany(null);
@@ -355,8 +380,8 @@ function App() {
             <ShieldAlert size={32} />
           </div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Acceso Suspendido</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mt-3">El acceso a la plataforma para esta cuenta corporativa ha sido restringido temporalmente por el departamento de administración.</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-8 border border-slate-200 dark:border-slate-800 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">Código de Estatus: SUSP_SYS_2.0</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mt-3">El acceso a la plataforma ha sido restringido. Por favor, contacta con el administrador del sistema.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-8 border border-slate-200 dark:border-slate-800 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">Código de Estatus: SUSP_SYS_2.0_SAAS</p>
           <button onClick={handleLogout} className="mt-10 text-sm font-medium text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-500 transition-colors flex items-center gap-2">
             <LogOut size={14} /> Cerrar Sesión
           </button>
@@ -406,7 +431,7 @@ function App() {
           <nav className="flex-1 mt-2 overflow-y-auto flex flex-col px-2">
             <NavItem icon={<LayoutGrid size={20} />} label="Panel Principal" active={activeTab === 'home'} onClick={() => navigateTo('home')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            {currentUser.role === 'ADMIN' && (
+            {['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && (
               <NavItem icon={<PlusCircle size={20} />} label="Nueva Inspección" active={activeTab === 'form'} onClick={() => navigateTo('form')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             )}
 
@@ -422,18 +447,18 @@ function App() {
 
             <NavItem icon={<MapPin size={20} />} label="Registrar empresas" active={activeTab === 'sites'} onClick={() => navigateTo('sites')} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
-            <NavItem icon={<Building2 size={20} />} label={currentUser?.role === 'MANAGER' ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} active={activeTab === 'companies' || activeTab === 'calendar'} onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} isOpen={isSidebarOpen || isMobileMenuOpen} />
+            <NavItem icon={<Building2 size={20} />} label={['MANAGER', 'CLIENTE'].includes(currentUser?.role) ? "Mi Sucursal (IPM)" : "Empresas (IPM)"} active={activeTab === 'companies' || activeTab === 'calendar'} onClick={() => { setSelectedCompany(null); navigateTo('companies'); }} isOpen={isSidebarOpen || isMobileMenuOpen} />
             
             <div className="my-3 border-t border-slate-100 dark:border-slate-800 mx-3" />
             
-            {currentUser.role === 'ADMIN' && (
+            {['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && (
               <>
                 <NavItem icon={<Users size={20} />} label="Usuarios" active={activeTab === 'staff'} onClick={() => navigateTo('staff')} isOpen={isSidebarOpen || isMobileMenuOpen} />
                 <NavItem icon={<Settings size={20} />} label="Parámetros NFPA" active={activeTab === 'nfpa'} onClick={() => navigateTo('nfpa')} isOpen={isSidebarOpen || isMobileMenuOpen} />
               </>
             )}
 
-            {['ADMIN', 'STAFF'].includes(currentUser.role) && (
+            {['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(currentUser.role) && (
               <NavItem 
                 icon={<Activity size={20} />} 
                 label="Eficiencia Bomba" 
@@ -481,7 +506,7 @@ function App() {
                  activeTab === 'nfpa' ? 'Parámetros NFPA' :
                  activeTab === 'pump-calc' ? 'Eficiencia de Bomba' :
                  activeTab === 'tickets' ? 'Órdenes de Servicio' :
-                 activeTab === 'criticals' ? 'Hallazgos Críticos' : ''}
+                 (activeTab === 'criticals' || activeTab === 'critical') ? 'Hallazgos Críticos' : ''}
               </h1>
             </div>
 
@@ -529,7 +554,7 @@ function App() {
             {(activeTab === 'criticals' || activeTab === 'critical') && <CriticalFindings currentUser={currentUser} onBack={() => navigateTo('home')} />}
             
             {activeTab === 'tickets' && (
-              currentUser.role === 'ADMIN' ? <AdminServiceRequests currentUser={currentUser} /> :
+              ['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) ? <AdminServiceRequests currentUser={currentUser} /> :
               currentUser.role === 'STAFF' ? <StaffServiceRequests currentUser={currentUser} navigateTo={navigateTo} /> :
               <ClientServiceRequests currentUser={currentUser} />
             )}
