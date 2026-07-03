@@ -818,5 +818,4 @@ function NavItem({ icon, label, active, onClick, isOpen }) {
     </button>
   );
 }
-
 export default App;
