@@ -45,7 +45,6 @@ import AdminServiceRequests from "./components/AdminServiceRequests";
 import StaffServiceRequests from "./components/StaffServiceRequests";
 import ClientServiceRequests from "./components/ClientServiceRequests";
 
-// --- INTEGRACIÓN CHAT ---
 import Chat from "./components/Chat";
 
 function App() {
@@ -163,7 +162,6 @@ function App() {
   useEffect(() => {
     const fetchProfile = async (userId) => {
       try {
-        // Traemos el perfil y hacemos JOIN con el tenant para saber si la región está activa
         const { data, error } = await supabase
           .from("profiles")
           .select(
@@ -182,17 +180,13 @@ function App() {
           setCurrentUser(data);
           localStorage.setItem("tle_user_cache", JSON.stringify(data));
 
-          // --- LOGICA DE BLOQUEO SAAS (TENANTS & CLIENTES) ---
           let isAllowed = true;
 
-          // Si NO es el dueño de todo el sistema, verificamos bloqueos
           if (data.role !== "SUPER_ADMIN") {
-            // 1. Bloqueo Regional (SaaS Tenant)
             if (data.tenants && data.tenants.is_active === false) {
               isAllowed = false;
             }
 
-            // 2. Bloqueo Local (Cliente específico)
             if (isAllowed && data.client_id) {
               const { data: clientData } = await supabase
                 .from("clientes")
@@ -208,11 +202,9 @@ function App() {
 
           setIsCompanyActive(isAllowed);
 
-          // --- SINCRONIZACIÓN DE EMPRESAS FILTRADA ---
           try {
             let clientesQuery = supabase.from("clientes").select("*");
 
-            // El SUPER_ADMIN descarga todas las empresas del mundo, los demás solo su región
             if (data.role !== "SUPER_ADMIN") {
               clientesQuery = clientesQuery.eq("tenant_id", data.tenant_id);
             }
@@ -290,16 +282,14 @@ function App() {
 
   const inspections = useLiveQuery(() => db.inspections.toArray());
 
-  // --- FILTRADO GLOBAL DE REPORTES POR ROL Y REGIÓN ---
   const visibleInspections = inspections?.filter((i) => {
     if (!currentUser) return false;
-    // 1. El dueño global ve todo
+
     if (currentUser.role === "SUPER_ADMIN") return true;
-    // 2. El cliente solo ve su edificio
+
     if (currentUser.role === "CLIENTE")
       return i.clientId === currentUser.client_id;
-    // 3. El Admin/Técnico regional solo ve los reportes de su región (tenant)
-    // (!i.tenant_id permite que veas reportes viejos que aún no tienen tenant asignado en la migración)
+
     return !i.tenant_id || i.tenant_id === currentUser.tenant_id;
   });
 
@@ -651,7 +641,7 @@ function App() {
                                           activeTab === "critical"
                                         ? "Hallazgos Críticos"
                                         : ""}
-              </h1> 
+              </h1>
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
@@ -792,7 +782,6 @@ function App() {
   );
 }
 
-// --- SUB-COMPONENTE NAVITEM ---
 function NavItem({ icon, label, active, onClick, isOpen }) {
   return (
     <button
