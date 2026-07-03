@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
-import { Flame, Lock, Mail, RefreshCw, ShieldAlert, ArrowRight } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { supabase } from "../supabaseClient";
+import {
+  Flame,
+  Lock,
+  Mail,
+  RefreshCw,
+  ShieldAlert,
+  ArrowRight,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
 
   const handleLogin = async (e) => {
@@ -16,15 +23,17 @@ export default function Login({ onLoginSuccess }) {
 
     // 1. COMPROBAR SI ESTAMOS OFFLINE ANTES DE HABLAR CON SUPABASE
     if (!navigator.onLine) {
-      const cachedUser = localStorage.getItem('tle_user_cache');
-      
+      const cachedUser = localStorage.getItem("tle_user_cache");
+
       if (cachedUser) {
         toast.success("Iniciando sesión en modo Offline");
         onLoginSuccess(JSON.parse(cachedUser));
         setLoading(false);
         return;
       } else {
-        setError('No hay conexión a internet y no tienes una sesión guardada en este dispositivo.');
+        setError(
+          "No hay conexión a internet y no tienes una sesión guardada en este dispositivo.",
+        );
         setLoading(false);
         return;
       }
@@ -32,17 +41,18 @@ export default function Login({ onLoginSuccess }) {
 
     // 2. SI HAY INTERNET, PROCEDER NORMALMENTE
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (authError) throw authError;
 
       const { data: sessionData } = await supabase.auth.getSession();
 
       if (!sessionData.session) {
-        throw new Error('No se pudo crear la sesión.');
+        throw new Error("No se pudo crear la sesión.");
       }
 
       const {
@@ -51,37 +61,40 @@ export default function Login({ onLoginSuccess }) {
       } = await supabase.auth.getUser();
 
       if (userError) throw userError;
-      if (!user) throw new Error('Usuario no autenticado.');
+      if (!user) throw new Error("Usuario no autenticado.");
 
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
         .maybeSingle();
 
       if (profileError) throw profileError;
 
       if (!profile) {
-        setError('Cuenta válida, pero no tienes un PERFIL asignado. Contacta al administrador.');
+        setError(
+          "Cuenta válida, pero no tienes un PERFIL asignado. Contacta al administrador.",
+        );
         setLoading(false);
         return;
       }
 
       // Guardar en caché para futuros logins offline
       const userDataToSave = { ...user, ...profile };
-      localStorage.setItem('tle_user_cache', JSON.stringify(userDataToSave));
+      localStorage.setItem("tle_user_cache", JSON.stringify(userDataToSave));
 
       onLoginSuccess(userDataToSave);
-
     } catch (err) {
       // MANEJO DE ERRORES MEJORADO PARA RED
-      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        setError('Error de conexión. Verifica tu internet o intenta más tarde.');
+      if (err.message === "Failed to fetch" || err.name === "TypeError") {
+        setError(
+          "Error de conexión. Verifica tu internet o intenta más tarde.",
+        );
       } else {
         setError(
-          err.message === 'Invalid login credentials'
-            ? 'Correo o contraseña incorrectos'
-            : err.message
+          err.message === "Invalid login credentials"
+            ? "Correo o contraseña incorrectos"
+            : err.message,
         );
       }
     } finally {
@@ -91,7 +104,6 @@ export default function Login({ onLoginSuccess }) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      
       {/* Elementos decorativos sutiles */}
       <div className="absolute top-0 left-0 w-full h-1 bg-red-600"></div>
       <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-red-50 dark:bg-red-900/10 rounded-full blur-[100px]"></div>
@@ -112,7 +124,10 @@ export default function Login({ onLoginSuccess }) {
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-600 rounded-lg flex items-center gap-3 animate-in slide-in-from-top duration-300">
-              <ShieldAlert className="text-red-600 dark:text-red-500 shrink-0" size={18} />
+              <ShieldAlert
+                className="text-red-600 dark:text-red-500 shrink-0"
+                size={18}
+              />
               <p className="text-sm text-red-700 dark:text-red-300 leading-tight">
                 {error}
               </p>
@@ -120,13 +135,15 @@ export default function Login({ onLoginSuccess }) {
           )}
 
           <form onSubmit={handleLogin} className="space-y-5">
-            
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">
                 Correo Electrónico
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
+                <Mail
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                  size={18}
+                />
                 <input
                   type="email"
                   required
@@ -143,7 +160,10 @@ export default function Login({ onLoginSuccess }) {
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
+                <Lock
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                  size={18}
+                />
                 <input
                   type="password"
                   required
@@ -165,7 +185,10 @@ export default function Login({ onLoginSuccess }) {
               ) : (
                 <>
                   Ingresar al Sistema
-                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight
+                    size={16}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
                 </>
               )}
             </button>
@@ -174,7 +197,8 @@ export default function Login({ onLoginSuccess }) {
 
         <div className="bg-slate-50 dark:bg-slate-800 p-5 text-center border-t border-slate-100 dark:border-slate-700">
           <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
-            Ingeniería en Protección Contra Incendio<br />
+            Ingeniería en Protección Contra Incendio
+            <br />
             Mérida, Yucatán
           </p>
         </div>

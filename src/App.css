@@ -167,7 +167,7 @@
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -4.5px;
     border: 5px solid transparent;
@@ -181,23 +181,22 @@
     right: 0;
     border-right-color: var(--border);
   }
-/* --- ANIMACIÓN PARA EL SISTEMA TLETL --- */
+  /* --- ANIMACIÓN PARA EL SISTEMA TLETL --- */
 
-@keyframes loading-bar {
-  0% {
-    transform: translateX(-100%);
+  @keyframes loading-bar {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
   }
-  100% {
-    transform: translateX(100%);
+
+  .animate-infinite-scroll {
+    animation: loading-bar 1.5s infinite linear;
   }
-}
 
-.animate-infinite-scroll {
-  animation: loading-bar 1.5s infinite linear;
-}
-
-.animate-pulse-slow {
-  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }

@@ -1,23 +1,34 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { 
-  Activity, Droplets, TrendingUp, Calculator, 
-  ShieldCheck, Gauge, CheckCircle2, Save, FileText, X, History, Info, Clock 
-} from 'lucide-react'; 
-import toast from 'react-hot-toast';
+import React, { useState, useMemo, useEffect } from "react";
+import { supabase } from "../supabaseClient";
+import {
+  Activity,
+  Droplets,
+  TrendingUp,
+  Calculator,
+  ShieldCheck,
+  Gauge,
+  CheckCircle2,
+  Save,
+  FileText,
+  X,
+  History,
+  Info,
+  Clock,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function PumpEfficiency() {
   // --- ESTADOS DE ENTRADA ---
-  const [ratedGPM, setRatedGPM] = useState('');
-  const [ratedPSI, setRatedPSI] = useState('');
-  const [churnSuction, setChurnSuction] = useState('');
-  const [churnDischarge, setChurnDischarge] = useState('');
-  const [ratedSuction, setRatedSuction] = useState('');
-  const [ratedDischarge, setRatedDischarge] = useState('');
-  
+  const [ratedGPM, setRatedGPM] = useState("");
+  const [ratedPSI, setRatedPSI] = useState("");
+  const [churnSuction, setChurnSuction] = useState("");
+  const [churnDischarge, setChurnDischarge] = useState("");
+  const [ratedSuction, setRatedSuction] = useState("");
+  const [ratedDischarge, setRatedDischarge] = useState("");
+
   // --- ESTADOS DE GUARDADO E HISTORIAL ---
-  const [testName, setTestName] = useState('');
-  const [explanationText, setExplanationText] = useState('');
+  const [testName, setTestName] = useState("");
+  const [explanationText, setExplanationText] = useState("");
   const [savedTests, setSavedTests] = useState([]);
   const [currentViewId, setCurrentViewId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,10 +39,10 @@ export default function PumpEfficiency() {
 
   const fetchHistory = async () => {
     const { data, error } = await supabase
-      .from('pump_tests')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
+      .from("pump_tests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (!error && data) setSavedTests(data);
   };
 
@@ -39,9 +50,13 @@ export default function PumpEfficiency() {
   // MOTOR MATEMÁTICO BLINDADO
   // =======================================================================
   const mathData = useMemo(() => {
-    const isComplete = ratedGPM !== '' && ratedPSI !== '' && 
-                       churnSuction !== '' && churnDischarge !== '' && 
-                       ratedSuction !== '' && ratedDischarge !== '';
+    const isComplete =
+      ratedGPM !== "" &&
+      ratedPSI !== "" &&
+      churnSuction !== "" &&
+      churnDischarge !== "" &&
+      ratedSuction !== "" &&
+      ratedDischarge !== "";
 
     if (!isComplete) return { valid: false };
 
@@ -55,16 +70,29 @@ export default function PumpEfficiency() {
 
     const k = (cNet - actRatedNet) / (rGPM * rGPM);
     const gpm150 = rGPM * 1.5;
-    const predicted150Net = cNet - (k * (gpm150 * gpm150));
+    const predicted150Net = cNet - k * (gpm150 * gpm150);
     const min150NFPA = rPSI * 0.65;
-    
+
     return {
       valid: true,
-      cNet, actRatedNet, gpm150, predicted150Net, min150NFPA,
+      cNet,
+      actRatedNet,
+      gpm150,
+      predicted150Net,
+      min150NFPA,
       isPassing: predicted150Net >= min150NFPA,
-      k, rGPM, rPSI
+      k,
+      rGPM,
+      rPSI,
     };
-  }, [ratedGPM, ratedPSI, churnSuction, churnDischarge, ratedSuction, ratedDischarge]);
+  }, [
+    ratedGPM,
+    ratedPSI,
+    churnSuction,
+    churnDischarge,
+    ratedSuction,
+    ratedDischarge,
+  ]);
 
   // =======================================================================
   // GENERADOR DE GRÁFICA VECTORIAL
@@ -72,29 +100,48 @@ export default function PumpEfficiency() {
   const chartData = useMemo(() => {
     if (!mathData.valid) return null;
 
-    const { rGPM, rPSI, cNet, actRatedNet, gpm150, predicted150Net, min150NFPA, k } = mathData;
+    const {
+      rGPM,
+      rPSI,
+      cNet,
+      actRatedNet,
+      gpm150,
+      predicted150Net,
+      min150NFPA,
+      k,
+    } = mathData;
 
-    const w = 800; 
-    const h = 400; 
-    const maxGPM = gpm150 * 1.15; 
-    const maxPSI = Math.max(cNet, rPSI) * 1.2; 
+    const w = 800;
+    const h = 400;
+    const maxGPM = gpm150 * 1.15;
+    const maxPSI = Math.max(cNet, rPSI) * 1.2;
 
     let path = "";
-    const steps = 60; 
+    const steps = 60;
     for (let i = 0; i <= steps; i++) {
       const curGPM = (maxGPM / steps) * i;
-      const curPSI = Math.max(0, cNet - (k * (curGPM * curGPM))); 
+      const curPSI = Math.max(0, cNet - k * (curGPM * curGPM));
       const x = (curGPM / maxGPM) * w;
-      const y = h - ((curPSI / maxPSI) * h);
-      path += `${i === 0 ? 'M' : 'L'} ${x},${y} `;
+      const y = h - (curPSI / maxPSI) * h;
+      path += `${i === 0 ? "M" : "L"} ${x},${y} `;
     }
 
     return {
-      w, h, maxGPM, maxPSI, path,
-      p0: { x: 0, y: Math.max(0, h - (cNet / maxPSI * h)) },
-      p100: { x: (rGPM / maxGPM) * w, y: Math.max(0, h - (actRatedNet / maxPSI * h)) },
-      p150: { x: (gpm150 / maxGPM) * w, y: Math.max(0, h - (predicted150Net / maxPSI * h)) },
-      lineNFPA: Math.max(0, h - (min150NFPA / maxPSI * h))
+      w,
+      h,
+      maxGPM,
+      maxPSI,
+      path,
+      p0: { x: 0, y: Math.max(0, h - (cNet / maxPSI) * h) },
+      p100: {
+        x: (rGPM / maxGPM) * w,
+        y: Math.max(0, h - (actRatedNet / maxPSI) * h),
+      },
+      p150: {
+        x: (gpm150 / maxGPM) * w,
+        y: Math.max(0, h - (predicted150Net / maxPSI) * h),
+      },
+      lineNFPA: Math.max(0, h - (min150NFPA / maxPSI) * h),
     };
   }, [mathData]);
 
@@ -103,28 +150,32 @@ export default function PumpEfficiency() {
   // =======================================================================
   const saveTestToDB = async () => {
     if (!mathData.valid) {
-      toast.error("Llene todos los parámetros operativos."); return;
+      toast.error("Llene todos los parámetros operativos.");
+      return;
     }
     if (!testName) {
-      toast.error("Asigne un nombre al reporte."); return;
+      toast.error("Asigne un nombre al reporte.");
+      return;
     }
 
     setIsSaving(true);
     const loadingToast = toast.loading("Guardando reporte en la nube...");
 
     try {
-      const { error } = await supabase.from('pump_tests').insert([{
-        test_name: testName.toUpperCase(),
-        explanation: explanationText,
-        rated_gpm: Number(ratedGPM),
-        rated_psi: Number(ratedPSI),
-        churn_suction: Number(churnSuction),
-        churn_discharge: Number(churnDischarge),
-        rated_suction: Number(ratedSuction),
-        rated_discharge: Number(ratedDischarge),
-        predicted_psi: mathData.predicted150Net,
-        is_passing: mathData.isPassing
-      }]);
+      const { error } = await supabase.from("pump_tests").insert([
+        {
+          test_name: testName.toUpperCase(),
+          explanation: explanationText,
+          rated_gpm: Number(ratedGPM),
+          rated_psi: Number(ratedPSI),
+          churn_suction: Number(churnSuction),
+          churn_discharge: Number(churnDischarge),
+          rated_suction: Number(ratedSuction),
+          rated_discharge: Number(ratedDischarge),
+          predicted_psi: mathData.predicted150Net,
+          is_passing: mathData.isPassing,
+        },
+      ]);
 
       if (error) throw error;
 
@@ -139,22 +190,31 @@ export default function PumpEfficiency() {
   };
 
   const loadTest = (test) => {
-    setRatedGPM(test.rated_gpm); setRatedPSI(test.rated_psi);
-    setChurnSuction(test.churn_suction); setChurnDischarge(test.churn_discharge);
-    setRatedSuction(test.rated_suction); setRatedDischarge(test.rated_discharge);
-    setTestName(test.test_name); setExplanationText(test.explanation || '');
+    setRatedGPM(test.rated_gpm);
+    setRatedPSI(test.rated_psi);
+    setChurnSuction(test.churn_suction);
+    setChurnDischarge(test.churn_discharge);
+    setRatedSuction(test.rated_suction);
+    setRatedDischarge(test.rated_discharge);
+    setTestName(test.test_name);
+    setExplanationText(test.explanation || "");
     setCurrentViewId(test.id);
   };
 
   const clearForm = () => {
-    setRatedGPM(''); setRatedPSI(''); setChurnSuction(''); setChurnDischarge(''); 
-    setRatedSuction(''); setRatedDischarge(''); setTestName(''); setExplanationText('');
+    setRatedGPM("");
+    setRatedPSI("");
+    setChurnSuction("");
+    setChurnDischarge("");
+    setRatedSuction("");
+    setRatedDischarge("");
+    setTestName("");
+    setExplanationText("");
     setCurrentViewId(null);
   };
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
-      
       {/* HEADER */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -162,52 +222,72 @@ export default function PumpEfficiency() {
             <Calculator size={24} className="text-red-600 dark:text-red-500" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">Eficiencia de Caudal</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Análisis Predictivo NFPA 25</p>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">
+              Eficiencia de Caudal
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              Análisis Predictivo NFPA 25
+            </p>
           </div>
         </div>
         {currentViewId && (
-          <button onClick={clearForm} className="px-5 py-2.5 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95">
-            <X size={16}/> Nuevo Análisis
+          <button
+            onClick={clearForm}
+            className="px-5 py-2.5 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95"
+          >
+            <X size={16} /> Nuevo Análisis
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
         {/* ================================================= */}
         {/* COLUMNA 1: HISTORIAL (3/12) */}
         {/* ================================================= */}
         <div className="lg:col-span-3">
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm h-[800px] flex flex-col">
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-4">
-              <History size={14} className="text-slate-400 dark:text-slate-500"/> Historial de Pruebas
+              <History
+                size={14}
+                className="text-slate-400 dark:text-slate-500"
+              />{" "}
+              Historial de Pruebas
             </h3>
-            
+
             <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
               {savedTests.length === 0 ? (
                 <div className="text-center py-10 opacity-50">
-                  <FileText size={28} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Sin registros</p>
+                  <FileText
+                    size={28}
+                    className="mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    Sin registros
+                  </p>
                 </div>
               ) : (
-                savedTests.map(test => (
-                  <div 
-                    key={test.id} 
+                savedTests.map((test) => (
+                  <div
+                    key={test.id}
                     onClick={() => loadTest(test)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all active:scale-[0.98] ${currentViewId === test.id ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 hover:shadow-sm'}`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all active:scale-[0.98] ${currentViewId === test.id ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 hover:shadow-sm"}`}
                   >
                     <p className="text-xs text-slate-400 dark:text-slate-500 mb-1 flex items-center gap-1">
-                      <Clock size={10}/> {new Date(test.created_at).toLocaleDateString()}
+                      <Clock size={10} />{" "}
+                      {new Date(test.created_at).toLocaleDateString()}
                     </p>
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight mb-2">
                       {test.test_name}
                     </p>
                     <div className="flex items-center justify-between">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${test.is_passing ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
-                        {test.is_passing ? 'Aprobado' : 'Fallo'}
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-xs font-medium ${test.is_passing ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800"}`}
+                      >
+                        {test.is_passing ? "Aprobado" : "Fallo"}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{test.predicted_psi?.toFixed(1)} PSI</span>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        {test.predicted_psi?.toFixed(1)} PSI
+                      </span>
                     </div>
                   </div>
                 ))
@@ -220,21 +300,42 @@ export default function PumpEfficiency() {
         {/* COLUMNA 2: CAPTURA DE DATOS (3/12) */}
         {/* ================================================= */}
         <div className="lg:col-span-3 space-y-4">
-          
           {/* Tarjeta 1: Placa Nominal */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-slate-800 dark:bg-slate-400 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
-              <ShieldCheck size={14} className="text-slate-600 dark:text-slate-400"/> Placa Nominal
+              <ShieldCheck
+                size={14}
+                className="text-slate-600 dark:text-slate-400"
+              />{" "}
+              Placa Nominal
             </h3>
             <div className="grid grid-cols-2 gap-3 ml-2">
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Caudal (GPM)</label>
-                <input type="number" value={ratedGPM} onChange={e => setRatedGPM(e.target.value)} disabled={!!currentViewId} placeholder="Ej: 500" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Caudal (GPM)
+                </label>
+                <input
+                  type="number"
+                  value={ratedGPM}
+                  onChange={(e) => setRatedGPM(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="Ej: 500"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Presión (PSI)</label>
-                <input type="number" value={ratedPSI} onChange={e => setRatedPSI(e.target.value)} disabled={!!currentViewId} placeholder="Ej: 120" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Presión (PSI)
+                </label>
+                <input
+                  type="number"
+                  value={ratedPSI}
+                  onChange={(e) => setRatedPSI(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="Ej: 120"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
             </div>
           </div>
@@ -243,16 +344,35 @@ export default function PumpEfficiency() {
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
-              <Gauge size={14} className="text-blue-500 dark:text-blue-400"/> Churn (0% Caudal)
+              <Gauge size={14} className="text-blue-500 dark:text-blue-400" />{" "}
+              Churn (0% Caudal)
             </h3>
             <div className="grid grid-cols-2 gap-3 ml-2">
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Succión (PSI)</label>
-                <input type="number" value={churnSuction} onChange={e => setChurnSuction(e.target.value)} disabled={!!currentViewId} placeholder="0" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Succión (PSI)
+                </label>
+                <input
+                  type="number"
+                  value={churnSuction}
+                  onChange={(e) => setChurnSuction(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="0"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Descarga (PSI)</label>
-                <input type="number" value={churnDischarge} onChange={e => setChurnDischarge(e.target.value)} disabled={!!currentViewId} placeholder="0" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Descarga (PSI)
+                </label>
+                <input
+                  type="number"
+                  value={churnDischarge}
+                  onChange={(e) => setChurnDischarge(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="0"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
             </div>
           </div>
@@ -261,16 +381,38 @@ export default function PumpEfficiency() {
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
-              <Droplets size={14} className="text-green-500 dark:text-green-400"/> Flujo Nominal (100%)
+              <Droplets
+                size={14}
+                className="text-green-500 dark:text-green-400"
+              />{" "}
+              Flujo Nominal (100%)
             </h3>
             <div className="grid grid-cols-2 gap-3 ml-2">
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Succión (PSI)</label>
-                <input type="number" value={ratedSuction} onChange={e => setRatedSuction(e.target.value)} disabled={!!currentViewId} placeholder="0" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Succión (PSI)
+                </label>
+                <input
+                  type="number"
+                  value={ratedSuction}
+                  onChange={(e) => setRatedSuction(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="0"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">Descarga (PSI)</label>
-                <input type="number" value={ratedDischarge} onChange={e => setRatedDischarge(e.target.value)} disabled={!!currentViewId} placeholder="0" className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm transition-colors disabled:opacity-50" />
+                <label className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-1.5 block">
+                  Descarga (PSI)
+                </label>
+                <input
+                  type="number"
+                  value={ratedDischarge}
+                  onChange={(e) => setRatedDischarge(e.target.value)}
+                  disabled={!!currentViewId}
+                  placeholder="0"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm transition-colors disabled:opacity-50"
+                />
               </div>
             </div>
           </div>
@@ -278,20 +420,46 @@ export default function PumpEfficiency() {
           {/* Tarjeta 4: Guardar Reporte */}
           <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
             <h3 className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2">
-              <FileText size={14} className="text-slate-500 dark:text-slate-400"/> Documentar Reporte
+              <FileText
+                size={14}
+                className="text-slate-500 dark:text-slate-400"
+              />{" "}
+              Documentar Reporte
             </h3>
             <div className="space-y-3">
-              <input type="text" value={testName} onChange={e => setTestName(e.target.value)} disabled={!!currentViewId} placeholder="Nombre del equipo o sucursal..." className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 disabled:opacity-50" />
-              <textarea value={explanationText} onChange={e => setExplanationText(e.target.value)} disabled={!!currentViewId} placeholder="Notas técnicas o diagnóstico del resultado..." className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-600 dark:text-slate-300 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none h-24 disabled:opacity-50" />
-              
+              <input
+                type="text"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                disabled={!!currentViewId}
+                placeholder="Nombre del equipo o sucursal..."
+                className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+              />
+              <textarea
+                value={explanationText}
+                onChange={(e) => setExplanationText(e.target.value)}
+                disabled={!!currentViewId}
+                placeholder="Notas técnicas o diagnóstico del resultado..."
+                className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-600 dark:text-slate-300 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none h-24 disabled:opacity-50"
+              />
+
               {!currentViewId && (
-                <button onClick={saveTestToDB} disabled={isSaving} className="w-full py-3.5 mt-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50">
-                  {isSaving ? "Guardando..." : <><Save size={16}/> Guardar Resultado</>}
+                <button
+                  onClick={saveTestToDB}
+                  disabled={isSaving}
+                  className="w-full py-3.5 mt-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    "Guardando..."
+                  ) : (
+                    <>
+                      <Save size={16} /> Guardar Resultado
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </div>
-
         </div>
 
         {/* ================================================= */}
@@ -299,15 +467,18 @@ export default function PumpEfficiency() {
         {/* ================================================= */}
         <div className="lg:col-span-6 h-[800px] flex flex-col">
           <div className="bg-slate-900 p-6 md:p-8 rounded-xl shadow-lg h-full flex flex-col border-t-4 border-red-600 relative overflow-hidden">
-            
             <div className="flex items-center justify-between mb-6 relative z-10">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-white/10 text-white rounded-lg border border-white/5">
                   <TrendingUp size={20} />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold text-lg leading-none">Curva H-Q</h3>
-                  <p className="text-xs text-slate-400 mt-1">Simulador de Desempeño</p>
+                  <h3 className="text-white font-semibold text-lg leading-none">
+                    Curva H-Q
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Simulador de Desempeño
+                  </p>
                 </div>
               </div>
             </div>
@@ -315,34 +486,52 @@ export default function PumpEfficiency() {
             {!mathData.valid ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
                 <Activity size={64} className="text-slate-600 mb-5" />
-                <p className="text-sm font-medium text-slate-300">Esperando Parámetros</p>
-                <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">El motor predictivo generará la gráfica automáticamente al completar los datos del equipo.</p>
+                <p className="text-sm font-medium text-slate-300">
+                  Esperando Parámetros
+                </p>
+                <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">
+                  El motor predictivo generará la gráfica automáticamente al
+                  completar los datos del equipo.
+                </p>
               </div>
             ) : (
               <div className="flex-1 flex flex-col space-y-5 relative z-10">
-                
                 {/* Resultados Rápidos */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
                     <div className="flex items-center gap-2 mb-2">
-                      <Info size={12} className="text-slate-400"/>
-                      <p className="text-xs text-slate-400">Mínimo Exigido NFPA</p>
+                      <Info size={12} className="text-slate-400" />
+                      <p className="text-xs text-slate-400">
+                        Mínimo Exigido NFPA
+                      </p>
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-semibold text-white tracking-tight">{mathData.min150NFPA.toFixed(1)}</span>
+                      <span className="text-3xl font-semibold text-white tracking-tight">
+                        {mathData.min150NFPA.toFixed(1)}
+                      </span>
                       <span className="text-xs text-slate-500">PSI</span>
                     </div>
                   </div>
-                  
-                  <div className={`p-4 rounded-xl border ${mathData.isPassing ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+
+                  <div
+                    className={`p-4 rounded-xl border ${mathData.isPassing ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"}`}
+                  >
                     <div className="flex items-center gap-2 mb-2">
-                      {mathData.isPassing ? <CheckCircle2 size={12} className="text-green-400"/> : <Activity size={12} className="text-red-400"/>}
-                      <p className={`text-xs ${mathData.isPassing ? 'text-green-400' : 'text-red-400'}`}>
+                      {mathData.isPassing ? (
+                        <CheckCircle2 size={12} className="text-green-400" />
+                      ) : (
+                        <Activity size={12} className="text-red-400" />
+                      )}
+                      <p
+                        className={`text-xs ${mathData.isPassing ? "text-green-400" : "text-red-400"}`}
+                      >
                         Proyección 150%
                       </p>
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-semibold text-white tracking-tight">{mathData.predicted150Net.toFixed(1)}</span>
+                      <span className="text-3xl font-semibold text-white tracking-tight">
+                        {mathData.predicted150Net.toFixed(1)}
+                      </span>
                       <span className="text-xs text-white/40">PSI</span>
                     </div>
                   </div>
@@ -350,55 +539,148 @@ export default function PumpEfficiency() {
 
                 {/* Contenedor Gráfica */}
                 <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 p-5 flex items-center justify-center shadow-inner relative overflow-hidden">
-                  
                   <div className="relative w-full h-full min-h-[300px]">
                     {/* Etiquetas Ejes */}
-                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-medium text-slate-500 uppercase tracking-wide">Presión (PSI)</div>
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-medium text-slate-500 uppercase tracking-wide">Caudal (GPM)</div>
-                    
-                    <svg viewBox={`0 0 ${chartData.w} ${chartData.h}`} className="w-full h-full overflow-hidden">
+                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-medium text-slate-500 uppercase tracking-wide">
+                      Presión (PSI)
+                    </div>
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-medium text-slate-500 uppercase tracking-wide">
+                      Caudal (GPM)
+                    </div>
+
+                    <svg
+                      viewBox={`0 0 ${chartData.w} ${chartData.h}`}
+                      className="w-full h-full overflow-hidden"
+                    >
                       {/* Rejilla Fina */}
-                      <line x1="0" y1={chartData.h * 0.25} x2={chartData.w} y2={chartData.h * 0.25} stroke="#1e293b" strokeWidth="1" />
-                      <line x1="0" y1={chartData.h * 0.50} x2={chartData.w} y2={chartData.h * 0.50} stroke="#1e293b" strokeWidth="1" strokeDasharray="4,4" />
-                      <line x1="0" y1={chartData.h * 0.75} x2={chartData.w} y2={chartData.h * 0.75} stroke="#1e293b" strokeWidth="1" />
-                      <line x1={chartData.w * 0.50} y1="0" x2={chartData.w * 0.50} y2={chartData.h} stroke="#1e293b" strokeWidth="1" strokeDasharray="4,4" />
-                      
+                      <line
+                        x1="0"
+                        y1={chartData.h * 0.25}
+                        x2={chartData.w}
+                        y2={chartData.h * 0.25}
+                        stroke="#1e293b"
+                        strokeWidth="1"
+                      />
+                      <line
+                        x1="0"
+                        y1={chartData.h * 0.5}
+                        x2={chartData.w}
+                        y2={chartData.h * 0.5}
+                        stroke="#1e293b"
+                        strokeWidth="1"
+                        strokeDasharray="4,4"
+                      />
+                      <line
+                        x1="0"
+                        y1={chartData.h * 0.75}
+                        x2={chartData.w}
+                        y2={chartData.h * 0.75}
+                        stroke="#1e293b"
+                        strokeWidth="1"
+                      />
+                      <line
+                        x1={chartData.w * 0.5}
+                        y1="0"
+                        x2={chartData.w * 0.5}
+                        y2={chartData.h}
+                        stroke="#1e293b"
+                        strokeWidth="1"
+                        strokeDasharray="4,4"
+                      />
+
                       {/* Ejes Principales */}
-                      <line x1="0" y1={chartData.h} x2={chartData.w} y2={chartData.h} stroke="#475569" strokeWidth="3" />
-                      <line x1="0" y1="0" x2="0" y2={chartData.h} stroke="#475569" strokeWidth="3" />
+                      <line
+                        x1="0"
+                        y1={chartData.h}
+                        x2={chartData.w}
+                        y2={chartData.h}
+                        stroke="#475569"
+                        strokeWidth="3"
+                      />
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2={chartData.h}
+                        stroke="#475569"
+                        strokeWidth="3"
+                      />
 
                       {/* Límite NFPA (Línea Roja) */}
-                      <line x1="0" y1={chartData.lineNFPA} x2={chartData.w} y2={chartData.lineNFPA} stroke="#ef4444" strokeWidth="2" strokeDasharray="8,8" opacity="0.8" />
-                      <text x="10" y={chartData.lineNFPA - 10} fill="#ef4444" fontSize="12" fontWeight="bold" opacity="0.8">Límite 65% NFPA</text>
+                      <line
+                        x1="0"
+                        y1={chartData.lineNFPA}
+                        x2={chartData.w}
+                        y2={chartData.lineNFPA}
+                        stroke="#ef4444"
+                        strokeWidth="2"
+                        strokeDasharray="8,8"
+                        opacity="0.8"
+                      />
+                      <text
+                        x="10"
+                        y={chartData.lineNFPA - 10}
+                        fill="#ef4444"
+                        fontSize="12"
+                        fontWeight="bold"
+                        opacity="0.8"
+                      >
+                        Límite 65% NFPA
+                      </text>
 
                       {/* Curva Matemática Azul */}
-                      <path d={chartData.path} fill="none" stroke="#3b82f6" strokeWidth="4" strokeLinecap="round" />
+                      <path
+                        d={chartData.path}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                      />
 
                       {/* Puntos Clave de Medición */}
-                      <circle cx={chartData.p0.x} cy={chartData.p0.y} r="6" fill="#3b82f6" stroke="#020617" strokeWidth="3" />
-                      <circle cx={chartData.p100.x} cy={chartData.p100.y} r="6" fill="#3b82f6" stroke="#020617" strokeWidth="3" />
-                      <circle cx={chartData.p150.x} cy={chartData.p150.y} r="8" fill={mathData.isPassing ? "#22c55e" : "#ef4444"} stroke="#020617" strokeWidth="3" />
-                      
+                      <circle
+                        cx={chartData.p0.x}
+                        cy={chartData.p0.y}
+                        r="6"
+                        fill="#3b82f6"
+                        stroke="#020617"
+                        strokeWidth="3"
+                      />
+                      <circle
+                        cx={chartData.p100.x}
+                        cy={chartData.p100.y}
+                        r="6"
+                        fill="#3b82f6"
+                        stroke="#020617"
+                        strokeWidth="3"
+                      />
+                      <circle
+                        cx={chartData.p150.x}
+                        cy={chartData.p150.y}
+                        r="8"
+                        fill={mathData.isPassing ? "#22c55e" : "#ef4444"}
+                        stroke="#020617"
+                        strokeWidth="3"
+                      />
+
                       {/* Etiqueta de Resultado Final */}
-                      <text 
-                        x={chartData.p150.x + 15} 
-                        y={chartData.p150.y + 5} 
-                        fill={mathData.isPassing ? "#4ade80" : "#f87171"} 
-                        fontSize="14" 
+                      <text
+                        x={chartData.p150.x + 15}
+                        y={chartData.p150.y + 5}
+                        fill={mathData.isPassing ? "#4ade80" : "#f87171"}
+                        fontSize="14"
                         fontWeight="700"
                         className="drop-shadow-md"
                       >
-                        {mathData.isPassing ? 'PASA' : 'FALLA'}
+                        {mathData.isPassing ? "PASA" : "FALLA"}
                       </text>
                     </svg>
                   </div>
                 </div>
-
               </div>
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
