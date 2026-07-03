@@ -24,10 +24,10 @@ export default function AdminServiceRequests({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ESTADO PARA EL NUEVO FORMULARIO DE ASIGNACIÓN (Técnico, Fecha, Hora, NFPA)
+  
   const [assignmentData, setAssignmentData] = useState({});
 
-  // Catálogo base de normativas NFPA
+  
   const nfpaOptions = [
     "NFPA 10 (Extintores)",
     "NFPA 13 (Rociadores)",
@@ -121,7 +121,7 @@ export default function AdminServiceRequests({ currentUser }) {
   const handleAssignTechnician = async (requestId) => {
     const ticketData = assignmentData[requestId] || {};
 
-    // Validaciones
+    
     if (!ticketData.tecnico_id) {
       toast.error("Por favor, selecciona un técnico.");
       return;

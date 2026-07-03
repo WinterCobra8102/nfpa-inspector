@@ -17,7 +17,7 @@ export default function ClientServiceRequests({ currentUser }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados para el formulario
+  
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,9 +27,9 @@ export default function ClientServiceRequests({ currentUser }) {
     if (currentUser?.id) {
       initializeClientData();
 
-      // ==========================================
-      // SUSCRIPCIÓN WEB-SOCKETS (REALTIME) CLIENTE
-      // ==========================================
+      
+      
+      
       const channel = supabase
         .channel("realtime-client-requests")
         .on(

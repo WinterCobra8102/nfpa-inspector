@@ -39,7 +39,7 @@ const Chat = ({ currentUser }) => {
 
   const isAdmin = currentUser?.role === "ADMIN";
 
-  // Limpiamos la memoria al salir por completo de la sección de chats
+  
   useEffect(() => {
     return () => sessionStorage.removeItem("activeChatRoom");
   }, []);
@@ -73,7 +73,7 @@ const Chat = ({ currentUser }) => {
 
   useEffect(() => {
     if (selectedRoom) {
-      // MAGIA: Le avisamos al navegador qué sala estamos viendo
+      
       sessionStorage.setItem("activeChatRoom", selectedRoom.id);
 
       fetchMessages(selectedRoom.id);
@@ -98,7 +98,7 @@ const Chat = ({ currentUser }) => {
         .subscribe();
 
       return () => {
-        // Al salir de este chat específico, borramos la marca
+        
         sessionStorage.removeItem("activeChatRoom");
         supabase.removeChannel(messagesChannel);
       };
@@ -388,7 +388,7 @@ const Chat = ({ currentUser }) => {
           </div>
         </div>
       ) : (
-        /* VISTA 2: ÁREA DE CHAT ACTIVO */
+       
         <div className="w-full h-full flex flex-col bg-slate-50 dark:bg-slate-950/50">
           {/* Header del Chat */}
           <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 bg-white dark:bg-slate-900 shadow-sm z-10 shrink-0">
