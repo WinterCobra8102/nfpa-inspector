@@ -13,7 +13,7 @@ export default function StaffManagement({ currentUser }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [listaEmpresas, setListaEmpresas] = useState([]);
-  const [listaTenants, setListaTenants] = useState([]); // Nueva lista para Super Admins
+  const [listaTenants, setListaTenants] = useState([]); 
   const [newClientId, setNewClientId] = useState('');
   const [editClientId, setEditClientId] = useState('');
 
@@ -23,7 +23,7 @@ export default function StaffManagement({ currentUser }) {
   const [newPassword, setNewPassword] = useState('');
   const [newPhone, setNewPhone] = useState(''); 
   const [newRole, setNewRole] = useState('STAFF');
-  const [newTenantId, setNewTenantId] = useState(''); // Para asignar franquicia si eres Super Admin
+  const [newTenantId, setNewTenantId] = useState(''); 
   const [showPassword, setShowPassword] = useState(false);
 
   // ESTADOS DE EDICIÓN
@@ -33,9 +33,12 @@ export default function StaffManagement({ currentUser }) {
   const [editRole, setEditRole] = useState('STAFF');
   const [editPhone, setEditPhone] = useState(''); 
   const [editPassword, setEditPassword] = useState(''); 
+  const [editTenantId, setEditTenantId] = useState(''); 
   const [showEditPassword, setShowEditPassword] = useState(false);
 
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  // --- REGLA DE SEGURIDAD MAESTRA (ISAI MOO) ---
+  // Tu correo tiene acceso maestro absoluto para que nunca te quedes bloqueado
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.email === 'isacm6635@gmail.com';
   const isAdmin = currentUser?.role === 'ADMIN' || isSuperAdmin;
   const isManager = currentUser?.role === 'MANAGER';
 
@@ -43,7 +46,7 @@ export default function StaffManagement({ currentUser }) {
     if (isAdmin || isManager) {
       fetchStaff();
       fetchEmpresas(); 
-      if (isSuperAdmin) fetchTenants(); // Solo el dueño global necesita ver la lista de Franquicias
+      if (isSuperAdmin) fetchTenants(); 
 
       const channel = supabase
         .channel('profiles-changes')
@@ -58,9 +61,8 @@ export default function StaffManagement({ currentUser }) {
 
   // ==================== LÓGICA DE FILTRADO SAAS (TENANTS) ====================
   async function fetchStaff() {
-    let query = supabase.from('profiles').select('*').neq('role', 'CLIENTE');
+    let query = supabase.from('profiles').select('*, tenants(nombre)').neq('role', 'CLIENTE');
     
-    // Si NO eres Super Admin, solo ves al personal de tu región (Tenant)
     if (!isSuperAdmin) {
       query = query.eq('tenant_id', currentUser.tenant_id);
     }
@@ -89,13 +91,12 @@ export default function StaffManagement({ currentUser }) {
   // ==================== SEPARACIÓN VISUAL DE PERSONAL ====================
   const regionalAdmins = useMemo(() => {
     if (!isAdmin) return [];
-    return staff.filter(person => person.role === 'SUPER_ADMIN' || person.role === 'ADMIN');
+    return staff.filter(person => person.role === 'SUPER_ADMIN' || person.role === 'ADMIN' || person.email === 'isacm6635@gmail.com');
   }, [staff, isAdmin]);
 
   const operativeTeam = useMemo(() => {
     let team = staff.filter(person => person.role === 'MANAGER' || person.role === 'STAFF');
     if (isManager) {
-      // Un Manager no debería poder gestionar ni ver a otros Managers (ni Admins) de su misma empresa, solo a sus técnicos.
       team = team.filter(person => person.role === 'STAFF');
     }
     return team;
@@ -115,8 +116,8 @@ export default function StaffManagement({ currentUser }) {
       toast.error("Debes asignar una empresa a este Jefe de Sucursal.");
       return;
     }
-    if (isSuperAdmin && !newTenantId && newRole !== 'SUPER_ADMIN') {
-      toast.error("Como Super Admin, debes asignar una Región/Franquicia al usuario.");
+    if (isSuperAdmin && newRole === 'ADMIN' && !newTenantId) {
+      toast.error("Debes asignar una Región/Franquicia a este Admin Regional.");
       return;
     }
     if (newPassword.length < 6) {
@@ -128,9 +129,15 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // Definir de quién hereda el Tenant
-      // Si eres SuperAdmin lo asignas manual, si eres Admin Regional se hereda el tuyo.
-      const assignedTenantId = isSuperAdmin ? newTenantId : currentUser.tenant_id;
+      // Determinamos el Tenant:
+      // - Si es Admin General: NO tiene Tenant (ve todo)
+      // - Si Isai crea un Regional: Toma el de la lista desplegable (newTenantId)
+      // - Si un Regional crea un técnico: Hereda el suyo automáticamente.
+      let assignedTenantId = currentUser.tenant_id;
+      if (isSuperAdmin) {
+        if (newRole === 'SUPER_ADMIN') assignedTenantId = null;
+        if (newRole === 'ADMIN') assignedTenantId = newTenantId;
+      }
 
       const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
         p_email: newEmail.trim().toLowerCase(),
@@ -145,7 +152,7 @@ export default function StaffManagement({ currentUser }) {
       await supabase.from('profiles').update({
         phone: newPhone || null,
         email: newEmail.trim().toLowerCase(),
-        tenant_id: assignedTenantId // Asignación SaaS
+        tenant_id: assignedTenantId 
       }).eq('id', newUserId);
 
       toast.success(`${newName.toUpperCase()} registrado correctamente.`, { id: loadingToast });
@@ -156,6 +163,7 @@ export default function StaffManagement({ currentUser }) {
       setNewClientId(''); 
       setNewTenantId('');
       setNewPhone('');
+      setNewRole('STAFF');
       setShowPassword(false);
       fetchStaff(); 
       
@@ -174,6 +182,7 @@ export default function StaffManagement({ currentUser }) {
     setEditRole(person.role);
     setEditPhone(person.phone || '');
     setEditClientId(person.client_id || ''); 
+    setEditTenantId(person.tenant_id || '');
     setEditPassword(''); 
     setShowEditPassword(false);
   };
@@ -209,6 +218,7 @@ export default function StaffManagement({ currentUser }) {
 
         await supabase.from('profiles').update({ 
           client_id: editRole === 'MANAGER' ? editClientId : null,
+          tenant_id: (isSuperAdmin && editRole === 'ADMIN') ? editTenantId : editingUser.tenant_id,
           phone: editPhone || null,
           email: editEmail.trim().toLowerCase(), 
           full_name: editName.toUpperCase()
@@ -259,43 +269,52 @@ export default function StaffManagement({ currentUser }) {
   }
 
   const canModifyFields = (person) => {
-    if (isAdmin) return true;
+    if (isSuperAdmin) return true;
+    if (isAdmin && person.role !== 'SUPER_ADMIN' && person.email !== 'isacm6635@gmail.com') return true;
     if (isManager && person?.id === currentUser?.id) return true;
     return false;
   };
 
-  // Reutilizable para la UI de tarjetas de usuario
-  const UserCard = ({ person }) => (
-    <div key={person.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md transition-all">
-      <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm overflow-hidden shrink-0 border border-slate-100 dark:border-slate-700 ${!person.avatar_url ? (person.role === 'ADMIN' || person.role === 'SUPER_ADMIN' ? 'bg-slate-900 dark:bg-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600') : 'bg-transparent'}`}>
-          {person.avatar_url ? (
-            <img src={person.avatar_url} alt={person.full_name} className="w-full h-full object-cover" />
-          ) : (
-            person.full_name?.charAt(0).toUpperCase() || 'U'
+  const UserCard = ({ person }) => {
+    // Determinar si esta tarjeta es un Super Admin para estilo visual
+    const isThisUserSuper = person.role === 'SUPER_ADMIN' || person.email === 'isacm6635@gmail.com';
+
+    return (
+      <div key={person.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md transition-all">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm overflow-hidden shrink-0 border border-slate-100 dark:border-slate-700 ${!person.avatar_url ? (person.role === 'ADMIN' || isThisUserSuper ? 'bg-slate-900 dark:bg-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-600' : 'bg-red-600') : 'bg-transparent'}`}>
+            {person.avatar_url ? (
+              <img src={person.avatar_url} alt={person.full_name} className="w-full h-full object-cover" />
+            ) : (
+              person.full_name?.charAt(0).toUpperCase() || 'U'
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-sm text-slate-800 dark:text-slate-200">
+                {person.full_name || 'Sin Nombre'} {person.id === currentUser?.id && <span className="text-blue-500 dark:text-blue-400 font-normal text-xs">(tú)</span>}
+              </h4>
+              
+              {/* ETIQUETA DE ROL CON NOMBRE DE REGIÓN (SAAS) */}
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isThisUserSuper ? 'bg-amber-100 text-amber-700 border border-amber-200' : person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
+                {isThisUserSuper ? 'Admin General' : person.role === 'MANAGER' ? 'Jefe Sucursal' : person.role === 'STAFF' ? 'Técnico' : 'Admin Regional'}
+                {person.role === 'ADMIN' && person.tenants?.nombre && ` | ${person.tenants.nombre}`}
+              </span>
+
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{person.email} {person.phone && <span className="text-slate-500 dark:text-slate-400"> · {person.phone}</span>}</p>
+          </div>
+        </div>
+        
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => openEditModal(person)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Edit size={18} /></button>
+          {isAdmin && currentUser?.id !== person.id && !isThisUserSuper && (
+            <button onClick={() => handleDelete(person.id, person.full_name)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={18} /></button>
           )}
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h4 className="font-medium text-sm text-slate-800 dark:text-slate-200">
-              {person.full_name || 'Sin Nombre'} {person.id === currentUser?.id && <span className="text-blue-500 dark:text-blue-400 font-normal text-xs">(tú)</span>}
-            </h4>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${person.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-700 border border-amber-200' : person.role === 'ADMIN' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : person.role === 'MANAGER' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
-              {person.role === 'MANAGER' ? 'Jefe Sucursal' : person.role === 'STAFF' ? 'Técnico' : person.role === 'ADMIN' ? 'Admin Regional' : 'Súper Admin'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{person.email} {person.phone && <span className="text-slate-500 dark:text-slate-400"> · {person.phone}</span>}</p>
-        </div>
       </div>
-      
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => openEditModal(person)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Edit size={18} /></button>
-        {isAdmin && currentUser?.id !== person.id && (
-          <button onClick={() => handleDelete(person.id, person.full_name)} className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={18} /></button>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 relative">
@@ -375,17 +394,19 @@ export default function StaffManagement({ currentUser }) {
                   </button>
                 </div>
               </div>
+              
+              {/* SELECTOR DE ROL: Oculta los cargos altos si no es Súper Admin */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">Rango / Rol</label>
                 <select className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors text-slate-800 dark:text-slate-200" value={newRole} onChange={e => setNewRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
-                  <option value="ADMIN">Admin Regional</option>
-                  {isSuperAdmin && <option value="SUPER_ADMIN">Súper Administrador</option>}
+                  
+                  {isSuperAdmin && <option value="ADMIN">Admin Regional</option>}
+                  {isSuperAdmin && <option value="SUPER_ADMIN">Admin General</option>}
                 </select>
               </div>
               
-              {/* SELECTOR DE EMPRESA (Solo para Jefes de Sucursal) */}
               {newRole === 'MANAGER' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-blue-600 dark:text-blue-400 ml-1 flex items-center gap-1"><Building2 size={12}/> Asignar Sucursal</label>
@@ -396,10 +417,10 @@ export default function StaffManagement({ currentUser }) {
                 </div>
               )}
 
-              {/* SELECTOR DE REGIÓN (SaaS - Solo lo ve el Super Admin) */}
-              {isSuperAdmin && newRole !== 'SUPER_ADMIN' && (
+              {/* ASIGNACIÓN DE REGIÓN (Solo para Super Admin cuando crea un Regional) */}
+              {isSuperAdmin && newRole === 'ADMIN' && (
                 <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <label className="text-xs font-medium text-amber-600 dark:text-amber-500 ml-1 flex items-center gap-1"><Globe size={12}/> Región / Franquicia (SaaS)</label>
+                  <label className="text-xs font-bold text-amber-600 dark:text-amber-500 ml-1 flex items-center gap-1"><Globe size={12}/> Asignar a Región/País (SaaS)</label>
                   <select className="w-full p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-sm font-medium outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-slate-200" value={newTenantId} onChange={e => setNewTenantId(e.target.value)}>
                     <option value="">Seleccionar región...</option>
                     {listaTenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
@@ -426,11 +447,11 @@ export default function StaffManagement({ currentUser }) {
             <div className="p-10 text-center text-slate-400 dark:text-slate-500 text-sm">Cargando directorio...</div>
           ) : (
             <>
-              {/* BLOQUE 1: ADMINISTRADORES REGIONALES */}
+              {/* BLOQUE 1: ADMINISTRADORES GENERALES Y REGIONALES */}
               {isAdmin && regionalAdmins.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1 border-b border-slate-200 dark:border-slate-700 pb-2">
-                    <Shield size={14} /> Administradores Regionales
+                    <Shield size={14} /> Administradores Generales y Regionales
                   </h3>
                   {regionalAdmins.map(person => <UserCard key={person.id} person={person} />)}
                 </div>
@@ -522,8 +543,8 @@ export default function StaffManagement({ currentUser }) {
                 <select disabled={!isAdmin} className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium outline-none disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-800 dark:text-slate-200" value={editRole} onChange={e => setEditRole(e.target.value)}>
                   <option value="STAFF">Inspector / Técnico</option>
                   <option value="MANAGER">Jefe de Sucursal</option>
-                  <option value="ADMIN">Admin Regional</option>
-                  {isSuperAdmin && <option value="SUPER_ADMIN">Súper Administrador</option>}
+                  {isSuperAdmin && <option value="ADMIN">Admin Regional</option>}
+                  {isSuperAdmin && <option value="SUPER_ADMIN">Admin General</option>}
                 </select>
               </div>
 
@@ -533,6 +554,16 @@ export default function StaffManagement({ currentUser }) {
                   <select className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200" value={editClientId} onChange={e => setEditClientId(e.target.value)}>
                     <option value="">Seleccionar empresa...</option>
                     {listaEmpresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {isSuperAdmin && editRole === 'ADMIN' && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <label className="text-xs font-bold text-amber-600 dark:text-amber-500 ml-1 flex items-center gap-1"><Globe size={12}/> Región / Franquicia (SaaS)</label>
+                  <select className="w-full p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-sm font-medium outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-slate-200" value={editTenantId} onChange={e => setEditTenantId(e.target.value)}>
+                    <option value="">Seleccionar región...</option>
+                    {listaTenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
                 </div>
               )}
