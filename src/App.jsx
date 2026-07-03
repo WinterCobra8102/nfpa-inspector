@@ -651,7 +651,7 @@ function App() {
                                           activeTab === "critical"
                                         ? "Hallazgos Críticos"
                                         : ""}
-              </h1>
+              </h1> 
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
