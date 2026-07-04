@@ -520,7 +520,7 @@ export default function Login({ onLoginSuccess }) {
           <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
             Ingeniería en Protección Contra Incendio
             <br />
-            Mérida, Yucatán
+            Mérida, Yucatán ,México
           </p>
         </div>
       </div>
