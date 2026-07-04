@@ -202,10 +202,12 @@ function App() {
 
           setIsCompanyActive(isAllowed);
 
+          // === LÓGICA ROBUSTA DE FILTRADO Y SINCRONIZACIÓN ===
           try {
             let clientesQuery = supabase.from("clientes").select("*");
 
             if (data.role !== "SUPER_ADMIN") {
+              // El filtro garantiza que Supabase solo devuelva las de su estado
               clientesQuery = clientesQuery.eq("tenant_id", data.tenant_id);
             }
 
@@ -213,6 +215,7 @@ function App() {
               await clientesQuery;
 
             if (!clientesError && remoteClientes) {
+              // LIMPIEZA ABSOLUTA DE CACHÉ LOCAL ANTES DE INSERTAR
               await db.clientes.clear();
               await db.clientes.bulkPut(remoteClientes);
             }
@@ -284,12 +287,9 @@ function App() {
 
   const visibleInspections = inspections?.filter((i) => {
     if (!currentUser) return false;
-
     if (currentUser.role === "SUPER_ADMIN") return true;
-
     if (currentUser.role === "CLIENTE")
       return i.clientId === currentUser.client_id;
-
     return !i.tenant_id || i.tenant_id === currentUser.tenant_id;
   });
 
@@ -324,6 +324,16 @@ function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("tle_user_cache");
+
+    // === LIMPIEZA DE BASE DE DATOS LOCAL AL SALIR ===
+    // Evita que la información se filtre si otro usuario inicia sesión en el mismo navegador
+    try {
+      await db.clientes.clear();
+      await db.inspections.clear();
+    } catch (err) {
+      console.warn("Error limpiando caché local:", err);
+    }
+
     setCurrentUser(null);
     setActiveTab("home");
     setSelectedCompany(null);

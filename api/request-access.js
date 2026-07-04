@@ -1,22 +1,21 @@
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Método no permitido" });
 
   const { nombre, email, razonSocial, telefono } = req.body;
 
-  // 1. Configuración SMTP de Gmail con tu contraseña integrada
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: "smtp.gmail.com",
     port: 465,
-    secure: true, 
+    secure: true,
     auth: {
-      user: 'ventas.mxskynet@gmail.com',
-      pass: 'civkpneitftztscu'
-    }
+      user: "ventas.mxskynet@gmail.com",
+      pass: "civkpneitftztscu",
+    },
   });
 
-  // 2. Diseño del correo
   const emailHtml = `
     <!DOCTYPE html>
     <html>
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
               </tr>
               <tr>
                 <td style="padding: 12px 16px; font-size: 12px; font-weight: bold; color: #64748b;">TELÉFONO DE CONTACTO:</td>
-                <td style="padding: 12px 16px; font-size: 13px; font-weight: bold; color: #0f172a;">${telefono || 'No proporcionado'}</td>
+                <td style="padding: 12px 16px; font-size: 13px; font-weight: bold; color: #0f172a;">${telefono || "No proporcionado"}</td>
               </tr>
             </table>
 
@@ -67,16 +66,18 @@ export default async function handler(req, res) {
 
   const mailOptions = {
     from: '"Soporte TLETL" <ventas.mxskynet@gmail.com>',
-    to: 'ventas.mxskynet@gmail.com', 
+    to: "ventas.mxskynet@gmail.com",
     subject: `[SOLICITUD DE ACCESO] ${razonSocial} - ${nombre}`,
-    html: emailHtml
+    html: emailHtml,
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    return res.status(200).json({ success: true, message: 'Solicitud enviada' });
+    return res
+      .status(200)
+      .json({ success: true, message: "Solicitud enviada" });
   } catch (error) {
-    console.error('Error SMTP Gmail:', error);
-    return res.status(500).json({ error: 'Error al enviar la solicitud' });
+    console.error("Error SMTP Gmail:", error);
+    return res.status(500).json({ error: "Error al enviar la solicitud" });
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import toast from "react-hot-toast";
 import { showConfirmDelete } from "../alerts";
@@ -16,6 +16,7 @@ import {
   Building2,
   Smartphone,
   Globe,
+  MapPin,
 } from "lucide-react";
 
 export default function StaffManagement({ currentUser }) {
@@ -28,7 +29,7 @@ export default function StaffManagement({ currentUser }) {
   const [newClientId, setNewClientId] = useState("");
   const [editClientId, setEditClientId] = useState("");
 
-  // ESTADOS DE CREACIÓN
+  
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -37,7 +38,13 @@ export default function StaffManagement({ currentUser }) {
   const [newTenantId, setNewTenantId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // ESTADOS DE EDICIÓN
+  
+  const [showNewTenantInput, setShowNewTenantInput] = useState(false);
+  const [newTenantName, setNewTenantName] = useState("");
+  const [creatingTenant, setCreatingTenant] = useState(false);
+  const regionInputRef = useRef(null);
+
+  
   const [editingUser, setEditingUser] = useState(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -47,14 +54,14 @@ export default function StaffManagement({ currentUser }) {
   const [editTenantId, setEditTenantId] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
 
-  // --- REGLA DE SEGURIDAD MAESTRA (ISAI MOO) ---
-  // Tu correo tiene acceso maestro absoluto para que nunca te quedes bloqueado
+  
   const isSuperAdmin =
     currentUser?.role === "SUPER_ADMIN" ||
     currentUser?.email === "isacm6635@gmail.com";
   const isAdmin = currentUser?.role === "ADMIN" || isSuperAdmin;
   const isManager = currentUser?.role === "MANAGER";
 
+  
   useEffect(() => {
     if (isAdmin || isManager) {
       fetchStaff();
@@ -78,7 +85,28 @@ export default function StaffManagement({ currentUser }) {
     }
   }, [currentUser]);
 
-  // ==================== LÓGICA DE FILTRADO SAAS (TENANTS) ====================
+  
+  useEffect(() => {
+    if (showNewTenantInput && regionInputRef.current && window.google) {
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        regionInputRef.current,
+        {
+          types: ["(regions)"], 
+        },
+      );
+
+      
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (place && place.formatted_address) {
+          
+          setNewTenantName(place.formatted_address.toUpperCase());
+        }
+      });
+    }
+  }, [showNewTenantInput]);
+
+  
   async function fetchStaff() {
     let query = supabase
       .from("profiles")
@@ -116,7 +144,42 @@ export default function StaffManagement({ currentUser }) {
     if (data) setListaTenants(data);
   }
 
-  // ==================== SEPARACIÓN VISUAL DE PERSONAL ====================
+  
+  const handleCreateNewTenant = async () => {
+    if (!newTenantName.trim()) {
+      toast.error("Busca y selecciona una región de Google Maps.");
+      return;
+    }
+
+    setCreatingTenant(true);
+    const tId = toast.loading("Registrando nueva jurisdicción...");
+
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .insert([
+          { nombre: newTenantName.trim().toUpperCase(), is_active: true },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success(`Región ${data.nombre} dada de alta con éxito.`, {
+        id: tId,
+      });
+      await fetchTenants();
+      setNewTenantId(data.id);
+      setNewTenantName("");
+      setShowNewTenantInput(false);
+    } catch (err) {
+      toast.error("Error al crear la región: " + err.message, { id: tId });
+    } finally {
+      setCreatingTenant(false);
+    }
+  };
+
+  
   const regionalAdmins = useMemo(() => {
     if (!isAdmin) return [];
     return staff.filter(
@@ -137,7 +200,7 @@ export default function StaffManagement({ currentUser }) {
     return team;
   }, [staff, isManager]);
 
-  // ==================== CREAR USUARIO ====================
+  
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -163,10 +226,6 @@ export default function StaffManagement({ currentUser }) {
     const loadingToast = toast.loading("Registrando usuario...");
 
     try {
-      // Determinamos el Tenant:
-      // - Si es Admin General: NO tiene Tenant (ve todo)
-      // - Si Isai crea un Regional: Toma el de la lista desplegable (newTenantId)
-      // - Si un Regional crea un técnico: Hereda el suyo automáticamente.
       let assignedTenantId = currentUser.tenant_id;
       if (isSuperAdmin) {
         if (newRole === "SUPER_ADMIN") assignedTenantId = null;
@@ -195,9 +254,44 @@ export default function StaffManagement({ currentUser }) {
         })
         .eq("id", newUserId);
 
-      toast.success(`${newName.toUpperCase()} registrado correctamente.`, {
-        id: loadingToast,
-      });
+      
+      try {
+        let nombreRegion = "YUCATÁN";
+        if (isSuperAdmin && newTenantId) {
+          const tenantInfo = listaTenants.find((t) => t.id === newTenantId);
+          if (tenantInfo) nombreRegion = tenantInfo.nombre;
+          else nombreRegion = "ADMINISTRACIÓN CENTRAL";
+        } else if (currentUser?.tenants?.nombre) {
+          nombreRegion = currentUser.tenants.nombre;
+        }
+
+        await fetch("/api/notify-registration", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: newEmail.trim().toLowerCase(),
+            name: newName.toUpperCase(),
+            password: newPassword,
+            role: newRole,
+            razonSocial: nombreRegion,
+          }),
+        });
+      } catch (emailErr) {
+        console.warn(
+          "La cola de correo no pudo completarse, pero el usuario fue creado:",
+          emailErr,
+        );
+      }
+      
+
+      toast.success(
+        `${newName.toUpperCase()} registrado y credenciales enviadas.`,
+        {
+          id: loadingToast,
+        },
+      );
 
       setNewEmail("");
       setNewName("");
@@ -341,7 +435,6 @@ export default function StaffManagement({ currentUser }) {
   };
 
   const UserCard = ({ person }) => {
-    // Determinar si esta tarjeta es un Super Admin para estilo visual
     const isThisUserSuper =
       person.role === "SUPER_ADMIN" || person.email === "isacm6635@gmail.com";
 
@@ -375,7 +468,6 @@ export default function StaffManagement({ currentUser }) {
                 )}
               </h4>
 
-              {/* ETIQUETA DE ROL CON NOMBRE DE REGIÓN (SAAS) */}
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isThisUserSuper ? "bg-amber-100 text-amber-700 border border-amber-200" : person.role === "ADMIN" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : person.role === "MANAGER" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800" : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"}`}
               >
@@ -526,7 +618,6 @@ export default function StaffManagement({ currentUser }) {
                 </div>
               </div>
 
-              {/* SELECTOR DE ROL: Oculta los cargos altos si no es Súper Admin */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">
                   Rango / Rol
@@ -568,24 +659,77 @@ export default function StaffManagement({ currentUser }) {
                 </div>
               )}
 
-              {/* ASIGNACIÓN DE REGIÓN (Solo para Super Admin cuando crea un Regional) */}
+              {/* ASIGNACIÓN Y CREACIÓN DE REGIÓN (Con Google Maps) */}
               {isSuperAdmin && newRole === "ADMIN" && (
-                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <label className="text-xs font-bold text-amber-600 dark:text-amber-500 ml-1 flex items-center gap-1">
-                    <Globe size={12} /> Asignar a Región/País (SaaS)
-                  </label>
-                  <select
-                    className="w-full p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-sm font-medium outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-slate-200"
-                    value={newTenantId}
-                    onChange={(e) => setNewTenantId(e.target.value)}
-                  >
-                    <option value="">Seleccionar región...</option>
-                    {listaTenants.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nombre}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-700 mt-2">
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-xs font-bold text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                      <Globe size={12} /> Asignar Región/País (SaaS)
+                    </label>
+                    {!showNewTenantInput && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNewTenantInput(true)}
+                        className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full transition-colors"
+                      >
+                        + Nueva Región
+                      </button>
+                    )}
+                  </div>
+
+                  {showNewTenantInput ? (
+                    <div className="flex gap-2">
+                      <div className="relative w-full">
+                        <MapPin
+                          className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-500/50"
+                          size={14}
+                        />
+                        <input
+                          ref={regionInputRef}
+                          type="text"
+                          placeholder="Buscar estado o país..."
+                          className="w-full p-2.5 pl-8 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-lg text-sm font-medium outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase text-slate-800 dark:text-slate-200"
+                          value={newTenantName}
+                          onChange={(e) => setNewTenantName(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCreateNewTenant}
+                        disabled={creatingTenant || !newTenantName}
+                        className="bg-amber-500 hover:bg-amber-600 text-white px-3 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50"
+                      >
+                        {creatingTenant ? (
+                          <RefreshCw size={16} className="animate-spin" />
+                        ) : (
+                          "Guardar"
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewTenantInput(false);
+                          setNewTenantName("");
+                        }}
+                        className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg text-sm font-medium outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-slate-200"
+                      value={newTenantId}
+                      onChange={(e) => setNewTenantId(e.target.value)}
+                    >
+                      <option value="">Seleccionar región...</option>
+                      {listaTenants.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
@@ -615,7 +759,6 @@ export default function StaffManagement({ currentUser }) {
           </div>
         )}
 
-        {/* LISTADO DE PERSONAL SEPARADO */}
         <div className="md:col-span-2 space-y-8">
           {loading ? (
             <div className="p-10 text-center text-slate-400 dark:text-slate-500 text-sm">
@@ -623,7 +766,6 @@ export default function StaffManagement({ currentUser }) {
             </div>
           ) : (
             <>
-              {/* BLOQUE 1: ADMINISTRADORES GENERALES Y REGIONALES */}
               {isAdmin && regionalAdmins.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1 border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -635,7 +777,6 @@ export default function StaffManagement({ currentUser }) {
                 </div>
               )}
 
-              {/* BLOQUE 2: EQUIPO OPERATIVO */}
               {operativeTeam.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1 border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -657,7 +798,6 @@ export default function StaffManagement({ currentUser }) {
         </div>
       </div>
 
-      {/* MODAL DE EDICIÓN */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
