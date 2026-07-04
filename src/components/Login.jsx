@@ -440,7 +440,7 @@ export default function Login({ onLoginSuccess }) {
                   Recuperar Acceso
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Te enviaremos un enlace para restablecer tu contraseña.
+                  Te enviaremos un enlace para restablecer tu contraseña. Asegúrate de revisar tu bandeja de entrada y la carpeta de spam.
                 </p>
               </div>
 
