@@ -373,7 +373,7 @@ export default function Login({ onLoginSuccess }) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 ml-1">
-                  Correo Institucional *
+                  Correo Electrónico *
                 </label>
                 <div className="relative">
                   <Mail
@@ -386,7 +386,7 @@ export default function Login({ onLoginSuccess }) {
                     value={reqEmail}
                     onChange={(e) => setReqEmail(e.target.value)}
                     className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg py-3 pl-11 pr-4 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-700 dark:text-slate-200"
-                    placeholder="correo@empresa.com"
+                    placeholder="correo@ejemplo.com"
                   />
                 </div>
               </div>

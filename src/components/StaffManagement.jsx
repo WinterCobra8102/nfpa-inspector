@@ -59,7 +59,7 @@ export default function StaffManagement({ currentUser }) {
     currentUser?.role === "SUPER_ADMIN" ||
     currentUser?.email === "isacm6635@gmail.com";
   const isAdmin = currentUser?.role === "ADMIN" || isSuperAdmin;
-  const isManager = currentUser?.role === "MANAGER";
+  const isManager = currentUser?.role === "MANAGER"; 
 
   
   useEffect(() => {
