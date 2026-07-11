@@ -29,7 +29,7 @@ export default function StaffManagement({ currentUser }) {
   const [newClientId, setNewClientId] = useState("");
   const [editClientId, setEditClientId] = useState("");
 
-  
+  // ESTADOS DE CREACIÓN
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -38,13 +38,13 @@ export default function StaffManagement({ currentUser }) {
   const [newTenantId, setNewTenantId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  
+  // ESTADOS DE CREACIÓN DE NUEVA REGIÓN (GOOGLE MAPS)
   const [showNewTenantInput, setShowNewTenantInput] = useState(false);
   const [newTenantName, setNewTenantName] = useState("");
   const [creatingTenant, setCreatingTenant] = useState(false);
   const regionInputRef = useRef(null);
 
-  
+  // ESTADOS DE EDICIÓN
   const [editingUser, setEditingUser] = useState(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -54,14 +54,14 @@ export default function StaffManagement({ currentUser }) {
   const [editTenantId, setEditTenantId] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
 
-  
+  // --- REGLA DE SEGURIDAD MAESTRA (ISAI MOO) ---
   const isSuperAdmin =
     currentUser?.role === "SUPER_ADMIN" ||
     currentUser?.email === "isacm6635@gmail.com";
   const isAdmin = currentUser?.role === "ADMIN" || isSuperAdmin;
   const isManager = currentUser?.role === "MANAGER"; 
 
-  
+  // INICIALIZACIÓN INICIAL
   useEffect(() => {
     if (isAdmin || isManager) {
       fetchStaff();
@@ -85,7 +85,7 @@ export default function StaffManagement({ currentUser }) {
     }
   }, [currentUser]);
 
-  
+  // INICIALIZACIÓN DE GOOGLE MAPS AUTOCOMPLETE
   useEffect(() => {
     if (showNewTenantInput && regionInputRef.current && window.google) {
       const autocomplete = new window.google.maps.places.Autocomplete(
@@ -95,18 +95,16 @@ export default function StaffManagement({ currentUser }) {
         },
       );
 
-      
       autocomplete.addListener("place_changed", () => {
         const place = autocomplete.getPlace();
         if (place && place.formatted_address) {
-          
           setNewTenantName(place.formatted_address.toUpperCase());
         }
       });
     }
   }, [showNewTenantInput]);
 
-  
+  // ==================== LÓGICA DE FILTRADO SAAS (TENANTS) ====================
   async function fetchStaff() {
     let query = supabase
       .from("profiles")
@@ -144,7 +142,7 @@ export default function StaffManagement({ currentUser }) {
     if (data) setListaTenants(data);
   }
 
-  
+  // ==================== CREAR REGIÓN ====================
   const handleCreateNewTenant = async () => {
     if (!newTenantName.trim()) {
       toast.error("Busca y selecciona una región de Google Maps.");
@@ -179,7 +177,7 @@ export default function StaffManagement({ currentUser }) {
     }
   };
 
-  
+  // ==================== SEPARACIÓN VISUAL DE PERSONAL ====================
   const regionalAdmins = useMemo(() => {
     if (!isAdmin) return [];
     return staff.filter(
@@ -200,7 +198,7 @@ export default function StaffManagement({ currentUser }) {
     return team;
   }, [staff, isManager]);
 
-  
+  // ==================== CREAR USUARIO Y ENVIAR CORREO ====================
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -223,15 +221,17 @@ export default function StaffManagement({ currentUser }) {
     }
 
     setIsSubmitting(true);
-    const loadingToast = toast.loading("Registrando usuario...");
+    const loadingToast = toast.loading("Creando usuario y enviando accesos...");
 
     try {
+      // 1. Asignación de Región (Tenant)
       let assignedTenantId = currentUser.tenant_id;
       if (isSuperAdmin) {
         if (newRole === "SUPER_ADMIN") assignedTenantId = null;
         if (newRole === "ADMIN") assignedTenantId = newTenantId;
       }
 
+      // 2. Creación en Supabase Auth
       const { data: newUserId, error: rpcError } = await supabase.rpc(
         "admin_create_user",
         {
@@ -245,6 +245,7 @@ export default function StaffManagement({ currentUser }) {
 
       if (rpcError) throw rpcError;
 
+      // 3. Actualización de Perfil (Profiles)
       await supabase
         .from("profiles")
         .update({
@@ -254,9 +255,9 @@ export default function StaffManagement({ currentUser }) {
         })
         .eq("id", newUserId);
 
-      
+      // 4. DISPARO DEL CORREO DE BIENVENIDA (API SMTP)
       try {
-        let nombreRegion = "YUCATÁN";
+        let nombreRegion = "YUCATÁN"; // Default
         if (isSuperAdmin && newTenantId) {
           const tenantInfo = listaTenants.find((t) => t.id === newTenantId);
           if (tenantInfo) nombreRegion = tenantInfo.nombre;
@@ -265,7 +266,7 @@ export default function StaffManagement({ currentUser }) {
           nombreRegion = currentUser.tenants.nombre;
         }
 
-        await fetch("/api/notify-registration", {
+        const emailResponse = await fetch("/api/notify-registration", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -278,19 +279,18 @@ export default function StaffManagement({ currentUser }) {
             razonSocial: nombreRegion,
           }),
         });
+
+        if (!emailResponse.ok) {
+           console.warn("La API de correos devolvió un error, pero el usuario sí se creó.");
+        }
       } catch (emailErr) {
-        console.warn(
-          "La cola de correo no pudo completarse, pero el usuario fue creado:",
-          emailErr,
-        );
+        console.warn("Falla de red al enviar el correo:", emailErr);
       }
       
-
+      // 5. Finalizar con éxito
       toast.success(
-        `${newName.toUpperCase()} registrado y credenciales enviadas.`,
-        {
-          id: loadingToast,
-        },
+        `${newName.toUpperCase()} dado de alta. Credenciales enviadas.`,
+        { id: loadingToast }
       );
 
       setNewEmail("");
