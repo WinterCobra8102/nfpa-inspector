@@ -18,7 +18,6 @@ import {
 import toast from "react-hot-toast";
 
 export default function PumpEfficiency() {
-  // --- ESTADOS DE ENTRADA ---
   const [ratedGPM, setRatedGPM] = useState("");
   const [ratedPSI, setRatedPSI] = useState("");
   const [churnSuction, setChurnSuction] = useState("");
@@ -26,7 +25,6 @@ export default function PumpEfficiency() {
   const [ratedSuction, setRatedSuction] = useState("");
   const [ratedDischarge, setRatedDischarge] = useState("");
 
-  // --- ESTADOS DE GUARDADO E HISTORIAL ---
   const [testName, setTestName] = useState("");
   const [explanationText, setExplanationText] = useState("");
   const [savedTests, setSavedTests] = useState([]);
@@ -46,9 +44,6 @@ export default function PumpEfficiency() {
     if (!error && data) setSavedTests(data);
   };
 
-  // =======================================================================
-  // MOTOR MATEMÁTICO BLINDADO
-  // =======================================================================
   const mathData = useMemo(() => {
     const isComplete =
       ratedGPM !== "" &&
@@ -94,9 +89,6 @@ export default function PumpEfficiency() {
     ratedDischarge,
   ]);
 
-  // =======================================================================
-  // GENERADOR DE GRÁFICA VECTORIAL
-  // =======================================================================
   const chartData = useMemo(() => {
     if (!mathData.valid) return null;
 
@@ -145,9 +137,6 @@ export default function PumpEfficiency() {
     };
   }, [mathData]);
 
-  // =======================================================================
-  // FUNCIONES DE BASE DE DATOS
-  // =======================================================================
   const saveTestToDB = async () => {
     if (!mathData.valid) {
       toast.error("Llene todos los parámetros operativos.");
