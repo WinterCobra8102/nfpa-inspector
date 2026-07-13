@@ -996,7 +996,7 @@ export default function StaffManagement({ currentUser }) {
                 {isSubmitting ? (
                   <RefreshCw className="animate-spin" size={14} />
                 ) : (
-                  "Guardar Parámetros"
+                  "Guardar Cambios"
                 )}
               </button>
             </div>
