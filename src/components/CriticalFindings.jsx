@@ -28,7 +28,6 @@ export default function CriticalFindings({ onBack }) {
       </div>
     );
 
-  // Invertimos el arreglo DESPUÉS de que Dexie lo entregó para no romper la base de datos
   const displayReports = [...criticalReports].reverse();
 
   return (
