@@ -95,8 +95,6 @@ export default function Dashboard({ navigateTo, stats }) {
     }
 
     if (clientsData) {
-      // === MAGIA DE INGENIERÍA: CRUCE DE DATOS ===
-      // 1. Buscamos a todos los usuarios que tengan el rol de MANAGER en el sistema
       const { data: managersData, error: managersError } = await supabase
         .from("profiles")
         .select("client_id, full_name, email")
@@ -240,7 +238,6 @@ export default function Dashboard({ navigateTo, stats }) {
         </div>
       </div>
 
-      {/* GRID DE ACCESOS RÁPIDOS */}
       <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -276,7 +273,6 @@ export default function Dashboard({ navigateTo, stats }) {
         })}
       </div>
 
-      {/* DIRECTORIO DE EMPRESAS */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -333,7 +329,6 @@ export default function Dashboard({ navigateTo, stats }) {
         )}
       </div>
 
-      {/* PANEL LATERAL DE DETALLES */}
       {selectedClient && (
         <div className="fixed inset-0 z-[10000] flex justify-end">
           <div
@@ -583,7 +578,7 @@ export default function Dashboard({ navigateTo, stats }) {
                       }
                       className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500 rounded-lg hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white transition-colors border border-red-100 dark:border-red-900/30"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={18}/>
                     </button>
                   )}
                 </>
