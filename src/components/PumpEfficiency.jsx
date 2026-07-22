@@ -14,6 +14,8 @@ import {
   History,
   Info,
   Clock,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -30,6 +32,10 @@ export default function PumpEfficiency() {
   const [savedTests, setSavedTests] = useState([]);
   const [currentViewId, setCurrentViewId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // ESTADOS PARA EL MODAL DE CONFIRMACIÓN DE BORRADO
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [testToDelete, setTestToDelete] = useState(null);
 
   useEffect(() => {
     fetchHistory();
@@ -178,6 +184,46 @@ export default function PumpEfficiency() {
     }
   };
 
+  // --- LÓGICA PARA EL MODAL DE BORRADO ---
+  const handleDeleteClick = (e, id, name) => {
+    e.stopPropagation(); // Evita que se cargue la tarjeta al darle clic a borrar
+    setTestToDelete({ id, name });
+    setShowDeleteModal(true); // Abre el modal de diseño
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setTestToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!testToDelete) return;
+    
+    const loadingToast = toast.loading("Eliminando reporte...");
+    try {
+      const { error } = await supabase
+        .from("pump_tests")
+        .delete()
+        .eq("id", testToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("Reporte eliminado", { id: loadingToast });
+      
+      // Si el reporte eliminado es el que estamos viendo, limpiamos el formulario
+      if (currentViewId === testToDelete.id) {
+        clearForm();
+      }
+      
+      fetchHistory();
+    } catch (err) {
+      toast.error("Error al eliminar: " + err.message, { id: loadingToast });
+    } finally {
+      setShowDeleteModal(false);
+      setTestToDelete(null);
+    }
+  };
+
   const loadTest = (test) => {
     setRatedGPM(test.rated_gpm);
     setRatedPSI(test.rated_psi);
@@ -203,7 +249,7 @@ export default function PumpEfficiency() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 relative">
       {/* HEADER */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -261,10 +307,21 @@ export default function PumpEfficiency() {
                     onClick={() => loadTest(test)}
                     className={`p-4 rounded-lg border cursor-pointer transition-all active:scale-[0.98] ${currentViewId === test.id ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 hover:shadow-sm"}`}
                   >
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-1 flex items-center gap-1">
-                      <Clock size={10} />{" "}
-                      {new Date(test.created_at).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
+                        <Clock size={10} />{" "}
+                        {new Date(test.created_at).toLocaleDateString()}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteClick(e, test.id, test.test_name)}
+                        className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors p-1"
+                        title="Eliminar reporte"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight mb-2">
                       {test.test_name}
                     </p>
@@ -452,7 +509,7 @@ export default function PumpEfficiency() {
         </div>
 
         {/* ================================================= */}
-        {/* COLUMNA 3: GRÁFICA Y RESULTADOS (6/12) — Se mantiene oscuro */}
+        {/* COLUMNA 3: GRÁFICA Y RESULTADOS (6/12) */}
         {/* ================================================= */}
         <div className="lg:col-span-6 h-[800px] flex flex-col">
           <div className="bg-slate-900 p-6 md:p-8 rounded-xl shadow-lg h-full flex flex-col border-t-4 border-red-600 relative overflow-hidden">
@@ -671,6 +728,42 @@ export default function PumpEfficiency() {
           </div>
         </div>
       </div>
+
+      {/* --- MODAL PERSONALIZADO DE ELIMINACIÓN --- */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl shadow-xl relative overflow-hidden flex flex-col text-slate-700 dark:text-slate-300 border-t-4 border-red-600 animate-in fade-in zoom-in duration-200">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-start gap-4">
+              <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-full shrink-0">
+                <AlertTriangle size={24} className="text-red-600 dark:text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-slate-900 dark:text-white mt-1">
+                  Confirmar Eliminación
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                  ¿Estás seguro de que deseas eliminar el reporte de la prueba <strong>"{testToDelete?.name}"</strong>? Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 flex gap-3 shrink-0">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium text-sm py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium text-sm py-2.5 rounded-lg shadow-sm transition-all active:scale-95"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

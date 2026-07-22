@@ -159,4 +159,4 @@ export default function CriticalFindings({ onBack }) {
       </div>
     </div>
   );
-}
+} 
