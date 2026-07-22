@@ -417,9 +417,6 @@ export default function PumpEfficiency() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* ================================================= */}
-        {/* COLUMNA 1: HISTORIAL (3/12) */}
-        {/* ================================================= */}
         <div className="lg:col-span-3">
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm h-[800px] flex flex-col">
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-4">
