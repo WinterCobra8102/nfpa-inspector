@@ -15,7 +15,8 @@ import {
   Info,
   Clock,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Download // <-- Agregado Download
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -186,9 +187,9 @@ export default function PumpEfficiency() {
 
   // --- LÓGICA PARA EL MODAL DE BORRADO ---
   const handleDeleteClick = (e, id, name) => {
-    e.stopPropagation(); // Evita que se cargue la tarjeta al darle clic a borrar
+    e.stopPropagation(); 
     setTestToDelete({ id, name });
-    setShowDeleteModal(true); // Abre el modal de diseño
+    setShowDeleteModal(true); 
   };
 
   const cancelDelete = () => {
@@ -210,7 +211,6 @@ export default function PumpEfficiency() {
 
       toast.success("Reporte eliminado", { id: loadingToast });
       
-      // Si el reporte eliminado es el que estamos viendo, limpiamos el formulario
       if (currentViewId === testToDelete.id) {
         clearForm();
       }
@@ -248,10 +248,138 @@ export default function PumpEfficiency() {
     setCurrentViewId(null);
   };
 
+  // --- LÓGICA PARA GENERAR PDF PROFESIONAL ---
+  const handleDownloadPDF = () => {
+    if (!mathData.valid) {
+      toast.error("Datos incompletos para generar el PDF.");
+      return;
+    }
+
+    const toastId = toast.loading("Generando documento PDF...");
+    
+    // Extraemos la gráfica SVG en crudo para insertarla en el PDF
+    const chartHtml = document.getElementById("chart-container")?.innerHTML || "";
+    
+    // Plantilla HTML Estilizada
+    const printContent = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>Reporte_${testName || "Bomba_NFPA"}</title>
+        <style>
+          body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; padding: 30px; max-width: 800px; margin: auto; }
+          .header { border-bottom: 4px solid #dc2626; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;}
+          .header h1 { margin: 0; color: #0f172a; font-size: 24px; text-transform: uppercase;}
+          .header p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+          .badge { display: inline-block; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; letter-spacing: 0.5px;}
+          .pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;}
+          .fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;}
+          .info-section { display: flex; justify-content: space-between; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;}
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+          .card { border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; }
+          .card h3 { margin-top: 0; font-size: 13px; color: #475569; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;}
+          .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+          .data-label { color: #64748b; }
+          .data-value { font-weight: 600; color: #0f172a; }
+          .chart-box { margin-top: 30px; border: 1px solid #cbd5e1; padding: 20px; border-radius: 8px; text-align: center; }
+          .chart-box svg { width: 100%; height: auto; max-height: 380px; }
+          .notes { margin-top: 25px; padding: 15px; border-left: 4px solid #3b82f6; background: #f0f9ff; font-size: 14px; color: #1e3a8a;}
+          .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px;}
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Eficiencia de Caudal</h1>
+            <p>Reporte de Análisis Predictivo NFPA 25</p>
+          </div>
+          <div>
+             <h2 style="margin:0; color:#dc2626;">TLETL</h2>
+             <p style="font-size:10px; text-align:right;">Fire Systems</p>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <div>
+            <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Prueba / Sucursal</div>
+            <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 5px;">${testName || "S/N"}</div>
+            <div style="font-size: 13px; color: #475569;">Fecha de Emisión: ${new Date().toLocaleDateString()}</div>
+          </div>
+          <div style="display: flex; align-items: center;">
+            <span class="badge ${mathData.isPassing ? 'pass' : 'fail'}">
+              RESULTADO: ${mathData.isPassing ? 'PASA (CUMPLE NFPA)' : 'FALLA (NO CUMPLE)'}
+            </span>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card" style="border-top: 3px solid #cbd5e1;">
+            <h3>Placa Nominal del Equipo</h3>
+            <div class="data-row"><span class="data-label">Caudal Nominal</span> <span class="data-value">${ratedGPM} GPM</span></div>
+            <div class="data-row"><span class="data-label">Presión Nominal</span> <span class="data-value">${ratedPSI} PSI</span></div>
+          </div>
+          <div class="card" style="border-top: 3px solid #3b82f6;">
+            <h3>Resultados Proyectados (Matemáticos)</h3>
+            <div class="data-row"><span class="data-label">Límite 65% NFPA</span> <span class="data-value">${mathData.min150NFPA.toFixed(1)} PSI</span></div>
+            <div class="data-row"><span class="data-label">Proyección al 150%</span> <span class="data-value">${mathData.predicted150Net.toFixed(1)} PSI</span></div>
+          </div>
+        </div>
+
+        <div class="grid">
+           <div class="card" style="border-top: 3px solid #64748b;">
+            <h3>Lecturas Churn (0% Caudal)</h3>
+            <div class="data-row"><span class="data-label">Presión de Succión</span> <span class="data-value">${churnSuction} PSI</span></div>
+            <div class="data-row"><span class="data-label">Presión de Descarga</span> <span class="data-value">${churnDischarge} PSI</span></div>
+            <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #cbd5e1; padding-top: 5px;"><span class="data-label">Presión Neta</span> <span class="data-value">${mathData.cNet} PSI</span></div>
+          </div>
+          <div class="card" style="border-top: 3px solid #22c55e;">
+            <h3>Lecturas Nominales (100% Caudal)</h3>
+            <div class="data-row"><span class="data-label">Presión de Succión</span> <span class="data-value">${ratedSuction} PSI</span></div>
+            <div class="data-row"><span class="data-label">Presión de Descarga</span> <span class="data-value">${ratedDischarge} PSI</span></div>
+            <div class="data-row" style="margin-top: 5px; border-top: 1px dashed #cbd5e1; padding-top: 5px;"><span class="data-label">Presión Neta</span> <span class="data-value">${mathData.actRatedNet} PSI</span></div>
+          </div>
+        </div>
+
+        ${explanationText ? `
+        <div class="notes">
+          <strong style="text-transform: uppercase; font-size: 12px;">Notas Técnicas / Diagnóstico:</strong><br>
+          <div style="margin-top: 5px;">${explanationText}</div>
+        </div>
+        ` : ''}
+
+        <div class="chart-box">
+          <h3 style="margin-top:0; color: #475569; font-size:14px; text-transform:uppercase;">Curva H-Q de Desempeño</h3>
+          ${chartHtml}
+        </div>
+
+        <div class="footer">
+          Documento generado electrónicamente por <strong>TLETL Fire Systems</strong>.<br>
+          Este reporte es un cálculo predictivo basado en los datos ingresados en campo.
+        </div>
+        
+        <script>
+          // Imprime automáticamente en cuanto carga el documento oculto
+          window.onload = () => {
+            window.print();
+            setTimeout(() => window.close(), 500); // Cierra la pestaña tras imprimir/guardar
+          }
+        </script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    toast.dismiss(toastId);
+  };
+
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 relative">
-      {/* HEADER */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-4">
+      {/* HEADER CON BOTONES NUEVOS */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
             <Calculator size={24} className="text-red-600 dark:text-red-500" />
@@ -265,14 +393,27 @@ export default function PumpEfficiency() {
             </p>
           </div>
         </div>
-        {currentViewId && (
-          <button
-            onClick={clearForm}
-            className="px-5 py-2.5 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95"
-          >
-            <X size={16} /> Nuevo Análisis
-          </button>
-        )}
+        
+        <div className="flex items-center gap-3">
+          {/* BOTÓN DESCARGAR PDF */}
+          {mathData.valid && (
+            <button
+              onClick={handleDownloadPDF}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95"
+            >
+              <Download size={16} /> Exportar PDF
+            </button>
+          )}
+
+          {currentViewId && (
+            <button
+              onClick={clearForm}
+              className="px-4 py-2.5 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95"
+            >
+              <X size={16} /> Nuevo Análisis
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -346,7 +487,6 @@ export default function PumpEfficiency() {
         {/* COLUMNA 2: CAPTURA DE DATOS (3/12) */}
         {/* ================================================= */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Tarjeta 1: Placa Nominal */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-slate-800 dark:bg-slate-400 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
@@ -386,7 +526,6 @@ export default function PumpEfficiency() {
             </div>
           </div>
 
-          {/* Tarjeta 2: Churn */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
@@ -423,7 +562,6 @@ export default function PumpEfficiency() {
             </div>
           </div>
 
-          {/* Tarjeta 3: Prueba Nominal */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-r"></div>
             <h3 className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 ml-2">
@@ -463,7 +601,6 @@ export default function PumpEfficiency() {
             </div>
           </div>
 
-          {/* Tarjeta 4: Guardar Reporte */}
           <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
             <h3 className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2">
               <FileText
@@ -542,7 +679,6 @@ export default function PumpEfficiency() {
               </div>
             ) : (
               <div className="flex-1 flex flex-col space-y-5 relative z-10">
-                {/* Resultados Rápidos */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
                     <div className="flex items-center gap-2 mb-2">
@@ -583,10 +719,12 @@ export default function PumpEfficiency() {
                   </div>
                 </div>
 
-                {/* Contenedor Gráfica */}
-                <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 p-5 flex items-center justify-center shadow-inner relative overflow-hidden">
+                {/* Contenedor Gráfica CON ID PARA PDF */}
+                <div 
+                  id="chart-container" 
+                  className="flex-1 bg-slate-950 rounded-xl border border-slate-800 p-5 flex items-center justify-center shadow-inner relative overflow-hidden"
+                >
                   <div className="relative w-full h-full min-h-[300px]">
-                    {/* Etiquetas Ejes */}
                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-medium text-slate-500 uppercase tracking-wide">
                       Presión (PSI)
                     </div>
@@ -598,126 +736,22 @@ export default function PumpEfficiency() {
                       viewBox={`0 0 ${chartData.w} ${chartData.h}`}
                       className="w-full h-full overflow-hidden"
                     >
-                      {/* Rejilla Fina */}
-                      <line
-                        x1="0"
-                        y1={chartData.h * 0.25}
-                        x2={chartData.w}
-                        y2={chartData.h * 0.25}
-                        stroke="#1e293b"
-                        strokeWidth="1"
-                      />
-                      <line
-                        x1="0"
-                        y1={chartData.h * 0.5}
-                        x2={chartData.w}
-                        y2={chartData.h * 0.5}
-                        stroke="#1e293b"
-                        strokeWidth="1"
-                        strokeDasharray="4,4"
-                      />
-                      <line
-                        x1="0"
-                        y1={chartData.h * 0.75}
-                        x2={chartData.w}
-                        y2={chartData.h * 0.75}
-                        stroke="#1e293b"
-                        strokeWidth="1"
-                      />
-                      <line
-                        x1={chartData.w * 0.5}
-                        y1="0"
-                        x2={chartData.w * 0.5}
-                        y2={chartData.h}
-                        stroke="#1e293b"
-                        strokeWidth="1"
-                        strokeDasharray="4,4"
-                      />
+                      <line x1="0" y1={chartData.h * 0.25} x2={chartData.w} y2={chartData.h * 0.25} stroke="#1e293b" strokeWidth="1" />
+                      <line x1="0" y1={chartData.h * 0.5} x2={chartData.w} y2={chartData.h * 0.5} stroke="#1e293b" strokeWidth="1" strokeDasharray="4,4" />
+                      <line x1="0" y1={chartData.h * 0.75} x2={chartData.w} y2={chartData.h * 0.75} stroke="#1e293b" strokeWidth="1" />
+                      <line x1={chartData.w * 0.5} y1="0" x2={chartData.w * 0.5} y2={chartData.h} stroke="#1e293b" strokeWidth="1" strokeDasharray="4,4" />
+                      <line x1="0" y1={chartData.h} x2={chartData.w} y2={chartData.h} stroke="#475569" strokeWidth="3" />
+                      <line x1="0" y1="0" x2="0" y2={chartData.h} stroke="#475569" strokeWidth="3" />
+                      <line x1="0" y1={chartData.lineNFPA} x2={chartData.w} y2={chartData.lineNFPA} stroke="#ef4444" strokeWidth="2" strokeDasharray="8,8" opacity="0.8" />
+                      <text x="10" y={chartData.lineNFPA - 10} fill="#ef4444" fontSize="12" fontWeight="bold" opacity="0.8">Límite 65% NFPA</text>
+                      
+                      <path d={chartData.path} fill="none" stroke="#3b82f6" strokeWidth="4" strokeLinecap="round" />
+                      
+                      <circle cx={chartData.p0.x} cy={chartData.p0.y} r="6" fill="#3b82f6" stroke="#020617" strokeWidth="3" />
+                      <circle cx={chartData.p100.x} cy={chartData.p100.y} r="6" fill="#3b82f6" stroke="#020617" strokeWidth="3" />
+                      <circle cx={chartData.p150.x} cy={chartData.p150.y} r="8" fill={mathData.isPassing ? "#22c55e" : "#ef4444"} stroke="#020617" strokeWidth="3" />
 
-                      {/* Ejes Principales */}
-                      <line
-                        x1="0"
-                        y1={chartData.h}
-                        x2={chartData.w}
-                        y2={chartData.h}
-                        stroke="#475569"
-                        strokeWidth="3"
-                      />
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2={chartData.h}
-                        stroke="#475569"
-                        strokeWidth="3"
-                      />
-
-                      {/* Límite NFPA (Línea Roja) */}
-                      <line
-                        x1="0"
-                        y1={chartData.lineNFPA}
-                        x2={chartData.w}
-                        y2={chartData.lineNFPA}
-                        stroke="#ef4444"
-                        strokeWidth="2"
-                        strokeDasharray="8,8"
-                        opacity="0.8"
-                      />
-                      <text
-                        x="10"
-                        y={chartData.lineNFPA - 10}
-                        fill="#ef4444"
-                        fontSize="12"
-                        fontWeight="bold"
-                        opacity="0.8"
-                      >
-                        Límite 65% NFPA
-                      </text>
-
-                      {/* Curva Matemática Azul */}
-                      <path
-                        d={chartData.path}
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
-
-                      {/* Puntos Clave de Medición */}
-                      <circle
-                        cx={chartData.p0.x}
-                        cy={chartData.p0.y}
-                        r="6"
-                        fill="#3b82f6"
-                        stroke="#020617"
-                        strokeWidth="3"
-                      />
-                      <circle
-                        cx={chartData.p100.x}
-                        cy={chartData.p100.y}
-                        r="6"
-                        fill="#3b82f6"
-                        stroke="#020617"
-                        strokeWidth="3"
-                      />
-                      <circle
-                        cx={chartData.p150.x}
-                        cy={chartData.p150.y}
-                        r="8"
-                        fill={mathData.isPassing ? "#22c55e" : "#ef4444"}
-                        stroke="#020617"
-                        strokeWidth="3"
-                      />
-
-                      {/* Etiqueta de Resultado Final */}
-                      <text
-                        x={chartData.p150.x + 15}
-                        y={chartData.p150.y + 5}
-                        fill={mathData.isPassing ? "#4ade80" : "#f87171"}
-                        fontSize="14"
-                        fontWeight="700"
-                        className="drop-shadow-md"
-                      >
+                      <text x={chartData.p150.x + 15} y={chartData.p150.y + 5} fill={mathData.isPassing ? "#4ade80" : "#f87171"} fontSize="14" fontWeight="700" className="drop-shadow-md">
                         {mathData.isPassing ? "PASA" : "FALLA"}
                       </text>
                     </svg>
