@@ -728,7 +728,6 @@ export default function PumpEfficiency() {
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-medium text-slate-500 uppercase tracking-wide">
                       Caudal (GPM)
                     </div>
-
                     <svg
                       viewBox={`0 0 ${chartData.w} ${chartData.h}`}
                       className="w-full h-full overflow-hidden"
